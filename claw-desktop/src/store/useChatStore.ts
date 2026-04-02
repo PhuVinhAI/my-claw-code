@@ -100,11 +100,49 @@ export function initializeChatStore() {
         dispatch({ type: 'STREAM_TEXT_DELTA', delta: event.delta });
         break;
       case 'tool_use':
+        // Flush current text before tool use
+        flushAssistantMessage();
+        // Add tool use block
+        useChatStore.setState((prev) => ({
+          messages: [
+            ...prev.messages,
+            {
+              role: 'assistant',
+              blocks: [
+                {
+                  type: 'tool_use',
+                  id: event.id,
+                  name: event.name,
+                  input: event.input,
+                },
+              ],
+            },
+          ],
+        }));
         dispatch({
           type: 'STREAM_TOOL_USE',
           toolName: event.name,
           toolInput: event.input,
         });
+        break;
+      case 'tool_result':
+        // Add tool result block
+        useChatStore.setState((prev) => ({
+          messages: [
+            ...prev.messages,
+            {
+              role: 'assistant',
+              blocks: [
+                {
+                  type: 'tool_result',
+                  tool_use_id: event.tool_use_id,
+                  output: event.output,
+                  is_error: event.is_error,
+                },
+              ],
+            },
+          ],
+        }));
         break;
       case 'message_stop':
         flushAssistantMessage();
