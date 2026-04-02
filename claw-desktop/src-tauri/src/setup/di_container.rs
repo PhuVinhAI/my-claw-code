@@ -8,7 +8,7 @@ use runtime::{ConversationRuntime, PermissionMode, PermissionPolicy, Session};
 use tools::GlobalToolRegistry;
 
 use crate::adapters::outbound::file_repository::FileSessionRepository;
-use crate::adapters::outbound::tauri_prompter::TauriPermissionAdapter;
+use crate::adapters::outbound::tauri_prompter::{PermissionState, TauriPermissionAdapter};
 use crate::adapters::outbound::tauri_publisher::TauriEventPublisher;
 use crate::core::use_cases::chat_actor::{ActorCommand, ChatSessionActor};
 use crate::core::use_cases::ports::{IEventPublisher, ISessionRepository};
@@ -17,26 +17,164 @@ use crate::setup::app_state::AppState;
 /// Simple ApiClient wrapper
 pub struct SimpleApiClient {
     client: ProviderClient,
+    event_publisher: Arc<dyn IEventPublisher>,
 }
 
 impl SimpleApiClient {
-    pub fn new(model: &str) -> Result<Self, String> {
+    pub fn new(model: &str, event_publisher: Arc<dyn IEventPublisher>) -> Result<Self, String> {
         let client = ProviderClient::from_model(model)
             .map_err(|e| format!("Failed to create API client: {}", e))?;
-        Ok(Self { client })
+        Ok(Self {
+            client,
+            event_publisher,
+        })
     }
 }
 
 impl runtime::ApiClient for SimpleApiClient {
     fn stream(
         &mut self,
-        _request: runtime::ApiRequest,
+        request: runtime::ApiRequest,
     ) -> Result<Vec<runtime::AssistantEvent>, runtime::RuntimeError> {
-        // TODO: Implement async streaming
-        // Hiện tại chỉ return empty để compile
-        Err(runtime::RuntimeError::new(
-            "Streaming not yet implemented",
-        ))
+        use api::{InputContentBlock, InputMessage, MessageRequest, StreamEvent as ApiStreamEvent};
+
+        // Convert runtime::ApiRequest → api::MessageRequest
+        let mut api_messages = Vec::new();
+
+        // Add conversation messages
+        for msg in &request.messages {
+            let role = match msg.role {
+                runtime::MessageRole::User => "user",
+                runtime::MessageRole::Assistant => "assistant",
+                _ => continue, // Skip system and tool messages for now
+            };
+
+            let content = msg
+                .blocks
+                .iter()
+                .filter_map(|block| match block {
+                    runtime::ContentBlock::Text { text } => {
+                        Some(InputContentBlock::Text { text: text.clone() })
+                    }
+                    runtime::ContentBlock::ToolUse { id, name, input } => {
+                        // Parse input string to JSON Value
+                        let input_value: serde_json::Value = serde_json::from_str(input).ok()?;
+                        Some(InputContentBlock::ToolUse {
+                            id: id.clone(),
+                            name: name.clone(),
+                            input: input_value,
+                        })
+                    }
+                    runtime::ContentBlock::ToolResult {
+                        tool_use_id,
+                        tool_name: _,
+                        output,
+                        is_error,
+                    } => Some(InputContentBlock::ToolResult {
+                        tool_use_id: tool_use_id.clone(),
+                        content: vec![api::ToolResultContentBlock::Text {
+                            text: output.clone(),
+                        }],
+                        is_error: *is_error,
+                    }),
+                })
+                .collect();
+
+            api_messages.push(InputMessage {
+                role: role.to_string(),
+                content,
+            });
+        }
+
+        let api_request = MessageRequest {
+            model: "claude-sonnet-4.5".to_string(), // TODO: Make configurable
+            messages: api_messages,
+            max_tokens: 4096,
+            system: if request.system_prompt.is_empty() {
+                None
+            } else {
+                Some(request.system_prompt.join("\n\n"))
+            },
+            tools: None, // TODO: Add tools
+            tool_choice: None,
+            stream: true,
+        };
+
+        // Stream message (async) - block on it
+        let runtime_handle = tokio::runtime::Handle::current();
+        let mut stream = runtime_handle
+            .block_on(self.client.stream_message(&api_request))
+            .map_err(|e| runtime::RuntimeError::new(format!("API error: {}", e)))?;
+
+        // Collect events
+        let mut assistant_events = Vec::new();
+
+        loop {
+            let event = runtime_handle
+                .block_on(stream.next_event())
+                .map_err(|e| runtime::RuntimeError::new(format!("Stream error: {}", e)))?;
+
+            match event {
+                None => break, // Stream ended
+                Some(api_event) => {
+                    // Convert ApiStreamEvent → AssistantEvent and emit to Frontend
+                    match &api_event {
+                        ApiStreamEvent::ContentBlockDelta(delta) => {
+                            if let api::ContentBlockDelta::TextDelta { text } = &delta.delta {
+                                // Emit to Frontend
+                                self.event_publisher.publish_stream_event(
+                                    crate::core::domain::types::StreamEvent::TextDelta {
+                                        delta: text.clone(),
+                                    },
+                                );
+                                // Add to events for runtime
+                                assistant_events
+                                    .push(runtime::AssistantEvent::TextDelta(text.clone()));
+                            }
+                        }
+                        ApiStreamEvent::ContentBlockStart(start) => {
+                            if let api::OutputContentBlock::ToolUse { id, name, input } =
+                                &start.content_block
+                            {
+                                let input_str = input.to_string();
+                                self.event_publisher.publish_stream_event(
+                                    crate::core::domain::types::StreamEvent::ToolUse {
+                                        id: id.clone(),
+                                        name: name.clone(),
+                                        input: input_str.clone(),
+                                    },
+                                );
+                                assistant_events.push(runtime::AssistantEvent::ToolUse {
+                                    id: id.clone(),
+                                    name: name.clone(),
+                                    input: input_str,
+                                });
+                            }
+                        }
+                        ApiStreamEvent::MessageDelta(delta) => {
+                            let token_usage = runtime::TokenUsage {
+                                input_tokens: delta.usage.input_tokens,
+                                output_tokens: delta.usage.output_tokens,
+                                cache_creation_input_tokens: delta
+                                    .usage
+                                    .cache_creation_input_tokens,
+                                cache_read_input_tokens: delta.usage.cache_read_input_tokens,
+                            };
+                            assistant_events.push(runtime::AssistantEvent::Usage(token_usage));
+                        }
+                        ApiStreamEvent::MessageStop(_) => {
+                            self.event_publisher.publish_stream_event(
+                                crate::core::domain::types::StreamEvent::MessageStop,
+                            );
+                            assistant_events.push(runtime::AssistantEvent::MessageStop);
+                        }
+                        _ => {} // Ignore other events
+                    }
+                }
+            }
+        }
+
+        Ok(assistant_events)
     }
 }
 
@@ -54,9 +192,15 @@ impl SimpleToolExecutor {
 }
 
 impl runtime::ToolExecutor for SimpleToolExecutor {
-    fn execute(&mut self, _tool_name: &str, _input: &str) -> Result<String, runtime::ToolError> {
-        // TODO: Implement tool execution
-        Err(runtime::ToolError::new("Tool execution not yet implemented"))
+    fn execute(&mut self, tool_name: &str, input: &str) -> Result<String, runtime::ToolError> {
+        // Parse input JSON
+        let input_value: serde_json::Value = serde_json::from_str(input)
+            .map_err(|e| runtime::ToolError::new(format!("Invalid tool input JSON: {}", e)))?;
+
+        // Execute tool via registry
+        self.registry
+            .execute(tool_name, &input_value)
+            .map_err(|e| runtime::ToolError::new(e))
     }
 }
 
@@ -66,8 +210,11 @@ pub fn initialize_app(app_handle: AppHandle) -> Result<AppState, String> {
     let event_publisher: Arc<dyn IEventPublisher> =
         Arc::new(TauriEventPublisher::new(app_handle.clone()));
 
-    // 2. Create Permission Prompter
-    let prompter = TauriPermissionAdapter::new(event_publisher.clone());
+    // 2. Create Permission State (shared)
+    let permission_state = PermissionState::new();
+
+    // 3. Create Permission Prompter
+    let prompter = TauriPermissionAdapter::new(permission_state.clone(), event_publisher.clone());
 
     // 3. Create Session Repository
     let sessions_dir = app_handle
@@ -79,7 +226,7 @@ pub fn initialize_app(app_handle: AppHandle) -> Result<AppState, String> {
         Arc::new(FileSessionRepository::new(sessions_dir)?);
 
     // 4. Create API Client
-    let api_client = SimpleApiClient::new("claude-sonnet-4.5")
+    let api_client = SimpleApiClient::new("claude-sonnet-4.5", event_publisher.clone())
         .map_err(|e| format!("Failed to create API client: {}", e))?;
 
     // 5. Create Tool Executor
@@ -111,5 +258,5 @@ pub fn initialize_app(app_handle: AppHandle) -> Result<AppState, String> {
     });
 
     // 11. Return AppState
-    Ok(AppState::new(tx))
+    Ok(AppState::new(tx, permission_state))
 }

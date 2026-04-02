@@ -31,11 +31,8 @@ pub async fn answer_permission(
     allow: bool,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
-    state
-        .actor_tx
-        .send(ActorCommand::GrantPermission { request_id, allow })
-        .await
-        .map_err(|e| format!("Failed to send permission answer: {}", e))
+    // Answer qua PermissionState
+    state.permission_state.answer(request_id, allow)
 }
 
 /// Load session command

@@ -76,67 +76,44 @@ claw-desktop/src-tauri/src/
 
 ---
 
-## 🚧 TODO: Implement Streaming & Tool Execution
+## ✅ Phase 1.5: Streaming & Tool Execution - COMPLETED
+
+### Đã implement:
+
+#### 1. SimpleApiClient.stream() ✅
+- Convert runtime::ApiRequest → api::MessageRequest
+- Handle async streaming với tokio::runtime::Handle::current().block_on()
+- Parse StreamEvents → AssistantEvents
+- Emit events qua IEventPublisher real-time
+- Support ToolUse, ToolResult trong messages
+
+#### 2. SimpleToolExecutor.execute() ✅
+- Parse input JSON
+- Execute tools qua GlobalToolRegistry
+- Reuse built-in tools từ tools crate
+
+#### 3. ChatSessionActor.handle_prompt() ✅
+- Emit StreamEvent::ToolResult về Frontend
+- Emit StreamEvent::Usage về Frontend
+- Full streaming support
+
+#### 4. Permission handling ✅
+- PermissionState (shared state với Arc<Mutex>)
+- TauriPermissionAdapter với suspend/resume
+- answer_permission command gọi trực tiếp PermissionState.answer()
+- Không cần ActorCommand::GrantPermission nữa
+
+#### 5. Compilation ✅
+- Code compiles thành công
+- Chỉ còn warnings về unused code
+
+---
+
+## 🚧 TODO: Session Management & Testing
 
 ### Cần hoàn thiện:
 
-#### 1. SimpleApiClient.stream() 🔴
-**Hiện tại:** Return error "Streaming not yet implemented"
-
-**Cần làm:**
-```rust
-impl runtime::ApiClient for SimpleApiClient {
-    fn stream(&mut self, request: runtime::ApiRequest) 
-        -> Result<Vec<runtime::AssistantEvent>, runtime::RuntimeError> 
-    {
-        // 1. Convert runtime::ApiRequest → api::MessageRequest
-        // 2. Call self.client.stream_message() (async)
-        // 3. Parse StreamEvents → AssistantEvents
-        // 4. Emit events qua IEventPublisher
-        // 5. Return events
-    }
-}
-```
-
-**Vấn đề:** `stream()` là sync nhưng `client.stream_message()` là async
-**Giải pháp:** Dùng `tokio::runtime::Handle::current().block_on()` hoặc refactor trait thành async
-
-#### 2. SimpleToolExecutor.execute() 🔴
-**Hiện tại:** Return error "Tool execution not yet implemented"
-
-**Cần làm:**
-```rust
-impl runtime::ToolExecutor for SimpleToolExecutor {
-    fn execute(&mut self, tool_name: &str, input: &str) 
-        -> Result<String, runtime::ToolError> 
-    {
-        // 1. Parse input JSON
-        // 2. Match tool_name với built-in tools
-        // 3. Execute tool (read_file, write_file, bash, etc.)
-        // 4. Return JSON output
-        
-        // Có thể reuse logic từ tools crate
-    }
-}
-```
-
-#### 3. ChatSessionActor.handle_prompt() 🟡
-**Hiện tại:** Gọi `runtime.run_turn()` nhưng không stream events
-
-**Cần làm:**
-- Emit `StreamEvent::TextDelta` khi nhận text từ LLM
-- Emit `StreamEvent::ToolUse` khi LLM gọi tool
-- Emit `StreamEvent::ToolResult` sau khi tool execute
-- Emit `StreamEvent::MessageStop` khi hoàn thành
-
-#### 4. Permission handling 🟡
-**Hiện tại:** `handle_permission()` chỉ print error
-
-**Cần làm:**
-- Lưu reference đến `TauriPermissionAdapter`
-- Gọi `adapter.answer(request_id, allow)` để notify prompter
-
-#### 5. Session management 🟡
+#### 1. Session Management 🟡
 **Hiện tại:** `handle_load_session()` và `handle_save_session()` return error
 
 **Cần làm:**
@@ -144,9 +121,39 @@ impl runtime::ToolExecutor for SimpleToolExecutor {
 - Load/Save session qua repository
 - Update runtime.session
 
+#### 2. Tool Definitions 🟡
+**Hiện tại:** `api_request.tools = None`
+
+**Cần làm:**
+- Get tool definitions từ GlobalToolRegistry
+- Convert ToolSpec → api::ToolDefinition
+- Add vào MessageRequest
+
+#### 3. Frontend (Phase 2) 🔴
+- Core Entities (TypeScript)
+- Gateway Interface & Implementation
+- State Machine (Zustand FSM)
+- UI Components
+
 ---
 
-## 📋 Next Steps (Phase 2: Frontend)
+## 📋 Next Steps
+
+### Immediate (Complete Backend):
+1. ✅ ~~Implement streaming~~
+2. ✅ ~~Implement tool execution~~
+3. ✅ ~~Fix permission handling~~
+4. 🔲 Implement session management
+5. 🔲 Add tool definitions to API requests
+6. 🔲 Test với một flow đơn giản (manual test)
+
+### Phase 2 (Frontend):
+1. Core Entities (TypeScript)
+2. Gateway Interface
+3. State Machine (Zustand)
+4. UI Components
+
+---
 
 ### 1. Core Entities (TypeScript)
 ```typescript
@@ -235,5 +242,5 @@ mod tests {
 ---
 
 **Last Updated:** 2025-01-XX
-**Status:** Phase 1 Backend Foundation - COMPLETED ✅
-**Next:** Implement Streaming & Tool Execution 🚧
+**Status:** Phase 1.5 Streaming & Tool Execution - COMPLETED ✅
+**Next:** Session Management & Frontend (Phase 2) 🚧

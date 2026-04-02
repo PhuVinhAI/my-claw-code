@@ -17,10 +17,6 @@ pub enum ActorCommand {
         response_tx: oneshot::Sender<Result<TurnSummary, RuntimeError>>,
     },
     Cancel,
-    GrantPermission {
-        request_id: String,
-        allow: bool,
-    },
     LoadSession {
         session_id: String,
         response_tx: oneshot::Sender<Result<(), String>>,
@@ -68,9 +64,6 @@ impl<C: ApiClient, T: ToolExecutor, P: PermissionPrompter> ChatSessionActor<C, T
                 ActorCommand::Cancel => {
                     self.handle_cancel();
                 }
-                ActorCommand::GrantPermission { request_id, allow } => {
-                    self.handle_permission(request_id, allow);
-                }
                 ActorCommand::LoadSession {
                     session_id,
                     response_tx,
@@ -93,20 +86,43 @@ impl<C: ApiClient, T: ToolExecutor, P: PermissionPrompter> ChatSessionActor<C, T
     }
 
     async fn handle_prompt(&mut self, text: String) -> Result<TurnSummary, RuntimeError> {
-        // TODO: Implement streaming với event publisher
-        // Hiện tại chỉ gọi runtime.run_turn
-        self.runtime.run_turn(text, Some(&mut self.prompter))
+        // Run turn và emit events về Frontend
+        let summary = self.runtime.run_turn(text, Some(&mut self.prompter))?;
+
+        // Emit tool results về Frontend
+        for tool_result in &summary.tool_results {
+            for block in &tool_result.blocks {
+                if let runtime::ContentBlock::ToolResult {
+                    tool_use_id,
+                    tool_name: _,
+                    output,
+                    is_error,
+                } = block
+                {
+                    self.event_publisher.publish_stream_event(
+                        crate::core::domain::types::StreamEvent::ToolResult {
+                            tool_use_id: tool_use_id.clone(),
+                            output: output.clone(),
+                            is_error: *is_error,
+                        },
+                    );
+                }
+            }
+        }
+
+        // Emit usage
+        self.event_publisher.publish_stream_event(
+            crate::core::domain::types::StreamEvent::Usage {
+                usage: summary.usage,
+            },
+        );
+
+        Ok(summary)
     }
 
     fn handle_cancel(&mut self) {
         // TODO: Implement cancellation
         eprintln!("Cancel not yet implemented");
-    }
-
-    fn handle_permission(&mut self, _request_id: String, _allow: bool) {
-        // TODO: Implement permission handling
-        // Cần notify prompter về decision
-        eprintln!("Permission handling not yet implemented");
     }
 
     fn handle_load_session(&mut self, _session_id: String) -> Result<(), String> {
