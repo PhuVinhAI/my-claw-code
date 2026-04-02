@@ -16,6 +16,7 @@ interface ChatStore {
   dispatch: (event: ChatEvent) => void;
   sendPrompt: (text: string) => Promise<void>;
   answerPermission: (allow: boolean) => Promise<void>;
+  stopGeneration: () => void;
 
   // Internal
   appendTextDelta: (delta: string) => void;
@@ -63,6 +64,12 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
     await gateway.answerPermission(state.request.request_id, allow);
     dispatch({ type: 'PERMISSION_ANSWERED', allow });
+  },
+
+  stopGeneration: () => {
+    const { dispatch, flushAssistantMessage } = get();
+    flushAssistantMessage();
+    dispatch({ type: 'MESSAGE_STOP' });
   },
 
   appendTextDelta: (delta) => {

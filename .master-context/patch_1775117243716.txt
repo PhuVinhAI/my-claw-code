@@ -1,3 +1,104 @@
+<<<START_OF_DIFF>>>
+```typescript
+# File: claw-desktop/src/store/useChatStore.ts
+<<<<<<< SEARCH
+  sendPrompt: (text: string) => Promise<void>;
+  answerPermission: (allow: boolean) => Promise<void>;
+
+  // Internal
+=======
+  sendPrompt: (text: string) => Promise<void>;
+  answerPermission: (allow: boolean) => Promise<void>;
+  stopGeneration: () => void;
+
+  // Internal
+>>>>>>> REPLACE
+```
+
+```typescript
+# File: claw-desktop/src/store/useChatStore.ts
+<<<<<<< SEARCH
+  answerPermission: async (allow) => {
+    const { gateway, dispatch, state } = get();
+    if (state.status !== 'AWAITING_PERMISSION') return;
+
+    await gateway.answerPermission(state.request.request_id, allow);
+    dispatch({ type: 'PERMISSION_ANSWERED', allow });
+  },
+
+  appendTextDelta: (delta) => {
+=======
+  answerPermission: async (allow) => {
+    const { gateway, dispatch, state } = get();
+    if (state.status !== 'AWAITING_PERMISSION') return;
+
+    await gateway.answerPermission(state.request.request_id, allow);
+    dispatch({ type: 'PERMISSION_ANSWERED', allow });
+  },
+
+  stopGeneration: () => {
+    const { dispatch, flushAssistantMessage } = get();
+    flushAssistantMessage();
+    dispatch({ type: 'MESSAGE_STOP' });
+  },
+
+  appendTextDelta: (delta) => {
+>>>>>>> REPLACE
+```
+
+```tsx
+# File: claw-desktop/src/ui/features/ChatInput.tsx
+<<<<<<< SEARCH
+// ChatInput Component
+import { useState } from 'react';
+import { useChatStore } from '../../store';
+import { Textarea } from '../../components/ui/textarea';
+import { Button } from '../../components/ui/button';
+import { Send } from 'lucide-react';
+
+export function ChatInput() {
+  const [input, setInput] = useState('');
+  const { state, sendPrompt } = useChatStore();
+  const isDisabled = state.status !== 'IDLE';
+
+  const handleSend = async () => {
+    if (!input.trim() || isDisabled) return;
+    await sendPrompt(input);
+    setInput('');
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+
+  return (
+    <div className="border-t bg-background p-4">
+      <div className="max-w-4xl mx-auto flex gap-2">
+        <Textarea
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder="Nhập câu hỏi của bạn..."
+          className="min-h-[44px] max-h-[120px] resize-none"
+          rows={1}
+          disabled={isDisabled}
+        />
+        <Button
+          onClick={handleSend}
+          disabled={!input.trim() || isDisabled}
+          size="icon"
+          className="h-[44px] w-[44px] shrink-0"
+        >
+          <Send className="h-4 w-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+=======
 // ChatInput Component
 import { useState } from 'react';
 import { useChatStore } from '../../store';
@@ -41,7 +142,7 @@ export function ChatInput() {
           rows={1}
           // Cố tình KHÔNG disable textarea khi đang generating để user có thể nhập tiếp nếu muốn
         />
-
+        
         <div className="flex h-12 items-center justify-between px-3 pb-2 pt-1">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Button variant="ghost" size="sm" className="h-8 gap-2 text-muted-foreground hover:text-foreground">
@@ -49,7 +150,7 @@ export function ChatInput() {
               <span className="font-medium">Claude 3.5 Sonnet</span>
             </Button>
           </div>
-
+          
           {isGenerating ? (
             <Button
               onClick={handleStop}
@@ -79,3 +180,11 @@ export function ChatInput() {
     </div>
   );
 }
+>>>>>>> REPLACE
+```
+
+```bash
+# Terminal: cd claw-desktop && npx tsc --noEmit
+# Commit: feat: redesign chat input UI and add stop generation behavior
+```
+<<<END_OF_DIFF>>>
