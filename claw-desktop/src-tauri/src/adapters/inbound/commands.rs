@@ -217,6 +217,19 @@ pub async fn set_working_directory(path: String, state: State<'_, AppState>) -> 
     
     eprintln!("[WORKSPACE] Changed working directory to: {}", path);
     
+    // Notify actor about working directory change
+    let (tx, rx) = oneshot::channel();
+    state
+        .actor_tx
+        .send(ActorCommand::ChangeWorkingDir {
+            workdir: path.clone(),
+            response_tx: tx,
+        })
+        .await
+        .map_err(|e| format!("Failed to notify actor: {}", e))?;
+    rx.await
+        .map_err(|e| format!("Failed to receive response: {}", e))??;
+    
     // Reload system prompt with new workspace context
     reload_system_prompt(state).await?;
     

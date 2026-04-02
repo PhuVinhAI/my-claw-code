@@ -1,6 +1,8 @@
 // FileSessionRepository - Implement ISessionRepository
 use std::fs;
 use std::path::PathBuf;
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 
 use runtime::{MessageRole, Session};
 
@@ -9,6 +11,7 @@ use crate::core::use_cases::ports::ISessionRepository;
 
 pub struct FileSessionRepository {
     base_path: PathBuf,
+    current_working_dir: String, // Current working directory for session isolation
 }
 
 impl FileSessionRepository {
@@ -16,15 +19,48 @@ impl FileSessionRepository {
         // Tạo thư mục nếu chưa tồn tại
         fs::create_dir_all(&base_path)
             .map_err(|e| format!("Failed to create sessions directory: {}", e))?;
-        Ok(Self { base_path })
+        
+        // Get current working directory
+        let current_working_dir = std::env::current_dir()
+            .map_err(|e| format!("Failed to get current directory: {}", e))?
+            .to_string_lossy()
+            .to_string();
+        
+        Ok(Self { 
+            base_path,
+            current_working_dir,
+        })
+    }
+
+    /// Get hash of working directory for folder name
+    fn workdir_hash(workdir: &str) -> String {
+        let mut hasher = DefaultHasher::new();
+        workdir.hash(&mut hasher);
+        format!("{:x}", hasher.finish())
+    }
+
+    /// Get sessions folder for current working directory
+    fn sessions_folder(&self) -> PathBuf {
+        let hash = Self::workdir_hash(&self.current_working_dir);
+        self.base_path.join(hash)
+    }
+
+    /// Update working directory (called when user changes workspace)
+    pub fn set_working_dir(&mut self, workdir: String) -> Result<(), String> {
+        self.current_working_dir = workdir;
+        // Create folder for this working directory
+        let folder = self.sessions_folder();
+        fs::create_dir_all(&folder)
+            .map_err(|e| format!("Failed to create sessions folder for workdir: {}", e))?;
+        Ok(())
     }
 
     fn session_path(&self, session_id: &str) -> PathBuf {
-        self.base_path.join(format!("{}.json", session_id))
+        self.sessions_folder().join(format!("{}.json", session_id))
     }
 
     fn metadata_path(&self, session_id: &str) -> PathBuf {
-        self.base_path.join(format!("{}.meta.json", session_id))
+        self.sessions_folder().join(format!("{}.meta.json", session_id))
     }
 
     fn extract_first_user_message(session: &Session) -> Option<String> {
@@ -69,7 +105,16 @@ impl ISessionRepository for FileSessionRepository {
     }
 
     fn list(&self) -> Result<Vec<String>, String> {
-        let entries = fs::read_dir(&self.base_path)
+        let folder = self.sessions_folder();
+        
+        // Create folder if not exists
+        if !folder.exists() {
+            fs::create_dir_all(&folder)
+                .map_err(|e| format!("Failed to create sessions folder: {}", e))?;
+            return Ok(Vec::new());
+        }
+        
+        let entries = fs::read_dir(&folder)
             .map_err(|e| format!("Failed to read sessions directory: {}", e))?;
 
         let mut session_ids = Vec::new();

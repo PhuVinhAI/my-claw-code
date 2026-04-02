@@ -49,6 +49,10 @@ pub enum ActorCommand {
     ReloadSystemPrompt {
         response_tx: oneshot::Sender<Result<(), String>>,
     },
+    ChangeWorkingDir {
+        workdir: String,
+        response_tx: oneshot::Sender<Result<(), String>>,
+    },
 }
 
 /// ChatSessionActor - Chạy trên tokio::task độc lập
@@ -135,6 +139,10 @@ impl<C: ApiClient, T: ToolExecutor, P: PermissionPrompter> ChatSessionActor<C, T
                 }
                 ActorCommand::ReloadSystemPrompt { response_tx } => {
                     let result = self.handle_reload_system_prompt();
+                    let _ = response_tx.send(result);
+                }
+                ActorCommand::ChangeWorkingDir { workdir, response_tx } => {
+                    let result = self.handle_change_working_dir(workdir);
                     let _ = response_tx.send(result);
                 }
             }
@@ -262,6 +270,20 @@ impl<C: ApiClient, T: ToolExecutor, P: PermissionPrompter> ChatSessionActor<C, T
         self.runtime.update_system_prompt(system_prompt);
         
         eprintln!("[ACTOR] System prompt reloaded for new workspace");
+        Ok(())
+    }
+
+    fn handle_change_working_dir(&mut self, workdir: String) -> Result<(), String> {
+        // Update repository's working directory
+        // Note: This requires session_repository to be mutable
+        // We need to add a method to ISessionRepository trait
+        eprintln!("[ACTOR] Working directory changed to: {}", workdir);
+        
+        // Clear current session when changing workspace
+        self.current_session_id = None;
+        let new_session = runtime::Session::new();
+        self.runtime.replace_session(new_session);
+        
         Ok(())
     }
 }

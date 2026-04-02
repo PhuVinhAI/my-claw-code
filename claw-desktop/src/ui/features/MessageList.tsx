@@ -26,7 +26,7 @@ export function MessageList() {
                 'rounded-lg px-3 py-2 text-sm',
                 message.role === 'user'
                   ? 'max-w-xs md:max-w-md lg:max-w-lg bg-muted'
-                  : 'max-w-full lg:max-w-3xl w-full'
+                  : 'w-full'
               )}
             >
               <div className="space-y-2">
@@ -91,7 +91,7 @@ export function MessageList() {
         {/* Current streaming text */}
         {currentAssistantText && (
           <div className="flex w-full items-start gap-2 justify-start">
-            <div className="max-w-full lg:max-w-3xl w-full rounded-lg px-3 py-2 text-sm">
+            <div className="w-full rounded-lg px-3 py-2 text-sm">
               <div className="prose prose-sm dark:prose-invert max-w-none">
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>
                   {currentAssistantText}
@@ -104,7 +104,7 @@ export function MessageList() {
         {/* Loading indicator */}
         {state.status === 'GENERATING' && !currentAssistantText && (
           <div className="flex w-full items-start gap-2 justify-start">
-            <div className="max-w-full lg:max-w-3xl w-full rounded-lg px-3 py-2 text-sm">
+            <div className="w-full rounded-lg px-3 py-2 text-sm">
               <div className="flex items-center gap-2 text-muted-foreground">
                 <div className="animate-pulse">●</div>
                 <span>AI đang suy nghĩ...</span>

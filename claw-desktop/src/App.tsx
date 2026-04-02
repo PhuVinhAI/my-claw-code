@@ -32,6 +32,12 @@ function App() {
       const result = await invoke<string | null>('select_and_set_workspace');
       if (result) {
         setWorkspace(result);
+        // Reload sessions for new workspace
+        const { useChatStore } = await import('./store');
+        const store = useChatStore.getState();
+        await store.loadSessions();
+        // Create new session for new workspace
+        await store.createNewSession();
       }
     } catch (e) {
       console.error('Failed to select workspace:', e);
