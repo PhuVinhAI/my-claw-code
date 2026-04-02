@@ -1,5 +1,5 @@
 // IChatGateway - Port (Interface)
-import { StreamEvent, PermissionRequest, Session } from '../entities';
+import { StreamEvent, PermissionRequest, Session, SessionMetadata } from '../entities';
 
 export type UnsubscribeFn = () => void;
 
@@ -12,6 +12,13 @@ export interface IChatGateway {
   getSession(): Promise<Session>;
   cancelPrompt(): Promise<void>;
   getModel(): Promise<string>;
+
+  // Session CRUD
+  listSessions(): Promise<SessionMetadata[]>;
+  deleteSession(sessionId: string): Promise<void>;
+  renameSession(sessionId: string, title: string): Promise<void>;
+  newSession(): Promise<string>;
+  getCurrentSessionId(): Promise<string | null>;
 
   // Events
   onStreamEvent(callback: (event: StreamEvent) => void): UnsubscribeFn;

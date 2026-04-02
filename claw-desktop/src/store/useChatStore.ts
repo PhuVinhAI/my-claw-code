@@ -1,7 +1,7 @@
 // Zustand Store với FSM
 import { create } from 'zustand';
 import { IChatGateway } from '../core/gateways';
-import { Message, StreamEvent } from '../core/entities';
+import { Message, StreamEvent, SessionMetadata } from '../core/entities';
 import { ChatMachineState, ChatEvent, chatReducer } from './chat.machine';
 import { TauriChatGateway } from '../adapters/tauri';
 
@@ -13,12 +13,25 @@ interface ChatStore {
   gateway: IChatGateway;
   model: string;
 
+  // Session Management
+  sessions: SessionMetadata[];
+  currentSessionId: string | null;
+  isLoadingSessions: boolean;
+
   // Actions
   dispatch: (event: ChatEvent) => void;
   sendPrompt: (text: string) => Promise<void>;
   answerPermission: (allow: boolean) => Promise<void>;
   stopGeneration: () => Promise<void>;
   fetchModel: () => Promise<void>;
+
+  // Session Actions
+  loadSessions: () => Promise<void>;
+  switchSession: (sessionId: string) => Promise<void>;
+  createNewSession: () => Promise<void>;
+  deleteSession: (sessionId: string) => Promise<void>;
+  renameSession: (sessionId: string, title: string) => Promise<void>;
+  autoSaveCurrentSession: () => Promise<void>;
 
   // Internal
   appendTextDelta: (delta: string) => void;
@@ -31,6 +44,9 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   currentAssistantText: '',
   gateway: new TauriChatGateway(),
   model: "Đang tải...",
+  sessions: [],
+  currentSessionId: null,
+  isLoadingSessions: false,
 
   dispatch: (event) => {
     set((prev) => ({
@@ -39,7 +55,12 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   },
 
   sendPrompt: async (text) => {
-    const { gateway, dispatch } = get();
+    const { gateway, dispatch, currentSessionId, createNewSession } = get();
+
+    // Create new session if none exists
+    if (!currentSessionId) {
+      await createNewSession();
+    }
 
     // Add user message
     set((prev) => ({
@@ -112,14 +133,111 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       currentAssistantText: '',
     }));
   },
+
+  // Session Management Actions
+  loadSessions: async () => {
+    const { gateway } = get();
+    set({ isLoadingSessions: true });
+    try {
+      const sessions = await gateway.listSessions();
+      set({ sessions, isLoadingSessions: false });
+    } catch (error) {
+      console.error('Failed to load sessions:', error);
+      set({ isLoadingSessions: false });
+    }
+  },
+
+  switchSession: async (sessionId: string) => {
+    const { gateway, autoSaveCurrentSession } = get();
+    try {
+      // Auto-save current session before switching
+      await autoSaveCurrentSession();
+
+      // Load new session
+      await gateway.loadSession(sessionId);
+      const session = await gateway.getSession();
+
+      // Convert session messages to UI format
+      set({
+        messages: session.messages,
+        currentSessionId: sessionId,
+        currentAssistantText: '',
+        state: { status: 'IDLE' },
+      });
+    } catch (error) {
+      console.error('Failed to switch session:', error);
+    }
+  },
+
+  createNewSession: async () => {
+    const { gateway, autoSaveCurrentSession, loadSessions } = get();
+    try {
+      // Auto-save current session
+      await autoSaveCurrentSession();
+
+      // Create new session
+      const newSessionId = await gateway.newSession();
+
+      // Clear messages and set new session
+      set({
+        messages: [],
+        currentSessionId: newSessionId,
+        currentAssistantText: '',
+        state: { status: 'IDLE' },
+      });
+
+      // Reload sessions list immediately
+      await loadSessions();
+    } catch (error) {
+      console.error('Failed to create new session:', error);
+    }
+  },
+
+  deleteSession: async (sessionId: string) => {
+    const { gateway, currentSessionId, loadSessions, createNewSession } = get();
+    try {
+      await gateway.deleteSession(sessionId);
+
+      // If deleted current session, create new one
+      if (currentSessionId === sessionId) {
+        await createNewSession();
+      } else {
+        await loadSessions();
+      }
+    } catch (error) {
+      console.error('Failed to delete session:', error);
+    }
+  },
+
+  renameSession: async (sessionId: string, title: string) => {
+    const { gateway, loadSessions } = get();
+    try {
+      await gateway.renameSession(sessionId, title);
+      await loadSessions();
+    } catch (error) {
+      console.error('Failed to rename session:', error);
+    }
+  },
+
+  autoSaveCurrentSession: async () => {
+    const { gateway, currentSessionId, messages } = get();
+    if (!currentSessionId || messages.length === 0) return;
+
+    try {
+      await gateway.saveSession(currentSessionId);
+    } catch (error) {
+      console.error('Failed to auto-save session:', error);
+    }
+  },
 }));
 
 // Initialize listeners
 export function initializeChatStore() {
   const store = useChatStore.getState();
-  const { gateway, dispatch, appendTextDelta, flushAssistantMessage } = store;
+  const { gateway, dispatch, appendTextDelta, flushAssistantMessage, autoSaveCurrentSession, loadSessions } = store;
 
   store.fetchModel();
+  loadSessions(); // Load sessions on init
 
   gateway.onStreamEvent((event: StreamEvent) => {
     switch (event.type) {
@@ -193,6 +311,11 @@ export function initializeChatStore() {
       case 'message_stop':
         flushAssistantMessage();
         dispatch({ type: 'MESSAGE_STOP' });
+        // Auto-save after message completes
+        autoSaveCurrentSession().then(() => {
+          // Reload sessions list to show updated session
+          loadSessions();
+        });
         break;
       case 'error':
         dispatch({ type: 'ERROR', message: event.message });

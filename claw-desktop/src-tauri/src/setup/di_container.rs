@@ -28,7 +28,7 @@ fn load_env_vars() {
 
 /// Get model from environment or use default
 fn get_model_from_env() -> String {
-    std::env::var("CLAW_MODEL").unwrap_or_else(|_| "nvidia/nemotron-3-super-120b-a12b".to_string())
+    std::env::var("CLAW_MODEL").unwrap_or_else(|_| "stepfun-ai/step-3.5-flash".to_string())
 }
 
 /// Initialize DI Container và spawn Actor

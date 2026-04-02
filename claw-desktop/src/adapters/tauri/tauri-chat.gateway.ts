@@ -2,7 +2,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen, UnlistenFn } from '@tauri-apps/api/event';
 import { IChatGateway, UnsubscribeFn } from '../../core/gateways';
-import { StreamEvent, PermissionRequest, Session } from '../../core/entities';
+import { StreamEvent, PermissionRequest, Session, SessionMetadata } from '../../core/entities';
 
 export class TauriChatGateway implements IChatGateway {
   async sendPrompt(text: string): Promise<void> {
@@ -59,5 +59,25 @@ export class TauriChatGateway implements IChatGateway {
     return () => {
       if (unlisten) unlisten();
     };
+  }
+
+  async listSessions(): Promise<SessionMetadata[]> {
+    return await invoke('list_sessions');
+  }
+
+  async deleteSession(sessionId: string): Promise<void> {
+    await invoke('delete_session', { sessionId });
+  }
+
+  async renameSession(sessionId: string, title: string): Promise<void> {
+    await invoke('rename_session', { sessionId, title });
+  }
+
+  async newSession(): Promise<string> {
+    return await invoke('new_session');
+  }
+
+  async getCurrentSessionId(): Promise<string | null> {
+    return await invoke('get_current_session_id');
   }
 }

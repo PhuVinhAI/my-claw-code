@@ -27,7 +27,12 @@ pub fn run() {
             save_session,
             get_session,
             cancel_prompt,
-            get_model
+            get_model,
+            list_sessions,
+            delete_session,
+            rename_session,
+            new_session,
+            get_current_session_id
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
