@@ -26,6 +26,8 @@ serde_json = "1"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time"] }
 # UUID cho permission request IDs
 uuid = { version = "1", features = ["v4"] }
+# Đọc .env file
+dotenvy = "0.15"
 
 # --- Claw Code Core Dependencies ---
 # Link trực tiếp tới các module Rust của project

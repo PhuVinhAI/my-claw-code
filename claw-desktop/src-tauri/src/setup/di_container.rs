@@ -14,6 +14,23 @@ use crate::core::use_cases::chat_actor::{ActorCommand, ChatSessionActor};
 use crate::core::use_cases::ports::{IEventPublisher, ISessionRepository};
 use crate::setup::app_state::AppState;
 
+/// Load environment variables from .env file
+fn load_env_vars() {
+    // Try to load from workspace root .env
+    if let Err(e) = dotenvy::from_path("../.env") {
+        eprintln!("Warning: Could not load .env from workspace root: {}", e);
+        // Try current directory
+        if let Err(e) = dotenvy::dotenv() {
+            eprintln!("Warning: Could not load .env from current directory: {}", e);
+        }
+    }
+}
+
+/// Get model from environment or use default
+fn get_model_from_env() -> String {
+    std::env::var("CLAW_MODEL").unwrap_or_else(|_| "stepfun-ai/step-3.5-flash".to_string())
+}
+
 /// Simple ApiClient wrapper
 pub struct SimpleApiClient {
     client: ProviderClient,
@@ -28,7 +45,7 @@ impl SimpleApiClient {
         tool_definitions: Vec<api::ToolDefinition>,
     ) -> Result<Self, String> {
         let client = ProviderClient::from_model(model)
-            .map_err(|e| format!("Failed to create API client: {}", e))?;
+            .map_err(|e| format!("Failed to create API client: {}. Make sure OPENAI_API_KEY and OPENAI_BASE_URL are set in .env", e))?;
         Ok(Self {
             client,
             event_publisher,
@@ -93,7 +110,7 @@ impl runtime::ApiClient for SimpleApiClient {
         }
 
         let api_request = MessageRequest {
-            model: "claude-sonnet-4.5".to_string(), // TODO: Make configurable
+            model: "stepfun-ai/step-3.5-flash".to_string(), // Will be overridden by env
             messages: api_messages,
             max_tokens: 4096,
             system: if request.system_prompt.is_empty() {
@@ -111,7 +128,15 @@ impl runtime::ApiClient for SimpleApiClient {
         };
 
         // Stream message (async) - block on it
-        let runtime_handle = tokio::runtime::Handle::current();
+        let runtime_handle = tokio::runtime::Handle::try_current()
+            .unwrap_or_else(|_| {
+                // Nếu không có runtime, tạo mới
+                tokio::runtime::Runtime::new()
+                    .expect("Failed to create tokio runtime")
+                    .handle()
+                    .clone()
+            });
+        
         let mut stream = runtime_handle
             .block_on(self.client.stream_message(&api_request))
             .map_err(|e| runtime::RuntimeError::new(format!("API error: {}", e)))?;
@@ -220,6 +245,20 @@ impl runtime::ToolExecutor for SimpleToolExecutor {
 
 /// Initialize DI Container và spawn Actor
 pub fn initialize_app(app_handle: AppHandle) -> Result<AppState, String> {
+    // Load environment variables
+    load_env_vars();
+
+    // Get model from env
+    let model = get_model_from_env();
+    eprintln!("Using model: {}", model);
+
+    // Use Tauri's async runtime to initialize
+    tauri::async_runtime::block_on(async {
+        initialize_app_async(app_handle, model).await
+    })
+}
+
+async fn initialize_app_async(app_handle: AppHandle, model: String) -> Result<AppState, String> {
     // 1. Create Event Publisher
     let event_publisher: Arc<dyn IEventPublisher> =
         Arc::new(TauriEventPublisher::new(app_handle.clone()));
@@ -247,7 +286,7 @@ pub fn initialize_app(app_handle: AppHandle) -> Result<AppState, String> {
 
     // 6. Create API Client
     let api_client = SimpleApiClient::new(
-        "claude-sonnet-4.5",
+        &model,
         event_publisher.clone(),
         tool_definitions,
     )
