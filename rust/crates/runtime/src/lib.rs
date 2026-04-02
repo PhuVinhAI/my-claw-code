@@ -35,6 +35,7 @@ pub use config::{
     RuntimePluginConfig, ScopedMcpServerConfig, CLAW_SETTINGS_SCHEMA_NAME,
 };
 pub use conversation::{
+    build_assistant_message, flush_text_block, format_hook_message, merge_hook_feedback,
     ApiClient, ApiRequest, AssistantEvent, ConversationRuntime, RuntimeError, StaticToolExecutor,
     ToolError, ToolExecutor, TurnSummary,
 };

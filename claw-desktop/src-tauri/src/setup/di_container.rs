@@ -3,7 +3,7 @@ use std::sync::Arc;
 use tauri::{AppHandle, Manager};
 use tokio::sync::mpsc;
 
-use runtime::{PermissionMode, PermissionPolicy, Session, RuntimeFeatureConfig};
+use runtime::{ConversationRuntime, PermissionMode, PermissionPolicy, RuntimeFeatureConfig, Session};
 
 use crate::adapters::outbound::api_client::TauriApiClient;
 use crate::adapters::outbound::tool_executor::TauriToolExecutor;
@@ -13,9 +13,6 @@ use crate::adapters::outbound::tauri_publisher::TauriEventPublisher;
 use crate::core::use_cases::chat_actor::{ActorCommand, ChatSessionActor};
 use crate::core::use_cases::ports::{IEventPublisher, ISessionRepository};
 use crate::setup::app_state::AppState;
-
-// Use extension from workspace
-use extensions::realtime_tool_events::RealtimeConversationRuntime;
 
 /// Load environment variables from .env file
 fn load_env_vars() {
@@ -86,7 +83,7 @@ async fn initialize_app_async(app_handle: AppHandle, model: String) -> Result<Ap
     // 7. Create Permission Policy
     let permission_policy = PermissionPolicy::new(PermissionMode::Prompt);
 
-    // 8. Create RealtimeConversationRuntime (extension) instead of core ConversationRuntime
+    // 8. Create ConversationRuntime with features
     let session = Session::new();
     
     // Load system prompt from runtime (same as CLI)
@@ -99,8 +96,8 @@ async fn initialize_app_async(app_handle: AppHandle, model: String) -> Result<Ap
     )
     .map_err(|e| format!("Failed to load system prompt: {}", e))?;
     
-    // Use extension for real-time tool event emission
-    let runtime = RealtimeConversationRuntime::new(
+    // Use core ConversationRuntime with features
+    let runtime = ConversationRuntime::new_with_features(
         session,
         api_client,
         tool_executor,

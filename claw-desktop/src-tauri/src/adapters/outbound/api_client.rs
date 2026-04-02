@@ -1,6 +1,9 @@
 // API Client Adapter for Tauri
 use std::sync::Arc;
-use api::{InputContentBlock, InputMessage, MessageRequest, StreamEvent as ApiStreamEvent, ProviderClient, ToolChoice};
+use api::{
+    convert_runtime_messages, max_tokens_for_model, InputContentBlock, InputMessage,
+    MessageRequest, ProviderClient, StreamEvent as ApiStreamEvent, ToolChoice,
+};
 use runtime::{ApiClient, ApiRequest, AssistantEvent, RuntimeError};
 
 use crate::core::use_cases::ports::IEventPublisher;
@@ -34,8 +37,8 @@ impl ApiClient for TauriApiClient {
         &mut self,
         request: ApiRequest,
     ) -> Result<Vec<AssistantEvent>, RuntimeError> {
-        // Convert runtime messages to API messages (same as CLI)
-        let api_messages = convert_messages(&request.messages);
+        // Convert runtime messages to API messages using shared helper
+        let api_messages = convert_runtime_messages(&request.messages);
 
         let api_request = MessageRequest {
             model: self.model.clone(),
@@ -154,56 +157,3 @@ impl ApiClient for TauriApiClient {
     }
 }
 
-// Helper functions (same as CLI)
-
-fn convert_messages(messages: &[runtime::ConversationMessage]) -> Vec<InputMessage> {
-    messages
-        .iter()
-        .filter_map(|message| {
-            let role = match message.role {
-                runtime::MessageRole::System | runtime::MessageRole::User | runtime::MessageRole::Tool => "user",
-                runtime::MessageRole::Assistant => "assistant",
-            };
-            let content = message
-                .blocks
-                .iter()
-                .map(|block| match block {
-                    runtime::ContentBlock::Text { text } => InputContentBlock::Text { text: text.clone() },
-                    runtime::ContentBlock::ToolUse { id, name, input } => InputContentBlock::ToolUse {
-                        id: id.clone(),
-                        name: name.clone(),
-                        input: serde_json::from_str(input)
-                            .unwrap_or_else(|_| serde_json::json!({ "raw": input })),
-                    },
-                    runtime::ContentBlock::ToolResult {
-                        tool_use_id,
-                        output,
-                        is_error,
-                        ..
-                    } => InputContentBlock::ToolResult {
-                        tool_use_id: tool_use_id.clone(),
-                        content: vec![api::ToolResultContentBlock::Text {
-                            text: output.clone(),
-                        }],
-                        is_error: *is_error,
-                    },
-                })
-                .collect::<Vec<_>>();
-            (!content.is_empty()).then(|| InputMessage {
-                role: role.to_string(),
-                content,
-            })
-        })
-        .collect()
-}
-
-fn max_tokens_for_model(model: &str) -> u32 {
-    // Same logic as CLI
-    if model.contains("claude-3-5-sonnet") || model.contains("claude-opus-4") {
-        8192
-    } else if model.contains("claude") {
-        4096
-    } else {
-        4096
-    }
-}

@@ -3,13 +3,11 @@ use std::sync::Arc;
 use tokio::sync::{mpsc, oneshot};
 
 use runtime::{
-    ApiClient, PermissionPrompter, RuntimeError, Session, ToolExecutor, TurnSummary,
+    ApiClient, ConversationRuntime, PermissionPrompter, RuntimeError, RuntimeFeatureConfig,
+    Session, ToolExecutor, TurnSummary,
 };
 
 use crate::core::use_cases::ports::IEventPublisher;
-
-// Use extension from workspace instead of core for real-time tool events
-use extensions::realtime_tool_events::RealtimeConversationRuntime;
 
 /// Actor Command - Messages gửi đến Actor
 #[derive(Debug)]
@@ -34,7 +32,7 @@ pub enum ActorCommand {
 
 /// ChatSessionActor - Chạy trên tokio::task độc lập
 pub struct ChatSessionActor<C: ApiClient, T: ToolExecutor, P: PermissionPrompter> {
-    runtime: RealtimeConversationRuntime<C, T>,
+    runtime: ConversationRuntime<C, T>,
     inbox: mpsc::Receiver<ActorCommand>,
     event_publisher: Arc<dyn IEventPublisher>,
     prompter: P,
@@ -43,7 +41,7 @@ pub struct ChatSessionActor<C: ApiClient, T: ToolExecutor, P: PermissionPrompter
 
 impl<C: ApiClient, T: ToolExecutor, P: PermissionPrompter> ChatSessionActor<C, T, P> {
     pub fn new(
-        runtime: RealtimeConversationRuntime<C, T>,
+        runtime: ConversationRuntime<C, T>,
         inbox: mpsc::Receiver<ActorCommand>,
         event_publisher: Arc<dyn IEventPublisher>,
         prompter: P,

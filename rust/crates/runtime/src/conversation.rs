@@ -262,6 +262,132 @@ where
         })
     }
 
+    /// Run turn with callback for real-time tool result notifications
+    /// 
+    /// This variant allows callers to receive immediate notifications when each tool
+    /// execution completes, enabling real-time UI updates or logging.
+    /// 
+    /// The callback receives a reference to the tool result message immediately after
+    /// the tool executes, before the next tool in the sequence runs.
+    pub fn run_turn_with_callback<F>(
+        &mut self,
+        user_input: impl Into<String>,
+        mut prompter: Option<&mut dyn PermissionPrompter>,
+        mut on_tool_result: F,
+    ) -> Result<TurnSummary, RuntimeError>
+    where
+        F: FnMut(&ConversationMessage),
+    {
+        self.session
+            .messages
+            .push(ConversationMessage::user_text(user_input.into()));
+
+        let mut assistant_messages = Vec::new();
+        let mut tool_results = Vec::new();
+        let mut iterations = 0;
+
+        loop {
+            iterations += 1;
+            if iterations > self.max_iterations {
+                return Err(RuntimeError::new(
+                    "conversation loop exceeded the maximum number of iterations",
+                ));
+            }
+
+            let request = ApiRequest {
+                system_prompt: self.system_prompt.clone(),
+                messages: self.session.messages.clone(),
+            };
+            let events = self.api_client.stream(request)?;
+            let (assistant_message, usage) = build_assistant_message(events)?;
+            if let Some(usage) = usage {
+                self.usage_tracker.record(usage);
+            }
+            let pending_tool_uses = assistant_message
+                .blocks
+                .iter()
+                .filter_map(|block| match block {
+                    ContentBlock::ToolUse { id, name, input } => {
+                        Some((id.clone(), name.clone(), input.clone()))
+                    }
+                    _ => None,
+                })
+                .collect::<Vec<_>>();
+
+            self.session.messages.push(assistant_message.clone());
+            assistant_messages.push(assistant_message);
+
+            if pending_tool_uses.is_empty() {
+                break;
+            }
+
+            for (tool_use_id, tool_name, input) in pending_tool_uses {
+                let permission_outcome = if let Some(prompt) = prompter.as_mut() {
+                    self.permission_policy
+                        .authorize(&tool_name, &input, Some(*prompt))
+                } else {
+                    self.permission_policy.authorize(&tool_name, &input, None)
+                };
+
+                let result_message = match permission_outcome {
+                    PermissionOutcome::Allow => {
+                        let pre_hook_result = self.hook_runner.run_pre_tool_use(&tool_name, &input);
+                        if pre_hook_result.is_denied() {
+                            let deny_message = format!("PreToolUse hook denied tool `{tool_name}`");
+                            ConversationMessage::tool_result(
+                                tool_use_id,
+                                tool_name,
+                                format_hook_message(&pre_hook_result, &deny_message),
+                                true,
+                            )
+                        } else {
+                            let (mut output, mut is_error) =
+                                match self.tool_executor.execute(&tool_name, &input) {
+                                    Ok(output) => (output, false),
+                                    Err(error) => (error.to_string(), true),
+                                };
+                            output = merge_hook_feedback(pre_hook_result.messages(), output, false);
+
+                            let post_hook_result = self
+                                .hook_runner
+                                .run_post_tool_use(&tool_name, &input, &output, is_error);
+                            if post_hook_result.is_denied() {
+                                is_error = true;
+                            }
+                            output = merge_hook_feedback(
+                                post_hook_result.messages(),
+                                output,
+                                post_hook_result.is_denied(),
+                            );
+
+                            ConversationMessage::tool_result(
+                                tool_use_id,
+                                tool_name,
+                                output,
+                                is_error,
+                            )
+                        }
+                    }
+                    PermissionOutcome::Deny { reason } => {
+                        ConversationMessage::tool_result(tool_use_id, tool_name, reason, true)
+                    }
+                };
+                self.session.messages.push(result_message.clone());
+                tool_results.push(result_message.clone());
+                
+                // Invoke callback immediately after tool execution
+                on_tool_result(&result_message);
+            }
+        }
+
+        Ok(TurnSummary {
+            assistant_messages,
+            tool_results,
+            iterations,
+            usage: self.usage_tracker.cumulative_usage(),
+        })
+    }
+
     #[must_use]
     pub fn compact(&self, config: CompactionConfig) -> CompactionResult {
         compact_session(&self.session, config)
@@ -288,7 +414,10 @@ where
     }
 }
 
-fn build_assistant_message(
+// Public helper functions for extensions
+// These are used by desktop's realtime_tool_events extension
+
+pub fn build_assistant_message(
     events: Vec<AssistantEvent>,
 ) -> Result<(ConversationMessage, Option<TokenUsage>), RuntimeError> {
     let mut text = String::new();
@@ -327,7 +456,7 @@ fn build_assistant_message(
     ))
 }
 
-fn flush_text_block(text: &mut String, blocks: &mut Vec<ContentBlock>) {
+pub fn flush_text_block(text: &mut String, blocks: &mut Vec<ContentBlock>) {
     if !text.is_empty() {
         blocks.push(ContentBlock::Text {
             text: std::mem::take(text),
@@ -335,7 +464,7 @@ fn flush_text_block(text: &mut String, blocks: &mut Vec<ContentBlock>) {
     }
 }
 
-fn format_hook_message(result: &HookRunResult, fallback: &str) -> String {
+pub fn format_hook_message(result: &HookRunResult, fallback: &str) -> String {
     if result.messages().is_empty() {
         fallback.to_string()
     } else {
@@ -343,7 +472,7 @@ fn format_hook_message(result: &HookRunResult, fallback: &str) -> String {
     }
 }
 
-fn merge_hook_feedback(messages: &[String], output: String, denied: bool) -> String {
+pub fn merge_hook_feedback(messages: &[String], output: String, denied: bool) -> String {
     if messages.is_empty() {
         return output;
     }

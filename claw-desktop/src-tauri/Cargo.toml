@@ -39,8 +39,4 @@ tools = { path = "../../rust/crates/tools" }
 commands = { path = "../../rust/crates/commands" }
 plugins = { path = "../../rust/crates/plugins" }
 
-# --- Desktop Extensions ---
-# Desktop-specific extensions to core runtime
-extensions = { path = "../../extensions" }
-
 
