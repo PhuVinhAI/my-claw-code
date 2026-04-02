@@ -36,6 +36,7 @@ pub struct ChatSessionActor<C: ApiClient, T: ToolExecutor, P: PermissionPrompter
     inbox: mpsc::Receiver<ActorCommand>,
     event_publisher: Arc<dyn IEventPublisher>,
     prompter: P,
+    session_repository: Arc<dyn crate::core::use_cases::ports::ISessionRepository>,
 }
 
 impl<C: ApiClient, T: ToolExecutor, P: PermissionPrompter> ChatSessionActor<C, T, P> {
@@ -44,12 +45,14 @@ impl<C: ApiClient, T: ToolExecutor, P: PermissionPrompter> ChatSessionActor<C, T
         inbox: mpsc::Receiver<ActorCommand>,
         event_publisher: Arc<dyn IEventPublisher>,
         prompter: P,
+        session_repository: Arc<dyn crate::core::use_cases::ports::ISessionRepository>,
     ) -> Self {
         Self {
             runtime,
             inbox,
             event_publisher,
             prompter,
+            session_repository,
         }
     }
 
@@ -126,12 +129,13 @@ impl<C: ApiClient, T: ToolExecutor, P: PermissionPrompter> ChatSessionActor<C, T
     }
 
     fn handle_load_session(&mut self, _session_id: String) -> Result<(), String> {
-        // TODO: Load session từ repository
-        Err("Load session not yet implemented".to_string())
+        // TODO: Load session - cần refactor ConversationRuntime để support replace_session
+        // Hiện tại ConversationRuntime không có method để replace session
+        Err("Load session not yet implemented - need ConversationRuntime refactor".to_string())
     }
 
-    fn handle_save_session(&mut self, _session_id: String) -> Result<(), String> {
-        // TODO: Save session to repository
-        Err("Save session not yet implemented".to_string())
+    fn handle_save_session(&mut self, session_id: String) -> Result<(), String> {
+        let session = self.runtime.session();
+        self.session_repository.save(&session_id, session)
     }
 }

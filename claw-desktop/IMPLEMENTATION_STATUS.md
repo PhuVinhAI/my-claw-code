@@ -109,49 +109,82 @@ claw-desktop/src-tauri/src/
 
 ---
 
-## 🚧 TODO: Session Management & Testing
+## ✅ Phase 2: Frontend Foundation - COMPLETED
+
+### Đã implement:
+
+#### 1. Core Entities (TypeScript) ✅
+- `Message.ts` - Message, ContentBlock, TokenUsage, Session types
+- `StreamEvent.ts` - StreamEvent discriminated union
+- `PermissionRequest.ts` - PermissionRequest interface
+
+#### 2. Gateway Interface & Implementation ✅
+- `IChatGateway.ts` - Port (Interface) với commands và events
+- `TauriChatGateway.ts` - Adapter implement IChatGateway
+- Support sendPrompt, answerPermission, loadSession, saveSession, getSession
+- Event listeners: onStreamEvent, onPermissionRequest
+
+#### 3. State Machine (Zustand) ✅
+- `chat.machine.ts` - Strict FSM với ChatMachineState và ChatEvent
+- `useChatStore.ts` - Zustand store với FSM reducer
+- States: IDLE, GENERATING, TOOL_EXECUTING, AWAITING_PERMISSION
+- `initializeChatStore()` - Initialize event listeners
+
+#### 4. UI Components ✅
+- `MessageList.tsx` - Hiển thị messages với user/assistant styling
+- `ChatInput.tsx` - Input area với Textarea và Send button
+- `PermissionModal.tsx` - Modal hiển thị permission request
+- `App.tsx` - Root component wire everything together
+
+#### 5. Architecture ✅
+- Hexagonal Architecture đúng chuẩn
+- Gateway Pattern (Anti-Corruption Layer)
+- FSM Pattern (Strict state transitions)
+- Component Strategy (sẵn sàng cho BlockRendererStrategy)
+
+---
+
+## 🚧 TODO: Testing & Polish
 
 ### Cần hoàn thiện:
 
-#### 1. Session Management 🟡
-**Hiện tại:** `handle_load_session()` và `handle_save_session()` return error
+#### 1. Session Load (Backend) 🟡
+**Vấn đề:** ConversationRuntime không có method `replace_session`
 
-**Cần làm:**
-- Inject `ISessionRepository` vào Actor
-- Load/Save session qua repository
-- Update runtime.session
+**Giải pháp:** Cần refactor ConversationRuntime hoặc rebuild runtime khi load session
 
-#### 2. Tool Definitions 🟡
-**Hiện tại:** `api_request.tools = None`
+#### 2. Tool Definitions ✅
+**Đã hoàn thành:** Tool definitions được add vào API requests
 
-**Cần làm:**
-- Get tool definitions từ GlobalToolRegistry
-- Convert ToolSpec → api::ToolDefinition
-- Add vào MessageRequest
+#### 3. UI Polish 🟡
+- Add loading indicators
+- Add error messages
+- Add markdown rendering cho messages
+- Add syntax highlighting cho code blocks
+- Add tool execution blocks
 
-#### 3. Frontend (Phase 2) 🔴
-- Core Entities (TypeScript)
-- Gateway Interface & Implementation
-- State Machine (Zustand FSM)
-- UI Components
+#### 4. Testing 🔴
+- Manual testing với real API
+- Unit tests cho FSM
+- Integration tests
 
 ---
 
 ## 📋 Next Steps
 
-### Immediate (Complete Backend):
-1. ✅ ~~Implement streaming~~
-2. ✅ ~~Implement tool execution~~
-3. ✅ ~~Fix permission handling~~
-4. 🔲 Implement session management
-5. 🔲 Add tool definitions to API requests
-6. 🔲 Test với một flow đơn giản (manual test)
+### Immediate:
+1. 🔲 Test app với `npm run tauri dev`
+2. 🔲 Fix any runtime errors
+3. 🔲 Add markdown rendering
+4. 🔲 Add tool execution UI
+5. 🔲 Polish styling
 
-### Phase 2 (Frontend):
-1. Core Entities (TypeScript)
-2. Gateway Interface
-3. State Machine (Zustand)
-4. UI Components
+### Future:
+1. Session management UI
+2. Settings UI
+3. Model selector
+4. Dark mode
+5. Keyboard shortcuts
 
 ---
 
@@ -242,5 +275,5 @@ mod tests {
 ---
 
 **Last Updated:** 2025-01-XX
-**Status:** Phase 1.5 Streaming & Tool Execution - COMPLETED ✅
-**Next:** Session Management & Frontend (Phase 2) 🚧
+**Status:** Phase 2 Frontend Foundation - COMPLETED ✅
+**Next:** Testing & Polish 🚧

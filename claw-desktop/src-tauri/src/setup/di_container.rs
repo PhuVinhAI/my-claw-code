@@ -18,15 +18,21 @@ use crate::setup::app_state::AppState;
 pub struct SimpleApiClient {
     client: ProviderClient,
     event_publisher: Arc<dyn IEventPublisher>,
+    tool_definitions: Vec<api::ToolDefinition>,
 }
 
 impl SimpleApiClient {
-    pub fn new(model: &str, event_publisher: Arc<dyn IEventPublisher>) -> Result<Self, String> {
+    pub fn new(
+        model: &str,
+        event_publisher: Arc<dyn IEventPublisher>,
+        tool_definitions: Vec<api::ToolDefinition>,
+    ) -> Result<Self, String> {
         let client = ProviderClient::from_model(model)
             .map_err(|e| format!("Failed to create API client: {}", e))?;
         Ok(Self {
             client,
             event_publisher,
+            tool_definitions,
         })
     }
 }
@@ -95,7 +101,11 @@ impl runtime::ApiClient for SimpleApiClient {
             } else {
                 Some(request.system_prompt.join("\n\n"))
             },
-            tools: None, // TODO: Add tools
+            tools: if self.tool_definitions.is_empty() {
+                None
+            } else {
+                Some(self.tool_definitions.clone())
+            },
             tool_choice: None,
             stream: true,
         };
@@ -189,6 +199,10 @@ impl SimpleToolExecutor {
             registry: GlobalToolRegistry::builtin(),
         }
     }
+
+    pub fn get_tool_definitions(&self) -> Vec<api::ToolDefinition> {
+        self.registry.definitions(None)
+    }
 }
 
 impl runtime::ToolExecutor for SimpleToolExecutor {
@@ -222,17 +236,24 @@ pub fn initialize_app(app_handle: AppHandle) -> Result<AppState, String> {
         .app_data_dir()
         .map_err(|e| format!("Failed to get app data dir: {}", e))?
         .join("sessions");
-    let _repository: Arc<dyn ISessionRepository> =
+    let repository: Arc<dyn ISessionRepository> =
         Arc::new(FileSessionRepository::new(sessions_dir)?);
 
-    // 4. Create API Client
-    let api_client = SimpleApiClient::new("claude-sonnet-4.5", event_publisher.clone())
-        .map_err(|e| format!("Failed to create API client: {}", e))?;
-
-    // 5. Create Tool Executor
+    // 4. Create Tool Executor
     let tool_executor = SimpleToolExecutor::new();
 
-    // 6. Create Permission Policy
+    // 5. Get tool definitions
+    let tool_definitions = tool_executor.get_tool_definitions();
+
+    // 6. Create API Client
+    let api_client = SimpleApiClient::new(
+        "claude-sonnet-4.5",
+        event_publisher.clone(),
+        tool_definitions,
+    )
+    .map_err(|e| format!("Failed to create API client: {}", e))?;
+
+    // 7. Create Permission Policy
     let permission_policy = PermissionPolicy::new(PermissionMode::Prompt);
 
     // 7. Create ConversationRuntime
@@ -246,17 +267,17 @@ pub fn initialize_app(app_handle: AppHandle) -> Result<AppState, String> {
         system_prompt,
     );
 
-    // 8. Create MPSC channel
+    // 10. Create MPSC channel
     let (tx, rx) = mpsc::channel::<ActorCommand>(100);
 
-    // 9. Create Actor
-    let actor = ChatSessionActor::new(runtime, rx, event_publisher, prompter);
+    // 11. Create Actor
+    let actor = ChatSessionActor::new(runtime, rx, event_publisher, prompter, repository);
 
-    // 10. Spawn Actor task
+    // 12. Spawn Actor task
     tokio::spawn(async move {
         actor.run().await;
     });
 
-    // 11. Return AppState
+    // 13. Return AppState
     Ok(AppState::new(tx, permission_state))
 }
