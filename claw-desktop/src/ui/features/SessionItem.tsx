@@ -99,15 +99,10 @@ export function SessionItem({ session, isActive }: SessionItemProps) {
 
             <DropdownMenu>
               <DropdownMenuTrigger
-                className="opacity-0 group-hover:opacity-100 transition-opacity"
+                className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-gray-200"
                 onClick={(e) => e.stopPropagation()}
               >
-                <Button
-                  variant="ghost"
-                  size="sm"
-                >
-                  <MoreVertical className="w-4 h-4" />
-                </Button>
+                <MoreVertical className="w-4 h-4" />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem onClick={() => setIsEditing(true)}>

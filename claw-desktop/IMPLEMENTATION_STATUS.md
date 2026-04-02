@@ -159,18 +159,26 @@ claw-desktop/src-tauri/src/
 - Collapsible output với details/summary
 - Support bash, read_file, write_file, etc.
 
-#### 3. Loading Indicators ✅
+#### 3. TodoWrite Tool UI ✅
+- TodoListBlock component - Hiển thị structured task list
+- TodoItem với status badges (pending/in_progress/completed)
+- Status icons (Circle, Clock, CheckCircle2)
+- Verification nudge banner khi cần
+- Auto-detect TodoWrite tool result và render chuyên biệt
+- Fallback về generic ToolExecutionBlock nếu parse fail
+
+#### 4. Loading Indicators ✅
 - "AI đang suy nghĩ..." với animate-pulse
 - Tool pending state với spinning loader
 - Disabled input khi đang generate
 
-#### 4. Store Updates ✅
+#### 5. Store Updates ✅
 - Handle tool_use events → Add tool_use blocks
 - Handle tool_result events → Add tool_result blocks
 - Flush text before tool use
 - Proper message grouping
 
-#### 5. Build ✅
+#### 6. Build ✅
 - TypeScript compiles successfully
 - No type errors
 - Bundle size warnings (acceptable)
@@ -194,6 +202,7 @@ claw-desktop/src-tauri/src/
 - ✅ FSM State Machine (Zustand)
 - ✅ Message rendering với markdown
 - ✅ Tool execution UI
+- ✅ TodoWrite specialized UI (task list với status badges)
 - ✅ Permission modal
 - ✅ Loading indicators
 - ✅ Syntax highlighting
@@ -369,6 +378,6 @@ mod tests {
 
 ---
 
-**Last Updated:** 2025-01-XX
-**Status:** MVP COMPLETED - Ready for Testing ✅
+**Last Updated:** 2026-04-02
+**Status:** MVP COMPLETED - TodoWrite UI Added ✅
 **Next:** Manual Testing & Bug Fixes 🧪

@@ -5,7 +5,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import { ToolExecutionBlock } from '../blocks';
+import { ToolExecutionBlock, TodoListBlock, TodoWriteOutput } from '../blocks';
 
 export function MessageList() {
   const { messages, currentAssistantText, state } = useChatStore();
@@ -66,6 +66,17 @@ export function MessageList() {
                     const toolResult = message.blocks.find(
                       (b) => b.type === 'tool_result' && b.tool_use_id === block.id
                     );
+
+                    // Special rendering for TodoWrite tool
+                    if (block.name === 'TodoWrite' && toolResult?.output && !toolResult.is_error) {
+                      try {
+                        const todoOutput = JSON.parse(toolResult.output) as TodoWriteOutput;
+                        return <TodoListBlock key={blockIdx} output={todoOutput} />;
+                      } catch (e) {
+                        // Fallback to generic tool block if parsing fails
+                        console.error('Failed to parse TodoWrite output:', e);
+                      }
+                    }
 
                     return (
                       <ToolExecutionBlock

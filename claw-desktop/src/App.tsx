@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { initializeChatStore } from './store';
 import { MessageList, ChatInput, PermissionModal, SessionList } from './ui/features';
 import { Button } from './components/ui/button';
-import { Menu, X, Folder, FolderOpen } from 'lucide-react';
+import { Menu, X, FolderOpen } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 import './App.css';
 
