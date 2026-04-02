@@ -180,10 +180,17 @@ impl<C: ApiClient, T: ToolExecutor, P: PermissionPrompter> ChatSessionActor<C, T
         eprintln!("Cancel not yet implemented");
     }
 
-    fn handle_load_session(&mut self, _session_id: String) -> Result<(), String> {
-        // TODO: Load session - cần refactor ConversationRuntime để support replace_session
-        // Hiện tại ConversationRuntime không có method để replace session
-        Err("Load session not yet implemented - need ConversationRuntime refactor".to_string())
+    fn handle_load_session(&mut self, session_id: String) -> Result<(), String> {
+        // Load session from repository
+        let session = self.session_repository.load(&session_id)?;
+        
+        // Replace runtime session
+        self.runtime.replace_session(session);
+        
+        // Update current session ID
+        self.current_session_id = Some(session_id);
+        
+        Ok(())
     }
 
     fn handle_save_session(&mut self, session_id: String) -> Result<(), String> {
@@ -215,6 +222,10 @@ impl<C: ApiClient, T: ToolExecutor, P: PermissionPrompter> ChatSessionActor<C, T
     fn handle_new_session(&mut self) -> Result<String, String> {
         // Generate new session ID
         let session_id = uuid::Uuid::new_v4().to_string();
+        
+        // Create empty session and replace in runtime
+        let new_session = runtime::Session::new();
+        self.runtime.replace_session(new_session);
         
         // Create new session metadata
         let metadata =

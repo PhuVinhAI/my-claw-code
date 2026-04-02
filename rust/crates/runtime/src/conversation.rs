@@ -408,6 +408,14 @@ where
         &self.session
     }
 
+    /// Replace the current session with a new one
+    /// Useful for loading saved sessions
+    pub fn replace_session(&mut self, new_session: Session) {
+        self.session = new_session;
+        // Reset usage tracker for new session
+        self.usage_tracker = UsageTracker::new();
+    }
+
     #[must_use]
     pub fn into_session(self) -> Session {
         self.session

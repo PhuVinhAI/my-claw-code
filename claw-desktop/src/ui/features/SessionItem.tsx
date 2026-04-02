@@ -90,9 +90,6 @@ export function SessionItem({ session, isActive }: SessionItemProps) {
               <h3 className="text-sm font-medium text-gray-900 truncate">
                 {session.title}
               </h3>
-              <p className="text-xs text-gray-500 truncate mt-1">
-                {session.preview}
-              </p>
               <div className="flex items-center gap-2 mt-1 text-xs text-gray-400">
                 <span>{formatDate(session.updated_at)}</span>
                 <span>•</span>

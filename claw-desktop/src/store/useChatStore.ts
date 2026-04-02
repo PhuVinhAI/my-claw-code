@@ -57,12 +57,12 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   sendPrompt: async (text) => {
     const { gateway, dispatch, currentSessionId, createNewSession } = get();
 
-    // Create new session if none exists
+    // Create new session ONLY if none exists
     if (!currentSessionId) {
       await createNewSession();
     }
 
-    // Add user message
+    // Add user message to UI
     set((prev) => ({
       messages: [
         ...prev.messages,
@@ -148,16 +148,22 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   },
 
   switchSession: async (sessionId: string) => {
-    const { gateway, autoSaveCurrentSession } = get();
+    const { gateway, autoSaveCurrentSession, currentSessionId } = get();
+    
+    // Don't switch if already on this session
+    if (currentSessionId === sessionId) return;
+    
     try {
       // Auto-save current session before switching
       await autoSaveCurrentSession();
 
-      // Load new session
+      // Load new session from backend
       await gateway.loadSession(sessionId);
+      
+      // Get the loaded session
       const session = await gateway.getSession();
 
-      // Convert session messages to UI format
+      // Convert session messages to UI format and update state
       set({
         messages: session.messages,
         currentSessionId: sessionId,
@@ -166,6 +172,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       });
     } catch (error) {
       console.error('Failed to switch session:', error);
+      alert(`Không thể chuyển session: ${error}`);
     }
   },
 
@@ -175,10 +182,10 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       // Auto-save current session
       await autoSaveCurrentSession();
 
-      // Create new session
+      // Create new session on backend (this will replace runtime session)
       const newSessionId = await gateway.newSession();
 
-      // Clear messages and set new session
+      // Clear UI messages and set new session ID
       set({
         messages: [],
         currentSessionId: newSessionId,
@@ -190,6 +197,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       await loadSessions();
     } catch (error) {
       console.error('Failed to create new session:', error);
+      alert(`Không thể tạo session mới: ${error}`);
     }
   },
 
