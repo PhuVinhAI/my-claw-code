@@ -197,8 +197,21 @@ fn prepare_command(
         return prepared;
     }
 
-    let mut prepared = Command::new("sh");
-    prepared.arg("-lc").arg(command).current_dir(cwd);
+    // Tự động chọn shell phù hợp với OS
+    let mut prepared = if cfg!(target_os = "windows") {
+        let mut cmd = Command::new("powershell");
+        cmd.arg("-NoProfile")
+            .arg("-NonInteractive")
+            .arg("-Command")
+            .arg(command);
+        cmd
+    } else {
+        let mut cmd = Command::new("sh");
+        cmd.arg("-lc").arg(command);
+        cmd
+    };
+
+    prepared.current_dir(cwd);
     if sandbox_status.filesystem_active {
         prepared.env("HOME", cwd.join(".sandbox-home"));
         prepared.env("TMPDIR", cwd.join(".sandbox-tmp"));
@@ -224,8 +237,21 @@ fn prepare_tokio_command(
         return prepared;
     }
 
-    let mut prepared = TokioCommand::new("sh");
-    prepared.arg("-lc").arg(command).current_dir(cwd);
+    // Tự động chọn shell phù hợp với OS
+    let mut prepared = if cfg!(target_os = "windows") {
+        let mut cmd = TokioCommand::new("powershell");
+        cmd.arg("-NoProfile")
+            .arg("-NonInteractive")
+            .arg("-Command")
+            .arg(command);
+        cmd
+    } else {
+        let mut cmd = TokioCommand::new("sh");
+        cmd.arg("-lc").arg(command);
+        cmd
+    };
+
+    prepared.current_dir(cwd);
     if sandbox_status.filesystem_active {
         prepared.env("HOME", cwd.join(".sandbox-home"));
         prepared.env("TMPDIR", cwd.join(".sandbox-tmp"));
