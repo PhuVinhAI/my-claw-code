@@ -5,7 +5,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import { ToolExecutionBlock, TodoListBlock, TodoWriteOutput } from '../blocks';
+import { renderToolBlock } from '../blocks';
 
 export function MessageList() {
   const { messages, currentAssistantText, state } = useChatStore();
@@ -67,26 +67,14 @@ export function MessageList() {
                       (b) => b.type === 'tool_result' && b.tool_use_id === block.id
                     );
 
-                    // Special rendering for TodoWrite tool
-                    if (block.name === 'TodoWrite' && toolResult?.output && !toolResult.is_error) {
-                      try {
-                        const todoOutput = JSON.parse(toolResult.output) as TodoWriteOutput;
-                        return <TodoListBlock key={blockIdx} output={todoOutput} />;
-                      } catch (e) {
-                        // Fallback to generic tool block if parsing fails
-                        console.error('Failed to parse TodoWrite output:', e);
-                      }
-                    }
-
+                    // Use specialized block renderer
                     return (
-                      <ToolExecutionBlock
-                        key={blockIdx}
-                        toolName={block.name || 'unknown'}
-                        toolInput={block.input || ''}
-                        toolOutput={toolResult?.type === 'tool_result' ? toolResult.output : undefined}
-                        isError={toolResult?.type === 'tool_result' ? toolResult.is_error : undefined}
-                        isPending={!toolResult}
-                      />
+                      <div key={blockIdx}>
+                        {renderToolBlock({
+                          toolUseBlock: block,
+                          toolResultBlock: toolResult,
+                        })}
+                      </div>
                     );
                   }
                   // Skip tool_result blocks as they're rendered with tool_use

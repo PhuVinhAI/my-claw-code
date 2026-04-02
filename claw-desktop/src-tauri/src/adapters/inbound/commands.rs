@@ -93,6 +93,8 @@ pub async fn get_session(state: State<'_, AppState>) -> Result<runtime::Session,
 #[tauri::command]
 pub fn cancel_prompt(state: State<'_, AppState>) {
     state.cancel_flag.store(true, Ordering::Relaxed);
+    // Send cancel event to tool executor
+    let _ = state.cancel_tx.send(());
 }
 
 /// Lấy thông tin model hiện tại đang sử dụng

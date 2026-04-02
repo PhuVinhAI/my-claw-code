@@ -482,6 +482,7 @@ dependencies = [
  "api",
  "chrono",
  "commands",
+ "crossbeam-channel",
  "dotenvy",
  "plugins",
  "runtime",

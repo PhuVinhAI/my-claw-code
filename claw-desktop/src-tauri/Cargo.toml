@@ -31,6 +31,8 @@ uuid = { version = "1", features = ["v4"] }
 dotenvy = "0.15"
 # Date/time for system prompt
 chrono = "0.4"
+# Crossbeam for channel-based cancellation
+crossbeam-channel = "0.5"
 
 # --- Claw Code Core Dependencies ---
 # Link trực tiếp tới các module Rust của project

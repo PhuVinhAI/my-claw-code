@@ -66,15 +66,17 @@ async fn initialize_app_async(app_handle: AppHandle, model: String) -> Result<Ap
     let repository: Arc<dyn ISessionRepository> =
         Arc::new(FileSessionRepository::new(sessions_dir)?);
 
-    // 4. Create Tool Executor
-    let tool_executor = TauriToolExecutor::new(event_publisher.clone());
-
-    // 5. Get tool definitions
-    let tool_definitions = tool_executor.get_tool_definitions();
-
+    // 4. Create cancel flag (shared)
     let cancel_flag = Arc::new(std::sync::atomic::AtomicBool::new(false));
 
-    // 6. Create API Client
+    // 5. Create Tool Executor
+    let tool_executor = TauriToolExecutor::new(event_publisher.clone(), cancel_flag.clone());
+
+    // 6. Get tool definitions and cancel sender
+    let tool_definitions = tool_executor.get_tool_definitions();
+    let cancel_tx = tool_executor.get_cancel_sender();
+
+    // 7. Create API Client
     let api_client = TauriApiClient::new(
         &model,
         event_publisher.clone(),
@@ -83,10 +85,10 @@ async fn initialize_app_async(app_handle: AppHandle, model: String) -> Result<Ap
     )
     .map_err(|e| format!("Failed to create API client: {}", e))?;
 
-    // 7. Create Permission Policy
+    // 8. Create Permission Policy
     let permission_policy = PermissionPolicy::new(PermissionMode::Prompt);
 
-    // 8. Create ConversationRuntime with features
+    // 9. Create ConversationRuntime with features
     let session = Session::new();
 
     // Load system prompt from runtime (same as CLI)
@@ -99,7 +101,7 @@ async fn initialize_app_async(app_handle: AppHandle, model: String) -> Result<Ap
     )
     .map_err(|e| format!("Failed to load system prompt: {}", e))?;
 
-    // Use core ConversationRuntime with features
+    // 10. Use core ConversationRuntime with features
     let runtime = ConversationRuntime::new_with_features(
         session,
         api_client,
@@ -109,17 +111,17 @@ async fn initialize_app_async(app_handle: AppHandle, model: String) -> Result<Ap
         RuntimeFeatureConfig::default(),
     );
 
-    // 10. Create MPSC channel
+    // 11. Create MPSC channel
     let (tx, rx) = mpsc::channel::<ActorCommand>(100);
 
-    // 11. Create Actor
+    // 12. Create Actor
     let actor = ChatSessionActor::new(runtime, rx, event_publisher, prompter, repository);
 
-    // 12. Spawn Actor task
+    // 13. Spawn Actor task
     tokio::spawn(async move {
         actor.run().await;
     });
 
-    // 13. Return AppState
-    Ok(AppState::new(tx, permission_state, cancel_flag))
+    // 14. Return AppState
+    Ok(AppState::new(tx, permission_state, cancel_flag, cancel_tx))
 }

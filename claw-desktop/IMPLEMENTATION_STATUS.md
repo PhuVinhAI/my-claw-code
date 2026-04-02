@@ -167,7 +167,33 @@ claw-desktop/src-tauri/src/
 - Auto-detect TodoWrite tool result và render chuyên biệt
 - Fallback về generic ToolExecutionBlock nếu parse fail
 
-#### 4. Loading Indicators ✅
+#### 4. Specialized Tool Blocks ✅
+- BashBlock - Terminal-style UI cho bash/PowerShell/REPL
+  - Dark terminal theme với syntax highlighting
+  - Copy command button
+  - Collapsible output với color coding
+- FileOperationBlock - File operations (read/write/edit)
+  - File path với external link icon
+  - Content preview cho write/edit
+  - Auto-open output cho read_file
+- SearchResultBlock - Search results (grep/glob)
+  - Pattern và path display
+  - Result count
+  - Auto-open khi ít kết quả
+- WebSearchBlock - Web search/fetch results
+  - Structured result cards với links
+  - Snippet preview
+  - Fallback to raw output
+- DelegationBlock - Skill/Agent delegation
+  - Gradient background (purple/blue)
+  - Delegation info với icons
+  - Prompt display với arrow
+- renderToolBlock() - Strategy pattern router
+  - Auto-detect tool type và render specialized block
+  - Parse input JSON để extract parameters
+  - Fallback to generic ToolExecutionBlock
+
+#### 5. Loading Indicators ✅
 - "AI đang suy nghĩ..." với animate-pulse
 - Tool pending state với spinning loader
 - Disabled input khi đang generate
