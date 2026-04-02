@@ -163,9 +163,29 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       // Get the loaded session
       const session = await gateway.getSession();
 
+      console.log('[SWITCH SESSION] Loaded messages:', session.messages);
+
+      // Merge tool messages into assistant messages
+      const mergedMessages: Message[] = [];
+      for (let i = 0; i < session.messages.length; i++) {
+        const msg = session.messages[i];
+        
+        if (msg.role === 'tool') {
+          // Find the previous assistant message and merge tool_result into it
+          const lastAssistant = mergedMessages[mergedMessages.length - 1];
+          if (lastAssistant && lastAssistant.role === 'assistant') {
+            lastAssistant.blocks.push(...msg.blocks);
+          }
+        } else {
+          mergedMessages.push({ ...msg });
+        }
+      }
+
+      console.log('[SWITCH SESSION] Merged messages:', mergedMessages);
+
       // Convert session messages to UI format and update state
       set({
-        messages: session.messages,
+        messages: mergedMessages,
         currentSessionId: sessionId,
         currentAssistantText: '',
         state: { status: 'IDLE' },

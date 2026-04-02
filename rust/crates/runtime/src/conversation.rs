@@ -416,6 +416,11 @@ where
         self.usage_tracker = UsageTracker::new();
     }
 
+    /// Update system prompt (e.g., when workspace changes)
+    pub fn update_system_prompt(&mut self, new_system_prompt: Vec<String>) {
+        self.system_prompt = new_system_prompt;
+    }
+
     #[must_use]
     pub fn into_session(self) -> Session {
         self.session

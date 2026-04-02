@@ -46,6 +46,9 @@ pub enum ActorCommand {
     GetCurrentSessionId {
         response_tx: oneshot::Sender<Option<String>>,
     },
+    ReloadSystemPrompt {
+        response_tx: oneshot::Sender<Result<(), String>>,
+    },
 }
 
 /// ChatSessionActor - Chạy trên tokio::task độc lập
@@ -129,6 +132,10 @@ impl<C: ApiClient, T: ToolExecutor, P: PermissionPrompter> ChatSessionActor<C, T
                 }
                 ActorCommand::GetCurrentSessionId { response_tx } => {
                     let _ = response_tx.send(self.current_session_id.clone());
+                }
+                ActorCommand::ReloadSystemPrompt { response_tx } => {
+                    let result = self.handle_reload_system_prompt();
+                    let _ = response_tx.send(result);
                 }
             }
         }
@@ -236,5 +243,25 @@ impl<C: ApiClient, T: ToolExecutor, P: PermissionPrompter> ChatSessionActor<C, T
         self.current_session_id = Some(session_id.clone());
 
         Ok(session_id)
+    }
+
+    fn handle_reload_system_prompt(&mut self) -> Result<(), String> {
+        // Get current working directory
+        let cwd = std::env::current_dir()
+            .map_err(|e| format!("Failed to get current directory: {}", e))?;
+        
+        // Reload system prompt with new cwd
+        let date = chrono::Local::now().format("%Y-%m-%d").to_string();
+        let os_name = std::env::consts::OS.to_string();
+        let os_version = "".to_string(); // Can be empty
+        
+        let system_prompt = runtime::load_system_prompt(cwd, date, os_name, os_version)
+            .map_err(|e| format!("Failed to load system prompt: {}", e))?;
+        
+        // Update runtime's system prompt
+        self.runtime.update_system_prompt(system_prompt);
+        
+        eprintln!("[ACTOR] System prompt reloaded for new workspace");
+        Ok(())
     }
 }

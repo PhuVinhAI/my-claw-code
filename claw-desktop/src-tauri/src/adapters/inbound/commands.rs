@@ -192,3 +192,80 @@ pub async fn get_current_session_id(state: State<'_, AppState>) -> Result<Option
         .await
         .map_err(|e| format!("Failed to receive response: {}", e))?)
 }
+
+/// Set working directory (workspace) - Changes process CWD globally
+#[tauri::command]
+pub async fn set_working_directory(path: String, state: State<'_, AppState>) -> Result<(), String> {
+    use std::path::Path;
+    
+    let workspace_path = Path::new(&path);
+    
+    // Validate path exists
+    if !workspace_path.exists() {
+        return Err(format!("Thư mục không tồn tại: {}", path));
+    }
+    
+    if !workspace_path.is_dir() {
+        return Err(format!("Đường dẫn không phải là thư mục: {}", path));
+    }
+    
+    // Set current directory globally for the entire process
+    std::env::set_current_dir(workspace_path)
+        .map_err(|e| format!("Không thể chuyển thư mục: {}", e))?;
+    
+    eprintln!("[WORKSPACE] Changed working directory to: {}", path);
+    
+    // Reload system prompt with new workspace context
+    reload_system_prompt(state).await?;
+    
+    Ok(())
+}
+
+/// Get current working directory
+#[tauri::command]
+pub fn get_working_directory() -> Result<String, String> {
+    std::env::current_dir()
+        .map(|p| p.to_string_lossy().to_string())
+        .map_err(|e| format!("Không thể lấy thư mục hiện tại: {}", e))
+}
+
+/// Open folder picker dialog and set as working directory
+#[tauri::command]
+pub async fn select_and_set_workspace(app: tauri::AppHandle, state: State<'_, AppState>) -> Result<Option<String>, String> {
+    use tauri_plugin_dialog::DialogExt;
+    
+    // Open folder picker using Tauri v2 dialog API
+    let folder = app
+        .dialog()
+        .file()
+        .blocking_pick_folder();
+    
+    if let Some(file_path) = folder {
+        // Convert FilePath to PathBuf then to String
+        let path = file_path.as_path()
+            .ok_or_else(|| "Invalid file path".to_string())?;
+        let path_str = path.to_string_lossy().to_string();
+        
+        // Set as working directory (this will also reload system prompt)
+        set_working_directory(path_str.clone(), state).await?;
+        
+        Ok(Some(path_str))
+    } else {
+        Ok(None)
+    }
+}
+
+/// Reload system prompt (call after workspace change)
+#[tauri::command]
+pub async fn reload_system_prompt(state: State<'_, AppState>) -> Result<(), String> {
+    let (tx, rx) = oneshot::channel();
+
+    state
+        .actor_tx
+        .send(ActorCommand::ReloadSystemPrompt { response_tx: tx })
+        .await
+        .map_err(|e| format!("Failed to send reload system prompt: {}", e))?;
+
+    rx.await
+        .map_err(|e| format!("Failed to receive response: {}", e))?
+}

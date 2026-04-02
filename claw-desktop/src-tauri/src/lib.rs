@@ -13,6 +13,7 @@ pub use setup::di_container::initialize_app;
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             // Initialize DI Container và spawn Actor
             let state = initialize_app(app.handle().clone())
@@ -32,7 +33,11 @@ pub fn run() {
             delete_session,
             rename_session,
             new_session,
-            get_current_session_id
+            get_current_session_id,
+            set_working_directory,
+            get_working_directory,
+            select_and_set_workspace,
+            reload_system_prompt
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
