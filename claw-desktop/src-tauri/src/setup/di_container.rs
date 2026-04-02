@@ -72,11 +72,14 @@ async fn initialize_app_async(app_handle: AppHandle, model: String) -> Result<Ap
     // 5. Get tool definitions
     let tool_definitions = tool_executor.get_tool_definitions();
 
+    let cancel_flag = Arc::new(std::sync::atomic::AtomicBool::new(false));
+
     // 6. Create API Client
     let api_client = TauriApiClient::new(
         &model,
         event_publisher.clone(),
         tool_definitions,
+        cancel_flag.clone(),
     )
     .map_err(|e| format!("Failed to create API client: {}", e))?;
 
@@ -85,7 +88,7 @@ async fn initialize_app_async(app_handle: AppHandle, model: String) -> Result<Ap
 
     // 8. Create ConversationRuntime with features
     let session = Session::new();
-    
+
     // Load system prompt from runtime (same as CLI)
     let cwd = std::env::current_dir().map_err(|e| format!("Failed to get cwd: {}", e))?;
     let system_prompt = runtime::load_system_prompt(
@@ -95,7 +98,7 @@ async fn initialize_app_async(app_handle: AppHandle, model: String) -> Result<Ap
         "claw-desktop",
     )
     .map_err(|e| format!("Failed to load system prompt: {}", e))?;
-    
+
     // Use core ConversationRuntime with features
     let runtime = ConversationRuntime::new_with_features(
         session,
@@ -118,5 +121,5 @@ async fn initialize_app_async(app_handle: AppHandle, model: String) -> Result<Ap
     });
 
     // 13. Return AppState
-    Ok(AppState::new(tx, permission_state))
+    Ok(AppState::new(tx, permission_state, cancel_flag))
 }

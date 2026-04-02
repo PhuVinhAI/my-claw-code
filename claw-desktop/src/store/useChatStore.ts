@@ -11,12 +11,14 @@ interface ChatStore {
   messages: Message[];
   currentAssistantText: string;
   gateway: IChatGateway;
+  model: string;
 
   // Actions
   dispatch: (event: ChatEvent) => void;
   sendPrompt: (text: string) => Promise<void>;
   answerPermission: (allow: boolean) => Promise<void>;
-  stopGeneration: () => void;
+  stopGeneration: () => Promise<void>;
+  fetchModel: () => Promise<void>;
 
   // Internal
   appendTextDelta: (delta: string) => void;
@@ -28,6 +30,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   messages: [],
   currentAssistantText: '',
   gateway: new TauriChatGateway(),
+  model: "Đang tải...",
 
   dispatch: (event) => {
     set((prev) => ({
@@ -66,8 +69,24 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     dispatch({ type: 'PERMISSION_ANSWERED', allow });
   },
 
-  stopGeneration: () => {
-    const { dispatch, flushAssistantMessage } = get();
+  fetchModel: async () => {
+    const { gateway } = get();
+    try {
+      const model = await gateway.getModel();
+      set({ model });
+    } catch (e) {
+      console.error("Failed to load model from Rust:", e);
+    }
+  },
+
+  stopGeneration: async () => {
+    const { gateway, dispatch, flushAssistantMessage } = get();
+    try {
+      await gateway.cancelPrompt(); // Ra lệnh cho Rust ngừng chạy
+    } catch (e) {
+      console.error("Failed to cancel backend prompt:", e);
+    }
+    // Update local UI
     flushAssistantMessage();
     dispatch({ type: 'MESSAGE_STOP' });
   },
@@ -97,8 +116,10 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
 // Initialize listeners
 export function initializeChatStore() {
-  const { gateway, dispatch, appendTextDelta, flushAssistantMessage } =
-    useChatStore.getState();
+  const store = useChatStore.getState();
+  const { gateway, dispatch, appendTextDelta, flushAssistantMessage } = store;
+
+  store.fetchModel();
 
   gateway.onStreamEvent((event: StreamEvent) => {
     switch (event.type) {

@@ -1,4 +1,5 @@
 // API Client Adapter for Tauri
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use api::{
     convert_runtime_messages, max_tokens_for_model, InputContentBlock, InputMessage,
@@ -13,6 +14,7 @@ pub struct TauriApiClient {
     event_publisher: Arc<dyn IEventPublisher>,
     tool_definitions: Vec<api::ToolDefinition>,
     model: String,
+    cancel_flag: Arc<AtomicBool>,
 }
 
 impl TauriApiClient {
@@ -20,6 +22,7 @@ impl TauriApiClient {
         model: &str,
         event_publisher: Arc<dyn IEventPublisher>,
         tool_definitions: Vec<api::ToolDefinition>,
+        cancel_flag: Arc<AtomicBool>,
     ) -> Result<Self, String> {
         let client = ProviderClient::from_model(model)
             .map_err(|e| format!("Failed to create API client: {}. Make sure OPENAI_API_KEY and OPENAI_BASE_URL are set in .env", e))?;
@@ -28,6 +31,7 @@ impl TauriApiClient {
             event_publisher,
             tool_definitions,
             model: model.to_string(),
+            cancel_flag,
         })
     }
 }
@@ -61,7 +65,7 @@ impl ApiClient for TauriApiClient {
         // Use block_in_place to allow blocking in async context
         let client = self.client.clone();
         let event_publisher = self.event_publisher.clone();
-        
+
         tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
                 let mut stream = client.stream_message(&api_request).await
@@ -69,14 +73,27 @@ impl ApiClient for TauriApiClient {
 
                 let mut assistant_events = Vec::new();
                 // Track pending tool uses: index -> (id, name, input_accumulator)
-                let mut pending_tools: std::collections::HashMap<u32, (String, String, String)> = 
+                let mut pending_tools: std::collections::HashMap<u32, (String, String, String)> =
                     std::collections::HashMap::new();
 
                 loop {
-                    let event = stream.next_event().await
-                        .map_err(|e| RuntimeError::new(format!("Stream error: {}", e)))?;
+                    // Check nếu user bấm nút dừng (Cancel)
+                    if self.cancel_flag.load(Ordering::Relaxed) {
+                        event_publisher.publish_stream_event(
+                            crate::core::domain::types::StreamEvent::MessageStop,
+                        );
+                        assistant_events.push(AssistantEvent::MessageStop);
+                        break;
+                    }
 
-                    match event {
+                    // Sử dụng timeout cực thấp để không bị block vòng lặp quá lâu,
+                    // cho phép kiểm tra cancel_flag liên tục.
+                    let event_opt = match tokio::time::timeout(std::time::Duration::from_millis(100), stream.next_event()).await {
+                        Ok(res) => res.map_err(|e| RuntimeError::new(format!("Stream error: {}", e)))?,
+                        Err(_) => continue, // Timeout -> lặp lại để check cờ cancel
+                    };
+
+                    match event_opt {
                         None => break,
                         Some(api_event) => {
                             match &api_event {

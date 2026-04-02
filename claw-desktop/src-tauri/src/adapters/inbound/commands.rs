@@ -1,4 +1,5 @@
 // Tauri Commands - Inbound Adapters
+use std::sync::atomic::Ordering;
 use tauri::State;
 use tokio::sync::oneshot;
 
@@ -8,6 +9,8 @@ use crate::setup::app_state::AppState;
 /// Send prompt command - Non-blocking
 #[tauri::command]
 pub async fn send_prompt(text: String, state: State<'_, AppState>) -> Result<(), String> {
+    // Reset cờ hủy trước khi chạy prompt mới
+    state.cancel_flag.store(false, Ordering::Relaxed);
     let (tx, rx) = oneshot::channel();
 
     state
@@ -84,4 +87,16 @@ pub async fn get_session(state: State<'_, AppState>) -> Result<runtime::Session,
 
     rx.await
         .map_err(|e| format!("Failed to receive response: {}", e))
+}
+
+/// Dừng quá trình tạo phản hồi của AI
+#[tauri::command]
+pub fn cancel_prompt(state: State<'_, AppState>) {
+    state.cancel_flag.store(true, Ordering::Relaxed);
+}
+
+/// Lấy thông tin model hiện tại đang sử dụng
+#[tauri::command]
+pub fn get_model() -> String {
+    std::env::var("CLAW_MODEL").unwrap_or_else(|_| "nvidia/nemotron-3-super-120b-a12b".to_string())
 }

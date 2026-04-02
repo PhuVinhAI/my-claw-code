@@ -8,7 +8,7 @@ import { cn } from '../../lib/utils';
 
 export function ChatInput() {
   const [input, setInput] = useState('');
-  const { state, sendPrompt, stopGeneration } = useChatStore();
+  const { state, sendPrompt, stopGeneration, model } = useChatStore();
   const isGenerating = state.status !== 'IDLE';
 
   const handleSend = async () => {
@@ -46,7 +46,7 @@ export function ChatInput() {
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Button variant="ghost" size="sm" className="h-8 gap-2 text-muted-foreground hover:text-foreground">
               <Bot className="h-4 w-4" />
-              <span className="font-medium">Claude 3.5 Sonnet</span>
+              <span className="font-medium">{model}</span>
             </Button>
           </div>
 

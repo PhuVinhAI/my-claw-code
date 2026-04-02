@@ -1,0 +1,494 @@
+<<<START_OF_DIFF>>>
+```rust
+# File: claw-desktop/src-tauri/src/setup/app_state.rs
+<<<<<<< SEARCH
+use tokio::sync::mpsc;
+
+use crate::adapters::outbound::tauri_prompter::PermissionState;
+use crate::core::use_cases::chat_actor::ActorCommand;
+
+/// Application State - Shared across Tauri commands
+pub struct AppState {
+    pub actor_tx: mpsc::Sender<ActorCommand>,
+    pub permission_state: PermissionState,
+}
+
+impl AppState {
+    pub fn new(actor_tx: mpsc::Sender<ActorCommand>, permission_state: PermissionState) -> Self {
+        Self {
+            actor_tx,
+            permission_state,
+        }
+    }
+}
+=======
+use std::sync::atomic::AtomicBool;
+use std::sync::Arc;
+use tokio::sync::mpsc;
+
+use crate::adapters::outbound::tauri_prompter::PermissionState;
+use crate::core::use_cases::chat_actor::ActorCommand;
+
+/// Application State - Shared across Tauri commands
+pub struct AppState {
+    pub actor_tx: mpsc::Sender<ActorCommand>,
+    pub permission_state: PermissionState,
+    pub cancel_flag: Arc<AtomicBool>,
+}
+
+impl AppState {
+    pub fn new(actor_tx: mpsc::Sender<ActorCommand>, permission_state: PermissionState, cancel_flag: Arc<AtomicBool>) -> Self {
+        Self {
+            actor_tx,
+            permission_state,
+            cancel_flag,
+        }
+    }
+}
+>>>>>>> REPLACE
+```
+
+```rust
+# File: claw-desktop/src-tauri/src/setup/di_container.rs
+<<<<<<< SEARCH
+    // 6. Create API Client
+    let api_client = TauriApiClient::new(
+        &model,
+        event_publisher.clone(),
+        tool_definitions,
+    )
+    .map_err(|e| format!("Failed to create API client: {}", e))?;
+
+    // 7. Create Permission Policy
+=======
+    let cancel_flag = Arc::new(std::sync::atomic::AtomicBool::new(false));
+
+    // 6. Create API Client
+    let api_client = TauriApiClient::new(
+        &model,
+        event_publisher.clone(),
+        tool_definitions,
+        cancel_flag.clone(),
+    )
+    .map_err(|e| format!("Failed to create API client: {}", e))?;
+
+    // 7. Create Permission Policy
+>>>>>>> REPLACE
+```
+
+```rust
+# File: claw-desktop/src-tauri/src/setup/di_container.rs
+<<<<<<< SEARCH
+    // 13. Return AppState
+    Ok(AppState::new(tx, permission_state))
+}
+=======
+    // 13. Return AppState
+    Ok(AppState::new(tx, permission_state, cancel_flag))
+}
+>>>>>>> REPLACE
+```
+
+```rust
+# File: claw-desktop/src-tauri/src/adapters/outbound/api_client.rs
+<<<<<<< SEARCH
+use std::sync::Arc;
+use api::{
+    convert_runtime_messages, max_tokens_for_model, InputContentBlock, InputMessage,
+    MessageRequest, ProviderClient, StreamEvent as ApiStreamEvent, ToolChoice,
+};
+=======
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+use api::{
+    convert_runtime_messages, max_tokens_for_model, InputContentBlock, InputMessage,
+    MessageRequest, ProviderClient, StreamEvent as ApiStreamEvent, ToolChoice,
+};
+>>>>>>> REPLACE
+```
+
+```rust
+# File: claw-desktop/src-tauri/src/adapters/outbound/api_client.rs
+<<<<<<< SEARCH
+pub struct TauriApiClient {
+    client: ProviderClient,
+    event_publisher: Arc<dyn IEventPublisher>,
+    tool_definitions: Vec<api::ToolDefinition>,
+    model: String,
+}
+
+impl TauriApiClient {
+    pub fn new(
+        model: &str,
+        event_publisher: Arc<dyn IEventPublisher>,
+        tool_definitions: Vec<api::ToolDefinition>,
+    ) -> Result<Self, String> {
+        let client = ProviderClient::from_model(model)
+            .map_err(|e| format!("Failed to create API client: {}. Make sure OPENAI_API_KEY and OPENAI_BASE_URL are set in .env", e))?;
+        Ok(Self {
+            client,
+            event_publisher,
+            tool_definitions,
+            model: model.to_string(),
+        })
+    }
+}
+=======
+pub struct TauriApiClient {
+    client: ProviderClient,
+    event_publisher: Arc<dyn IEventPublisher>,
+    tool_definitions: Vec<api::ToolDefinition>,
+    model: String,
+    cancel_flag: Arc<AtomicBool>,
+}
+
+impl TauriApiClient {
+    pub fn new(
+        model: &str,
+        event_publisher: Arc<dyn IEventPublisher>,
+        tool_definitions: Vec<api::ToolDefinition>,
+        cancel_flag: Arc<AtomicBool>,
+    ) -> Result<Self, String> {
+        let client = ProviderClient::from_model(model)
+            .map_err(|e| format!("Failed to create API client: {}. Make sure OPENAI_API_KEY and OPENAI_BASE_URL are set in .env", e))?;
+        Ok(Self {
+            client,
+            event_publisher,
+            tool_definitions,
+            model: model.to_string(),
+            cancel_flag,
+        })
+    }
+}
+>>>>>>> REPLACE
+```
+
+```rust
+# File: claw-desktop/src-tauri/src/adapters/outbound/api_client.rs
+<<<<<<< SEARCH
+                loop {
+                    let event = stream.next_event().await
+                        .map_err(|e| RuntimeError::new(format!("Stream error: {}", e)))?;
+
+                    match event {
+                        None => break,
+                        Some(api_event) => {
+=======
+                loop {
+                    // Check nếu user bấm nút dừng (Cancel)
+                    if self.cancel_flag.load(Ordering::Relaxed) {
+                        event_publisher.publish_stream_event(
+                            crate::core::domain::types::StreamEvent::MessageStop,
+                        );
+                        assistant_events.push(AssistantEvent::MessageStop);
+                        break;
+                    }
+
+                    // Sử dụng timeout cực thấp để không bị block vòng lặp quá lâu, 
+                    // cho phép kiểm tra cancel_flag liên tục.
+                    let event_opt = match tokio::time::timeout(std::time::Duration::from_millis(100), stream.next_event()).await {
+                        Ok(res) => res.map_err(|e| RuntimeError::new(format!("Stream error: {}", e)))?,
+                        Err(_) => continue, // Timeout -> lặp lại để check cờ cancel
+                    };
+
+                    match event_opt {
+                        None => break,
+                        Some(api_event) => {
+>>>>>>> REPLACE
+```
+
+```rust
+# File: claw-desktop/src-tauri/src/adapters/inbound/commands.rs
+<<<<<<< SEARCH
+use tauri::State;
+use tokio::sync::oneshot;
+
+use crate::core::use_cases::chat_actor::ActorCommand;
+use crate::setup::app_state::AppState;
+
+/// Send prompt command - Non-blocking
+#[tauri::command]
+pub async fn send_prompt(text: String, state: State<'_, AppState>) -> Result<(), String> {
+    let (tx, rx) = oneshot::channel();
+=======
+use std::sync::atomic::Ordering;
+use tauri::State;
+use tokio::sync::oneshot;
+
+use crate::core::use_cases::chat_actor::ActorCommand;
+use crate::setup::app_state::AppState;
+
+/// Send prompt command - Non-blocking
+#[tauri::command]
+pub async fn send_prompt(text: String, state: State<'_, AppState>) -> Result<(), String> {
+    // Reset cờ hủy trước khi chạy prompt mới
+    state.cancel_flag.store(false, Ordering::Relaxed);
+    let (tx, rx) = oneshot::channel();
+>>>>>>> REPLACE
+```
+
+```rust
+# File: claw-desktop/src-tauri/src/adapters/inbound/commands.rs
+<<<<<<< SEARCH
+    rx.await
+        .map_err(|e| format!("Failed to receive response: {}", e))
+}
+=======
+    rx.await
+        .map_err(|e| format!("Failed to receive response: {}", e))
+}
+
+/// Dừng quá trình tạo phản hồi của AI
+#[tauri::command]
+pub fn cancel_prompt(state: State<'_, AppState>) {
+    state.cancel_flag.store(true, Ordering::Relaxed);
+}
+
+/// Lấy thông tin model hiện tại đang sử dụng
+#[tauri::command]
+pub fn get_model() -> String {
+    std::env::var("CLAW_MODEL").unwrap_or_else(|_| "nvidia/nemotron-3-super-120b-a12b".to_string())
+}
+>>>>>>> REPLACE
+```
+
+```rust
+# File: claw-desktop/src-tauri/src/lib.rs
+<<<<<<< SEARCH
+        .invoke_handler(tauri::generate_handler![
+            send_prompt,
+            answer_permission,
+            load_session,
+            save_session,
+            get_session
+        ])
+=======
+        .invoke_handler(tauri::generate_handler![
+            send_prompt,
+            answer_permission,
+            load_session,
+            save_session,
+            get_session,
+            cancel_prompt,
+            get_model
+        ])
+>>>>>>> REPLACE
+```
+
+```typescript
+# File: claw-desktop/src/core/gateways/IChatGateway.ts
+<<<<<<< SEARCH
+  saveSession(sessionId: string): Promise<void>;
+  getSession(): Promise<Session>;
+
+  // Events
+=======
+  saveSession(sessionId: string): Promise<void>;
+  getSession(): Promise<Session>;
+  cancelPrompt(): Promise<void>;
+  getModel(): Promise<string>;
+
+  // Events
+>>>>>>> REPLACE
+```
+
+```typescript
+# File: claw-desktop/src/adapters/tauri/tauri-chat.gateway.ts
+<<<<<<< SEARCH
+  async getSession(): Promise<Session> {
+    return await invoke('get_session');
+  }
+
+  onStreamEvent(callback: (event: StreamEvent) => void): UnsubscribeFn {
+=======
+  async getSession(): Promise<Session> {
+    return await invoke('get_session');
+  }
+
+  async cancelPrompt(): Promise<void> {
+    await invoke('cancel_prompt');
+  }
+
+  async getModel(): Promise<string> {
+    return await invoke('get_model');
+  }
+
+  onStreamEvent(callback: (event: StreamEvent) => void): UnsubscribeFn {
+>>>>>>> REPLACE
+```
+
+```typescript
+# File: claw-desktop/src/store/useChatStore.ts
+<<<<<<< SEARCH
+interface ChatStore {
+  // State
+  state: ChatMachineState;
+  messages: Message[];
+  currentAssistantText: string;
+  gateway: IChatGateway;
+
+  // Actions
+  dispatch: (event: ChatEvent) => void;
+  sendPrompt: (text: string) => Promise<void>;
+  answerPermission: (allow: boolean) => Promise<void>;
+  stopGeneration: () => void;
+
+  // Internal
+=======
+interface ChatStore {
+  // State
+  state: ChatMachineState;
+  messages: Message[];
+  currentAssistantText: string;
+  gateway: IChatGateway;
+  model: string;
+
+  // Actions
+  dispatch: (event: ChatEvent) => void;
+  sendPrompt: (text: string) => Promise<void>;
+  answerPermission: (allow: boolean) => Promise<void>;
+  stopGeneration: () => Promise<void>;
+  fetchModel: () => Promise<void>;
+
+  // Internal
+>>>>>>> REPLACE
+```
+
+```typescript
+# File: claw-desktop/src/store/useChatStore.ts
+<<<<<<< SEARCH
+export const useChatStore = create<ChatStore>((set, get) => ({
+  state: { status: 'IDLE' },
+  messages: [],
+  currentAssistantText: '',
+  gateway: new TauriChatGateway(),
+
+  dispatch: (event) => {
+=======
+export const useChatStore = create<ChatStore>((set, get) => ({
+  state: { status: 'IDLE' },
+  messages: [],
+  currentAssistantText: '',
+  gateway: new TauriChatGateway(),
+  model: "Đang tải...",
+
+  dispatch: (event) => {
+>>>>>>> REPLACE
+```
+
+```typescript
+# File: claw-desktop/src/store/useChatStore.ts
+<<<<<<< SEARCH
+  answerPermission: async (allow) => {
+    const { gateway, dispatch, state } = get();
+    if (state.status !== 'AWAITING_PERMISSION') return;
+
+    await gateway.answerPermission(state.request.request_id, allow);
+    dispatch({ type: 'PERMISSION_ANSWERED', allow });
+  },
+
+  stopGeneration: () => {
+    const { dispatch, flushAssistantMessage } = get();
+    flushAssistantMessage();
+    dispatch({ type: 'MESSAGE_STOP' });
+  },
+
+  appendTextDelta: (delta) => {
+=======
+  answerPermission: async (allow) => {
+    const { gateway, dispatch, state } = get();
+    if (state.status !== 'AWAITING_PERMISSION') return;
+
+    await gateway.answerPermission(state.request.request_id, allow);
+    dispatch({ type: 'PERMISSION_ANSWERED', allow });
+  },
+
+  fetchModel: async () => {
+    const { gateway } = get();
+    try {
+      const model = await gateway.getModel();
+      set({ model });
+    } catch (e) {
+      console.error("Failed to load model from Rust:", e);
+    }
+  },
+
+  stopGeneration: async () => {
+    const { gateway, dispatch, flushAssistantMessage } = get();
+    try {
+      await gateway.cancelPrompt(); // Ra lệnh cho Rust ngừng chạy
+    } catch (e) {
+      console.error("Failed to cancel backend prompt:", e);
+    }
+    // Update local UI
+    flushAssistantMessage();
+    dispatch({ type: 'MESSAGE_STOP' });
+  },
+
+  appendTextDelta: (delta) => {
+>>>>>>> REPLACE
+```
+
+```typescript
+# File: claw-desktop/src/store/useChatStore.ts
+<<<<<<< SEARCH
+// Initialize listeners
+export function initializeChatStore() {
+  const { gateway, dispatch, appendTextDelta, flushAssistantMessage } =
+    useChatStore.getState();
+
+  gateway.onStreamEvent((event: StreamEvent) => {
+=======
+// Initialize listeners
+export function initializeChatStore() {
+  const store = useChatStore.getState();
+  const { gateway, dispatch, appendTextDelta, flushAssistantMessage } = store;
+  
+  store.fetchModel();
+
+  gateway.onStreamEvent((event: StreamEvent) => {
+>>>>>>> REPLACE
+```
+
+```tsx
+# File: claw-desktop/src/ui/features/ChatInput.tsx
+<<<<<<< SEARCH
+export function ChatInput() {
+  const [input, setInput] = useState('');
+  const { state, sendPrompt, stopGeneration } = useChatStore();
+  const isGenerating = state.status !== 'IDLE';
+=======
+export function ChatInput() {
+  const [input, setInput] = useState('');
+  const { state, sendPrompt, stopGeneration, model } = useChatStore();
+  const isGenerating = state.status !== 'IDLE';
+>>>>>>> REPLACE
+```
+
+```tsx
+# File: claw-desktop/src/ui/features/ChatInput.tsx
+<<<<<<< SEARCH
+        <div className="flex h-12 items-center justify-between px-3 pb-2 pt-1">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Button variant="ghost" size="sm" className="h-8 gap-2 text-muted-foreground hover:text-foreground">
+              <Bot className="h-4 w-4" />
+              <span className="font-medium">Claude 3.5 Sonnet</span>
+            </Button>
+          </div>
+=======
+        <div className="flex h-12 items-center justify-between px-3 pb-2 pt-1">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Button variant="ghost" size="sm" className="h-8 gap-2 text-muted-foreground hover:text-foreground">
+              <Bot className="h-4 w-4" />
+              <span className="font-medium">{model}</span>
+            </Button>
+          </div>
+>>>>>>> REPLACE
+```
+
+```bash
+# Terminal: cd claw-desktop && npx tsc --noEmit
+# Terminal: cd rust && cargo check
+# Commit: fix: link stop generation to rust backend and display dynamic model via IPC
+```
+<<<END_OF_DIFF>>>

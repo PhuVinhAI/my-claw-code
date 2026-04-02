@@ -10,6 +10,8 @@ export interface IChatGateway {
   loadSession(sessionId: string): Promise<void>;
   saveSession(sessionId: string): Promise<void>;
   getSession(): Promise<Session>;
+  cancelPrompt(): Promise<void>;
+  getModel(): Promise<string>;
 
   // Events
   onStreamEvent(callback: (event: StreamEvent) => void): UnsubscribeFn;

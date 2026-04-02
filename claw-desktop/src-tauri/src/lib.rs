@@ -25,7 +25,9 @@ pub fn run() {
             answer_permission,
             load_session,
             save_session,
-            get_session
+            get_session,
+            cancel_prompt,
+            get_model
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

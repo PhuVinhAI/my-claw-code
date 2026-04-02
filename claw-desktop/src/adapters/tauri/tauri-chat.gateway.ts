@@ -25,6 +25,14 @@ export class TauriChatGateway implements IChatGateway {
     return await invoke('get_session');
   }
 
+  async cancelPrompt(): Promise<void> {
+    await invoke('cancel_prompt');
+  }
+
+  async getModel(): Promise<string> {
+    return await invoke('get_model');
+  }
+
   onStreamEvent(callback: (event: StreamEvent) => void): UnsubscribeFn {
     let unlisten: UnlistenFn | null = null;
 
