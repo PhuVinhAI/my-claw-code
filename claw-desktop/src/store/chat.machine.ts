@@ -11,6 +11,7 @@ export type ChatEvent =
   | { type: 'USER_SENT_PROMPT'; text: string }
   | { type: 'STREAM_TEXT_DELTA'; delta: string }
   | { type: 'STREAM_TOOL_USE'; toolName: string; toolInput: string }
+  | { type: 'STREAM_TOOL_RESULT' }
   | { type: 'PERMISSION_REQUESTED'; request: PermissionRequest }
   | { type: 'PERMISSION_ANSWERED'; allow: boolean }
   | { type: 'MESSAGE_STOP' }
@@ -25,7 +26,8 @@ export function chatReducer(
       if (event.type === 'USER_SENT_PROMPT') {
         return { status: 'GENERATING' };
       }
-      throw new Error(`Invalid transition: IDLE + ${event.type}`);
+      // Bỏ qua an toàn các event sinh ra muộn/lệch pha thay vì crash app
+      return state;
 
     case 'GENERATING':
       if (event.type === 'STREAM_TOOL_USE') {
@@ -35,10 +37,7 @@ export function chatReducer(
           toolInput: event.toolInput,
         };
       }
-      if (event.type === 'MESSAGE_STOP') {
-        return { status: 'IDLE' };
-      }
-      if (event.type === 'ERROR') {
+      if (event.type === 'MESSAGE_STOP' || event.type === 'ERROR') {
         return { status: 'IDLE' };
       }
       // Text delta không thay đổi state
@@ -48,7 +47,14 @@ export function chatReducer(
       if (event.type === 'PERMISSION_REQUESTED') {
         return { status: 'AWAITING_PERMISSION', request: event.request };
       }
+      if (event.type === 'STREAM_TOOL_RESULT') {
+        return { status: 'GENERATING' };
+      }
       if (event.type === 'MESSAGE_STOP') {
+        // BỎ QUA! Sự kiện stop stream của LLM trước khi tool chạy xong, không được phép chuyển về IDLE.
+        return state;
+      }
+      if (event.type === 'ERROR') {
         return { status: 'IDLE' };
       }
       return state;

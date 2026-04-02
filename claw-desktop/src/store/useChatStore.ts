@@ -16,7 +16,7 @@ interface ChatStore {
   dispatch: (event: ChatEvent) => void;
   sendPrompt: (text: string) => Promise<void>;
   answerPermission: (allow: boolean) => Promise<void>;
-  
+
   // Internal
   appendTextDelta: (delta: string) => void;
   flushAssistantMessage: () => void;
@@ -36,7 +36,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
   sendPrompt: async (text) => {
     const { gateway, dispatch } = get();
-    
+
     // Add user message
     set((prev) => ({
       messages: [
@@ -49,7 +49,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     }));
 
     dispatch({ type: 'USER_SENT_PROMPT', text });
-    
+
     try {
       await gateway.sendPrompt(text);
     } catch (error) {
@@ -129,7 +129,7 @@ export function initializeChatStore() {
         // Find the message with matching tool_use and add result to it
         useChatStore.setState((prev) => {
           const messages = [...prev.messages];
-          
+
           // Find the message containing the tool_use with matching id
           for (let i = messages.length - 1; i >= 0; i--) {
             const message = messages[i];
@@ -137,7 +137,7 @@ export function initializeChatStore() {
               const toolUseBlock = message.blocks.find(
                 (b) => b.type === 'tool_use' && b.id === event.tool_use_id
               );
-              
+
               if (toolUseBlock && toolUseBlock.type === 'tool_use') {
                 // Add tool_result block to the same message
                 messages[i] = {
@@ -157,9 +157,10 @@ export function initializeChatStore() {
               }
             }
           }
-          
+
           return { messages };
         });
+        dispatch({ type: 'STREAM_TOOL_RESULT' });
         break;
       case 'message_stop':
         flushAssistantMessage();
