@@ -127,89 +127,81 @@ impl runtime::ApiClient for SimpleApiClient {
             stream: true,
         };
 
-        // Stream message (async) - block on it
-        let runtime_handle = tokio::runtime::Handle::try_current()
-            .unwrap_or_else(|_| {
-                // Nếu không có runtime, tạo mới
-                tokio::runtime::Runtime::new()
-                    .expect("Failed to create tokio runtime")
-                    .handle()
-                    .clone()
-            });
+        // Use block_in_place to allow blocking in async context
+        let client = self.client.clone();
+        let event_publisher = self.event_publisher.clone();
         
-        let mut stream = runtime_handle
-            .block_on(self.client.stream_message(&api_request))
-            .map_err(|e| runtime::RuntimeError::new(format!("API error: {}", e)))?;
+        tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current().block_on(async {
+                let mut stream = client.stream_message(&api_request).await
+                    .map_err(|e| runtime::RuntimeError::new(format!("API error: {}", e)))?;
 
-        // Collect events
-        let mut assistant_events = Vec::new();
+                let mut assistant_events = Vec::new();
 
-        loop {
-            let event = runtime_handle
-                .block_on(stream.next_event())
-                .map_err(|e| runtime::RuntimeError::new(format!("Stream error: {}", e)))?;
+                loop {
+                    let event = stream.next_event().await
+                        .map_err(|e| runtime::RuntimeError::new(format!("Stream error: {}", e)))?;
 
-            match event {
-                None => break, // Stream ended
-                Some(api_event) => {
-                    // Convert ApiStreamEvent → AssistantEvent and emit to Frontend
-                    match &api_event {
-                        ApiStreamEvent::ContentBlockDelta(delta) => {
-                            if let api::ContentBlockDelta::TextDelta { text } = &delta.delta {
-                                // Emit to Frontend
-                                self.event_publisher.publish_stream_event(
-                                    crate::core::domain::types::StreamEvent::TextDelta {
-                                        delta: text.clone(),
-                                    },
-                                );
-                                // Add to events for runtime
-                                assistant_events
-                                    .push(runtime::AssistantEvent::TextDelta(text.clone()));
+                    match event {
+                        None => break,
+                        Some(api_event) => {
+                            match &api_event {
+                                ApiStreamEvent::ContentBlockDelta(delta) => {
+                                    if let api::ContentBlockDelta::TextDelta { text } = &delta.delta {
+                                        event_publisher.publish_stream_event(
+                                            crate::core::domain::types::StreamEvent::TextDelta {
+                                                delta: text.clone(),
+                                            },
+                                        );
+                                        assistant_events
+                                            .push(runtime::AssistantEvent::TextDelta(text.clone()));
+                                    }
+                                }
+                                ApiStreamEvent::ContentBlockStart(start) => {
+                                    if let api::OutputContentBlock::ToolUse { id, name, input } =
+                                        &start.content_block
+                                    {
+                                        let input_str = input.to_string();
+                                        event_publisher.publish_stream_event(
+                                            crate::core::domain::types::StreamEvent::ToolUse {
+                                                id: id.clone(),
+                                                name: name.clone(),
+                                                input: input_str.clone(),
+                                            },
+                                        );
+                                        assistant_events.push(runtime::AssistantEvent::ToolUse {
+                                            id: id.clone(),
+                                            name: name.clone(),
+                                            input: input_str,
+                                        });
+                                    }
+                                }
+                                ApiStreamEvent::MessageDelta(delta) => {
+                                    let token_usage = runtime::TokenUsage {
+                                        input_tokens: delta.usage.input_tokens,
+                                        output_tokens: delta.usage.output_tokens,
+                                        cache_creation_input_tokens: delta
+                                            .usage
+                                            .cache_creation_input_tokens,
+                                        cache_read_input_tokens: delta.usage.cache_read_input_tokens,
+                                    };
+                                    assistant_events.push(runtime::AssistantEvent::Usage(token_usage));
+                                }
+                                ApiStreamEvent::MessageStop(_) => {
+                                    event_publisher.publish_stream_event(
+                                        crate::core::domain::types::StreamEvent::MessageStop,
+                                    );
+                                    assistant_events.push(runtime::AssistantEvent::MessageStop);
+                                }
+                                _ => {}
                             }
                         }
-                        ApiStreamEvent::ContentBlockStart(start) => {
-                            if let api::OutputContentBlock::ToolUse { id, name, input } =
-                                &start.content_block
-                            {
-                                let input_str = input.to_string();
-                                self.event_publisher.publish_stream_event(
-                                    crate::core::domain::types::StreamEvent::ToolUse {
-                                        id: id.clone(),
-                                        name: name.clone(),
-                                        input: input_str.clone(),
-                                    },
-                                );
-                                assistant_events.push(runtime::AssistantEvent::ToolUse {
-                                    id: id.clone(),
-                                    name: name.clone(),
-                                    input: input_str,
-                                });
-                            }
-                        }
-                        ApiStreamEvent::MessageDelta(delta) => {
-                            let token_usage = runtime::TokenUsage {
-                                input_tokens: delta.usage.input_tokens,
-                                output_tokens: delta.usage.output_tokens,
-                                cache_creation_input_tokens: delta
-                                    .usage
-                                    .cache_creation_input_tokens,
-                                cache_read_input_tokens: delta.usage.cache_read_input_tokens,
-                            };
-                            assistant_events.push(runtime::AssistantEvent::Usage(token_usage));
-                        }
-                        ApiStreamEvent::MessageStop(_) => {
-                            self.event_publisher.publish_stream_event(
-                                crate::core::domain::types::StreamEvent::MessageStop,
-                            );
-                            assistant_events.push(runtime::AssistantEvent::MessageStop);
-                        }
-                        _ => {} // Ignore other events
                     }
                 }
-            }
-        }
 
-        Ok(assistant_events)
+                Ok(assistant_events)
+            })
+        })
     }
 }
 
