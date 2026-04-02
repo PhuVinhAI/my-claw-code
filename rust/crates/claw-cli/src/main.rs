@@ -2,6 +2,10 @@ mod init;
 mod input;
 mod render;
 
+// Trỏ ra ngoài thư mục gốc để nạp extension
+#[path = "../../../../extensions/preflight.rs"]
+mod preflight;
+
 use std::collections::BTreeSet;
 use std::env;
 use std::fmt::Write as _;
@@ -17,7 +21,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use api::{
     resolve_startup_auth_source, AuthSource, ClawApiClient, ContentBlockDelta, InputContentBlock,
-    InputMessage, MessageRequest, MessageResponse, OutputContentBlock,
+    InputMessage, MessageRequest, MessageResponse, OutputContentBlock, ProviderClient,
     StreamEvent as ApiStreamEvent, ToolChoice, ToolDefinition, ToolResultContentBlock,
 };
 
@@ -59,6 +63,9 @@ const INTERNAL_PROGRESS_HEARTBEAT_INTERVAL: Duration = Duration::from_secs(3);
 type AllowedToolSet = BTreeSet<String>;
 
 fn main() {
+    // Chạy thiết lập môi trường trước khi khởi động Claw
+    preflight::setup_env();
+    
     if let Err(error) = run() {
         eprintln!("{}", render_cli_error(&error.to_string()));
         std::process::exit(1);
@@ -3040,7 +3047,7 @@ impl runtime::PermissionPrompter for CliPermissionPrompter {
 
 struct DefaultRuntimeClient {
     runtime: tokio::runtime::Runtime,
-    client: ClawApiClient,
+    client: ProviderClient,
     model: String,
     enable_tools: bool,
     emit_output: bool,
@@ -3060,8 +3067,8 @@ impl DefaultRuntimeClient {
     ) -> Result<Self, Box<dyn std::error::Error>> {
         Ok(Self {
             runtime: tokio::runtime::Runtime::new()?,
-            client: ClawApiClient::from_auth(resolve_cli_auth_source()?)
-                .with_base_url(api::read_base_url()),
+            // Sử dụng Provider đa năng, bỏ qua lỗi nếu không có key Anthropic
+            client: ProviderClient::from_model_with_default_auth(&model, resolve_cli_auth_source().ok())?,
             model,
             enable_tools,
             emit_output,

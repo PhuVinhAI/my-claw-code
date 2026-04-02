@@ -226,5 +226,3 @@ See the chart at the top of this README.
 
 - This repository does **not** claim ownership of the original Claw Code source material.
 - This repository is **not affiliated with, endorsed by, or maintained by the original authors**.
-#   m y - c l a w - c o d e  
- 

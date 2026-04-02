@@ -1,7 +1,23 @@
-__pycache__/
-archive/
-.omx/
-.clawd-agents/
-# Claude Code local artifacts
-.claude/settings.local.json
-.claude/sessions/
+# Cấu hình môi trường cá nhân
+.env
+
+# Claw runtime data
+.claw/
+
+# Build artifacts
+target/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
