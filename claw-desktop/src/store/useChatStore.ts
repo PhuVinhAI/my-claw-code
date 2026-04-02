@@ -126,23 +126,40 @@ export function initializeChatStore() {
         });
         break;
       case 'tool_result':
-        // Add tool result block
-        useChatStore.setState((prev) => ({
-          messages: [
-            ...prev.messages,
-            {
-              role: 'assistant',
-              blocks: [
-                {
-                  type: 'tool_result',
-                  tool_use_id: event.tool_use_id,
-                  output: event.output,
-                  is_error: event.is_error,
-                },
-              ],
-            },
-          ],
-        }));
+        // Find the message with matching tool_use and add result to it
+        useChatStore.setState((prev) => {
+          const messages = [...prev.messages];
+          
+          // Find the message containing the tool_use with matching id
+          for (let i = messages.length - 1; i >= 0; i--) {
+            const message = messages[i];
+            if (message.role === 'assistant') {
+              const toolUseBlock = message.blocks.find(
+                (b) => b.type === 'tool_use' && b.id === event.tool_use_id
+              );
+              
+              if (toolUseBlock && toolUseBlock.type === 'tool_use') {
+                // Add tool_result block to the same message
+                messages[i] = {
+                  ...message,
+                  blocks: [
+                    ...message.blocks,
+                    {
+                      type: 'tool_result',
+                      tool_use_id: event.tool_use_id,
+                      tool_name: toolUseBlock.name, // Copy tool name from tool_use
+                      output: event.output,
+                      is_error: event.is_error,
+                    },
+                  ],
+                };
+                break;
+              }
+            }
+          }
+          
+          return { messages };
+        });
         break;
       case 'message_stop':
         flushAssistantMessage();

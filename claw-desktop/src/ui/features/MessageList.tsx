@@ -62,25 +62,25 @@ export function MessageList() {
                     );
                   }
                   if (block.type === 'tool_use') {
+                    // Check if there's a corresponding tool_result in the same message
+                    const toolResult = message.blocks.find(
+                      (b) => b.type === 'tool_result' && b.tool_use_id === block.id
+                    );
+                    
                     return (
                       <ToolExecutionBlock
                         key={blockIdx}
                         toolName={block.name || 'unknown'}
                         toolInput={block.input || ''}
-                        isPending={true}
+                        toolOutput={toolResult?.type === 'tool_result' ? toolResult.output : undefined}
+                        isError={toolResult?.type === 'tool_result' ? toolResult.is_error : undefined}
+                        isPending={!toolResult}
                       />
                     );
                   }
+                  // Skip tool_result blocks as they're rendered with tool_use
                   if (block.type === 'tool_result') {
-                    return (
-                      <ToolExecutionBlock
-                        key={blockIdx}
-                        toolName={block.tool_name || 'unknown'}
-                        toolInput=""
-                        toolOutput={block.output}
-                        isError={block.is_error}
-                      />
-                    );
+                    return null;
                   }
                   return null;
                 })}

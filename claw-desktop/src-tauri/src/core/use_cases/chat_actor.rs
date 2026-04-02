@@ -89,8 +89,10 @@ impl<C: ApiClient, T: ToolExecutor, P: PermissionPrompter> ChatSessionActor<C, T
     }
 
     async fn handle_prompt(&mut self, text: String) -> Result<TurnSummary, RuntimeError> {
-        // Run turn và emit events về Frontend
-        let summary = self.runtime.run_turn(text, Some(&mut self.prompter))?;
+        // Run turn in block_in_place to avoid runtime conflicts with bash tool
+        let summary = tokio::task::block_in_place(|| {
+            self.runtime.run_turn(text, Some(&mut self.prompter))
+        })?;
 
         // Emit tool results về Frontend
         for tool_result in &summary.tool_results {

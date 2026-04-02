@@ -28,6 +28,8 @@ tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time"
 uuid = { version = "1", features = ["v4"] }
 # Đọc .env file
 dotenvy = "0.15"
+# Date/time for system prompt
+chrono = "0.4"
 
 # --- Claw Code Core Dependencies ---
 # Link trực tiếp tới các module Rust của project
