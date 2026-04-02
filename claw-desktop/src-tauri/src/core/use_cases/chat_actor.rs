@@ -3,11 +3,13 @@ use std::sync::Arc;
 use tokio::sync::{mpsc, oneshot};
 
 use runtime::{
-    ApiClient, ConversationRuntime, PermissionMode, PermissionPolicy, PermissionPrompter,
-    RuntimeError, Session, ToolExecutor, TurnSummary,
+    ApiClient, PermissionPrompter, RuntimeError, Session, ToolExecutor, TurnSummary,
 };
 
 use crate::core::use_cases::ports::IEventPublisher;
+
+// Use extension from workspace instead of core for real-time tool events
+use extensions::realtime_tool_events::RealtimeConversationRuntime;
 
 /// Actor Command - Messages gửi đến Actor
 #[derive(Debug)]
@@ -32,7 +34,7 @@ pub enum ActorCommand {
 
 /// ChatSessionActor - Chạy trên tokio::task độc lập
 pub struct ChatSessionActor<C: ApiClient, T: ToolExecutor, P: PermissionPrompter> {
-    runtime: ConversationRuntime<C, T>,
+    runtime: RealtimeConversationRuntime<C, T>,
     inbox: mpsc::Receiver<ActorCommand>,
     event_publisher: Arc<dyn IEventPublisher>,
     prompter: P,
@@ -41,7 +43,7 @@ pub struct ChatSessionActor<C: ApiClient, T: ToolExecutor, P: PermissionPrompter
 
 impl<C: ApiClient, T: ToolExecutor, P: PermissionPrompter> ChatSessionActor<C, T, P> {
     pub fn new(
-        runtime: ConversationRuntime<C, T>,
+        runtime: RealtimeConversationRuntime<C, T>,
         inbox: mpsc::Receiver<ActorCommand>,
         event_publisher: Arc<dyn IEventPublisher>,
         prompter: P,
@@ -89,31 +91,35 @@ impl<C: ApiClient, T: ToolExecutor, P: PermissionPrompter> ChatSessionActor<C, T
     }
 
     async fn handle_prompt(&mut self, text: String) -> Result<TurnSummary, RuntimeError> {
-        // Run turn in block_in_place to avoid runtime conflicts with bash tool
+        let event_publisher = self.event_publisher.clone();
+        
+        // Use extension's run_turn_with_callback for real-time tool event emission
         let summary = tokio::task::block_in_place(|| {
-            self.runtime.run_turn(text, Some(&mut self.prompter))
+            self.runtime.run_turn_with_callback(
+                text,
+                Some(&mut self.prompter),
+                |tool_result_message| {
+                    // Emit tool result NGAY KHI tool execute xong (real-time)
+                    for block in &tool_result_message.blocks {
+                        if let runtime::ContentBlock::ToolResult {
+                            tool_use_id,
+                            tool_name: _,
+                            output,
+                            is_error,
+                        } = block
+                        {
+                            event_publisher.publish_stream_event(
+                                crate::core::domain::types::StreamEvent::ToolResult {
+                                    tool_use_id: tool_use_id.clone(),
+                                    output: output.clone(),
+                                    is_error: *is_error,
+                                },
+                            );
+                        }
+                    }
+                },
+            )
         })?;
-
-        // Emit tool results về Frontend
-        for tool_result in &summary.tool_results {
-            for block in &tool_result.blocks {
-                if let runtime::ContentBlock::ToolResult {
-                    tool_use_id,
-                    tool_name: _,
-                    output,
-                    is_error,
-                } = block
-                {
-                    self.event_publisher.publish_stream_event(
-                        crate::core::domain::types::StreamEvent::ToolResult {
-                            tool_use_id: tool_use_id.clone(),
-                            output: output.clone(),
-                            is_error: *is_error,
-                        },
-                    );
-                }
-            }
-        }
 
         // Emit usage
         self.event_publisher.publish_stream_event(

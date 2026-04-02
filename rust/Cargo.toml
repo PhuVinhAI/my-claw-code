@@ -1,7 +1,8 @@
 [workspace]
 members = [
     "crates/*",
-    "../claw-desktop/src-tauri"
+    "../claw-desktop/src-tauri",
+    "../extensions"
 ]
 resolver = "2"
 
