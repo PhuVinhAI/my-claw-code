@@ -90,3 +90,8 @@ export function parseThinkingTags(text: string): ParsedContent {
 export function hasThinkingTags(text: string): boolean {
   return THINKING_PATTERNS.some((pattern) => text.includes(pattern.open));
 }
+
+// Remove system reminders from text
+export function cleanSystemReminders(text: string): string {
+  return text.replace(/<system-reminder>[\s\S]*?<\/system-reminder>/g, '').trim();
+}

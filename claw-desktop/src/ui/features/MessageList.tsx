@@ -5,7 +5,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { useChatStore } from '../../store';
 import { cn } from '../../lib/utils';
 import { renderToolBlock, ThinkingBlock } from '../blocks';
-import { parseThinkingTags } from '../../lib/parseThinking';
+import { parseThinkingTags, cleanSystemReminders } from '../../lib/parseThinking';
 import { MarkdownContent } from '../../components/MarkdownContent';
 import { useTextMeasurement } from '../../lib/useTextMeasurement';
 
@@ -179,7 +179,7 @@ export function MessageList() {
                         if (block.type === 'text') {
                           return (
                             <div key={blockIdx}>
-                              <MarkdownContent content={block.text || ''} />
+                              <MarkdownContent content={cleanSystemReminders(block.text || '')} />
                             </div>
                           );
                         }
@@ -236,7 +236,7 @@ export function MessageList() {
                       } else {
                         return (
                           <div key={idx}>
-                            <MarkdownContent content={fixIncompleteCodeBlocks(block.content)} />
+                            <MarkdownContent content={fixIncompleteCodeBlocks(cleanSystemReminders(block.content))} />
                           </div>
                         );
                       }
