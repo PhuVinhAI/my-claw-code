@@ -2,7 +2,7 @@
 export type MessageRole = 'user' | 'assistant' | 'system' | 'tool';
 
 export interface ContentBlock {
-  type: 'text' | 'tool_use' | 'tool_result';
+  type: 'text' | 'tool_use' | 'tool_result' | 'thinking';
   text?: string;
   id?: string;
   name?: string;
@@ -12,6 +12,7 @@ export interface ContentBlock {
   output?: string;
   is_error?: boolean;
   isStreaming?: boolean; // True when receiving chunks, false when complete
+  thinking?: string; // For thinking blocks (parsed from text)
 }
 
 export interface TokenUsage {

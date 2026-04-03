@@ -4,6 +4,7 @@ import { IChatGateway } from '../core/gateways';
 import { Message, StreamEvent, SessionMetadata, WorkMode } from '../core/entities';
 import { ChatMachineState, ChatEvent, chatReducer } from './chat.machine';
 import { TauriChatGateway } from '../adapters/tauri';
+import { parseThinkingTags } from '../lib/parseThinking';
 
 interface ChatStore {
   // State
@@ -142,16 +143,40 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     const { currentAssistantText } = get();
     if (!currentAssistantText) return;
 
-    set((prev) => ({
-      messages: [
-        ...prev.messages,
-        {
-          role: 'assistant',
-          blocks: [{ type: 'text', text: currentAssistantText }],
-        },
-      ],
-      currentAssistantText: '',
-    }));
+    // Parse thinking tags from text
+    const parsed = parseThinkingTags(currentAssistantText);
+
+    // Convert parsed blocks to ContentBlocks
+    const contentBlocks = parsed.blocks.map((block) => {
+      if (block.type === 'thinking') {
+        return {
+          type: 'thinking' as const,
+          thinking: block.content,
+          id: `thinking-${Date.now()}-${Math.random()}`,
+        };
+      } else {
+        return {
+          type: 'text' as const,
+          text: block.content,
+        };
+      }
+    });
+
+    // Only add message if there are blocks
+    if (contentBlocks.length > 0) {
+      set((prev) => ({
+        messages: [
+          ...prev.messages,
+          {
+            role: 'assistant',
+            blocks: contentBlocks,
+          },
+        ],
+        currentAssistantText: '',
+      }));
+    } else {
+      set({ currentAssistantText: '' });
+    }
   },
 
   // Session Management Actions
@@ -202,6 +227,33 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           if (lastAssistant && lastAssistant.role === 'assistant') {
             lastAssistant.blocks.push(...msg.blocks);
           }
+        } else if (msg.role === 'assistant') {
+          // Parse thinking tags in text blocks
+          const parsedBlocks: any[] = [];
+          
+          for (const block of msg.blocks) {
+            if (block.type === 'text' && block.text) {
+              const parsed = parseThinkingTags(block.text);
+              for (const parsedBlock of parsed.blocks) {
+                if (parsedBlock.type === 'thinking') {
+                  parsedBlocks.push({
+                    type: 'thinking',
+                    thinking: parsedBlock.content,
+                    id: `thinking-${Date.now()}-${Math.random()}`,
+                  });
+                } else {
+                  parsedBlocks.push({
+                    type: 'text',
+                    text: parsedBlock.content,
+                  });
+                }
+              }
+            } else {
+              parsedBlocks.push(block);
+            }
+          }
+          
+          mergedMessages.push({ ...msg, blocks: parsedBlocks });
         } else {
           mergedMessages.push({ ...msg });
         }

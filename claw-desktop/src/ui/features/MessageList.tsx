@@ -7,8 +7,22 @@ import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import { renderToolBlock } from '../blocks';
+import { renderToolBlock, ThinkingBlock } from '../blocks';
+import { parseThinkingTags } from '../../lib/parseThinking';
 import 'katex/dist/katex.min.css'; // KaTeX CSS for LaTeX rendering
+
+// Helper: Tạm đóng code blocks chưa hoàn chỉnh khi streaming
+function fixIncompleteCodeBlocks(text: string): string {
+  // Count opening ``` 
+  const openingCount = (text.match(/^```/gm) || []).length;
+  
+  // If odd number of ```, add closing ```
+  if (openingCount % 2 === 1) {
+    return text + '\n```';
+  }
+  
+  return text;
+}
 
 export function MessageList() {
   const { messages, currentAssistantText, state } = useChatStore();
@@ -65,6 +79,15 @@ export function MessageList() {
                       </div>
                     );
                   }
+                  if (block.type === 'thinking') {
+                    return (
+                      <ThinkingBlock
+                        key={blockIdx}
+                        thinking={block.thinking || ''}
+                        isStreaming={block.isStreaming}
+                      />
+                    );
+                  }
                   if (block.type === 'tool_use') {
                     // Check if there's a corresponding tool_result in the same message
                     const toolResult = message.blocks.find(
@@ -96,14 +119,56 @@ export function MessageList() {
         {currentAssistantText && (
           <div className="flex w-full items-start gap-2 justify-start">
             <div className="w-full rounded-lg px-3 py-2 text-sm">
-              <div className="prose prose-sm dark:prose-invert max-w-none">
-                <ReactMarkdown 
-                  remarkPlugins={[remarkGfm, remarkMath]}
-                  rehypePlugins={[rehypeKatex]}
-                >
-                  {currentAssistantText}
-                </ReactMarkdown>
-              </div>
+              {(() => {
+                // Parse thinking tags in real-time
+                const parsed = parseThinkingTags(currentAssistantText);
+                
+                return (
+                  <div className="space-y-2">
+                    {parsed.blocks.map((block, idx) => {
+                      if (block.type === 'thinking') {
+                        return (
+                          <ThinkingBlock
+                            key={idx}
+                            thinking={block.content}
+                            isStreaming={!block.isComplete}
+                          />
+                        );
+                      } else {
+                        return (
+                          <div key={idx} className="prose prose-sm dark:prose-invert max-w-none">
+                            <ReactMarkdown 
+                              remarkPlugins={[remarkGfm, remarkMath]}
+                              rehypePlugins={[rehypeKatex]}
+                              components={{
+                                code({ node, inline, className, children, ...props }: any) {
+                                  const match = /language-(\w+)/.exec(className || '');
+                                  return !inline && match ? (
+                                    <SyntaxHighlighter
+                                      style={oneDark as any}
+                                      language={match[1]}
+                                      PreTag="div"
+                                      {...props}
+                                    >
+                                      {String(children).replace(/\n$/, '')}
+                                    </SyntaxHighlighter>
+                                  ) : (
+                                    <code className={className} {...props}>
+                                      {children}
+                                    </code>
+                                  );
+                                },
+                              }}
+                            >
+                              {fixIncompleteCodeBlocks(block.content)}
+                            </ReactMarkdown>
+                          </div>
+                        );
+                      }
+                    })}
+                  </div>
+                );
+              })()}
             </div>
           </div>
         )}

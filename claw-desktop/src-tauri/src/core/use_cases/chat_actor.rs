@@ -282,10 +282,8 @@ impl ChatSessionActor {
         let new_session = runtime::Session::new();
         self.runtime.replace_session(new_session);
         
-        // Create new session metadata
-        let metadata =
-            crate::core::domain::session_metadata::SessionMetadata::new(session_id.clone(), None);
-        self.session_repository.save_metadata(&metadata)?;
+        // KHÔNG save metadata ngay - chỉ save khi có tin nhắn đầu tiên
+        // (tránh sessions rỗng xuất hiện trong list)
 
         // Set as current
         self.current_session_id = Some(session_id.clone());
