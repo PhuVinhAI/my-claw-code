@@ -9,6 +9,8 @@ use crate::setup::app_state::AppState;
 /// Send prompt command - Non-blocking (fire and forget)
 #[tauri::command]
 pub async fn send_prompt(text: String, state: State<'_, AppState>) -> Result<(), String> {
+    eprintln!("[COMMAND] send_prompt called with text: {}...", &text.chars().take(50).collect::<String>());
+    
     // Reset cờ hủy trước khi chạy prompt mới
     state.cancel_flag.store(false, Ordering::Relaxed);
     
@@ -17,18 +19,23 @@ pub async fn send_prompt(text: String, state: State<'_, AppState>) -> Result<(),
     tokio::spawn(async move {
         let (tx, rx) = oneshot::channel();
         
+        eprintln!("[COMMAND] Sending ActorCommand::Prompt to actor...");
         if let Err(e) = actor_tx.send(ActorCommand::Prompt { text, response_tx: tx }).await {
             eprintln!("[ERROR] Failed to send prompt to actor: {}", e);
             return;
         }
         
+        eprintln!("[COMMAND] Waiting for actor response...");
         // Await response trong background task (không block UI)
-        if let Err(e) = rx.await {
-            eprintln!("[ERROR] Failed to receive response: {}", e);
+        match rx.await {
+            Ok(Ok(_summary)) => eprintln!("[COMMAND] Actor completed successfully"),
+            Ok(Err(e)) => eprintln!("[ERROR] Actor returned error: {}", e),
+            Err(e) => eprintln!("[ERROR] Failed to receive response: {}", e),
         }
     });
 
     // Return ngay lập tức (không đợi Actor xử lý)
+    eprintln!("[COMMAND] send_prompt returning immediately");
     Ok(())
 }
 
@@ -119,12 +126,6 @@ pub fn cancel_prompt(state: State<'_, AppState>) {
     state.cancel_flag.store(true, Ordering::Relaxed);
     // Send cancel event to tool executor
     let _ = state.cancel_tx.send(());
-}
-
-/// Lấy thông tin model hiện tại đang sử dụng
-#[tauri::command]
-pub fn get_model() -> String {
-    std::env::var("CLAW_MODEL").unwrap_or_else(|_| "nvidia/nemotron-3-super-120b-a12b".to_string())
 }
 
 /// List all sessions with metadata
@@ -464,4 +465,143 @@ pub async fn set_selected_tools(
 
     rx.await
         .map_err(|e| format!("Failed to receive response: {}", e))?
+}
+
+
+// ============================================================================
+// SETTINGS COMMANDS
+// ============================================================================
+
+use crate::core::domain::settings::{Model, Provider, SelectedModel, Settings};
+
+/// Check if onboarding is complete (settings configured)
+#[tauri::command]
+pub fn check_onboarding_complete(state: State<'_, AppState>) -> Result<bool, String> {
+    let settings = state.settings_manager.load()?;
+    Ok(settings.is_configured())
+}
+
+/// Get all settings
+#[tauri::command]
+pub fn get_settings(state: State<'_, AppState>) -> Result<Settings, String> {
+    state.settings_manager.load()
+}
+
+/// Save settings
+#[tauri::command]
+pub fn save_settings(settings: Settings, state: State<'_, AppState>) -> Result<(), String> {
+    state.settings_manager.save(&settings)
+}
+
+/// Add provider
+#[tauri::command]
+pub fn add_provider(provider: Provider, state: State<'_, AppState>) -> Result<(), String> {
+    let mut settings = state.settings_manager.load()?;
+    settings.add_provider(provider)?;
+    state.settings_manager.save(&settings)
+}
+
+/// Update provider
+#[tauri::command]
+pub fn update_provider(provider: Provider, state: State<'_, AppState>) -> Result<(), String> {
+    let mut settings = state.settings_manager.load()?;
+    settings.update_provider(provider)?;
+    state.settings_manager.save(&settings)
+}
+
+/// Delete provider
+#[tauri::command]
+pub fn delete_provider(provider_id: String, state: State<'_, AppState>) -> Result<(), String> {
+    let mut settings = state.settings_manager.load()?;
+    settings.delete_provider(&provider_id)?;
+    state.settings_manager.save(&settings)
+}
+
+/// Add model to provider
+#[tauri::command]
+pub fn add_model(provider_id: String, model: Model, state: State<'_, AppState>) -> Result<(), String> {
+    let mut settings = state.settings_manager.load()?;
+    settings.add_model(&provider_id, model)?;
+    state.settings_manager.save(&settings)
+}
+
+/// Update model
+#[tauri::command]
+pub fn update_model(provider_id: String, model: Model, state: State<'_, AppState>) -> Result<(), String> {
+    let mut settings = state.settings_manager.load()?;
+    settings.update_model(&provider_id, model)?;
+    state.settings_manager.save(&settings)
+}
+
+/// Delete model
+#[tauri::command]
+pub fn delete_model(provider_id: String, model_id: String, state: State<'_, AppState>) -> Result<(), String> {
+    let mut settings = state.settings_manager.load()?;
+    settings.delete_model(&provider_id, &model_id)?;
+    state.settings_manager.save(&settings)
+}
+
+/// Set selected model
+#[tauri::command]
+pub fn set_selected_model(provider_id: String, model_id: String, state: State<'_, AppState>) -> Result<(), String> {
+    let mut settings = state.settings_manager.load()?;
+    settings.set_selected_model(provider_id, model_id)?;
+    state.settings_manager.save(&settings)
+}
+
+/// Get selected model info (provider + model)
+#[tauri::command]
+pub fn get_selected_model_info(state: State<'_, AppState>) -> Result<Option<(Provider, Model)>, String> {
+    let settings = state.settings_manager.load()?;
+    
+    if let Some(ref selected) = settings.selected_model {
+        let provider = settings.get_provider(&selected.provider_id)
+            .ok_or_else(|| format!("Provider '{}' not found", selected.provider_id))?;
+        
+        let model = provider.models.iter()
+            .find(|m| m.id == selected.model_id)
+            .ok_or_else(|| format!("Model '{}' not found", selected.model_id))?;
+        
+        Ok(Some((provider.clone(), model.clone())))
+    } else {
+        Ok(None)
+    }
+}
+
+
+/// Reload API client with new model configuration from settings
+#[tauri::command]
+pub async fn reload_api_client(state: State<'_, AppState>) -> Result<(), String> {
+    eprintln!("[COMMAND] reload_api_client called");
+    
+    // Load settings
+    let settings = state.settings_manager.load()?;
+    
+    // Get selected model
+    let (model, api_key, base_url) = if let Some(ref selected) = settings.selected_model {
+        let provider = settings.get_provider(&selected.provider_id)
+            .ok_or_else(|| format!("Provider '{}' not found", selected.provider_id))?;
+        
+        let model_obj = provider.models.iter()
+            .find(|m| m.id == selected.model_id)
+            .ok_or_else(|| format!("Model '{}' not found in provider '{}'", selected.model_id, selected.provider_id))?;
+        
+        eprintln!("[COMMAND] Reloading with model: {} ({})", model_obj.name, model_obj.id);
+        (model_obj.id.clone(), provider.api_key.clone(), provider.base_url.clone())
+    } else {
+        return Err("No model selected in settings".to_string());
+    };
+    
+    // Update environment variables
+    std::env::set_var("OPENAI_API_KEY", &api_key);
+    std::env::set_var("OPENAI_BASE_URL", &base_url);
+    
+    // Send command to actor to reload API client
+    let (tx, rx) = oneshot::channel();
+    state.actor_tx.send(ActorCommand::ReloadApiClient {
+        model,
+        response_tx: tx,
+    }).await.map_err(|e| format!("Failed to send reload command: {}", e))?;
+    
+    rx.await.map_err(|e| format!("Failed to receive response: {}", e))?
 }

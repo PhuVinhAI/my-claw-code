@@ -38,3 +38,6 @@ pub enum WorkMode {
     Normal,    // Chế độ thông thường - read-only tools
     Workspace, // Chế độ làm việc - full tool access
 }
+
+// Re-export settings types from domain module
+pub use super::settings::{Model, Provider, SelectedModel, Settings, SettingsManager};

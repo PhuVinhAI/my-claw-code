@@ -28,7 +28,6 @@ pub fn run() {
             save_session,
             get_session,
             cancel_prompt,
-            get_model,
             list_sessions,
             delete_session,
             rename_session,
@@ -43,7 +42,20 @@ pub fn run() {
             set_work_mode,
             get_workspace_path,
             reload_tool_definitions,
-            set_selected_tools
+            set_selected_tools,
+            // Settings commands
+            check_onboarding_complete,
+            get_settings,
+            save_settings,
+            add_provider,
+            update_provider,
+            delete_provider,
+            add_model,
+            update_model,
+            delete_model,
+            set_selected_model,
+            get_selected_model_info,
+            reload_api_client
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

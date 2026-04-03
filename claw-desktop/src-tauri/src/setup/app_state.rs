@@ -7,6 +7,7 @@ use crossbeam_channel::Sender;
 use crate::adapters::outbound::tauri_prompter::PermissionState;
 use crate::core::use_cases::chat_actor::ActorCommand;
 use crate::core::domain::types::WorkMode;
+use crate::core::domain::settings::SettingsManager;
 
 /// Application State - Shared across Tauri commands
 pub struct AppState {
@@ -17,6 +18,7 @@ pub struct AppState {
     pub tool_stdin_tx: crossbeam_channel::Sender<(String, String)>, // (tool_use_id, input)
     pub work_mode: Arc<Mutex<WorkMode>>,
     pub workspace_path: Arc<Mutex<Option<String>>>,
+    pub settings_manager: SettingsManager,
 }
 
 impl AppState {
@@ -26,6 +28,7 @@ impl AppState {
         cancel_flag: Arc<AtomicBool>,
         cancel_tx: Sender<()>,
         tool_stdin_tx: crossbeam_channel::Sender<(String, String)>,
+        settings_manager: SettingsManager,
     ) -> Self {
         Self {
             actor_tx,
@@ -35,6 +38,7 @@ impl AppState {
             tool_stdin_tx,
             work_mode: Arc::new(Mutex::new(WorkMode::Normal)),
             workspace_path: Arc::new(Mutex::new(None)),
+            settings_manager,
         }
     }
 }

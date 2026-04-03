@@ -12,7 +12,6 @@ interface ChatStore {
   messages: Message[];
   currentAssistantText: string;
   gateway: IChatGateway;
-  model: string;
 
   // Session Management
   sessions: SessionMetadata[];
@@ -30,7 +29,6 @@ interface ChatStore {
   sendPrompt: (text: string) => Promise<void>;
   answerPermission: (allow: boolean) => Promise<void>;
   stopGeneration: () => Promise<void>;
-  fetchModel: () => Promise<void>;
   sendToolInput: (toolUseId: string, input: string) => Promise<void>; // Send stdin to tool
 
   // Session Actions
@@ -57,7 +55,6 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   messages: [],
   currentAssistantText: '',
   gateway: new TauriChatGateway(),
-  model: "Đang tải...",
   sessions: [],
   currentSessionId: null,
   isLoadingSessions: false,
@@ -84,6 +81,8 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   sendPrompt: async (text) => {
     const { gateway, dispatch, currentSessionId } = get();
 
+    console.log('[STORE] sendPrompt called with text:', text.substring(0, 50) + '...');
+
     // Create new session ONLY if none exists AND this is the first message
     if (!currentSessionId) {
       // Generate new session ID
@@ -106,8 +105,11 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     dispatch({ type: 'USER_SENT_PROMPT', text });
 
     try {
+      console.log('[STORE] Calling gateway.sendPrompt...');
       await gateway.sendPrompt(text);
+      console.log('[STORE] gateway.sendPrompt completed');
     } catch (error) {
+      console.error('[STORE] Error sending prompt:', error);
       dispatch({ type: 'ERROR', message: String(error) });
     }
   },
@@ -118,16 +120,6 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
     await gateway.answerPermission(state.request.request_id, allow);
     dispatch({ type: 'PERMISSION_ANSWERED', allow });
-  },
-
-  fetchModel: async () => {
-    const { gateway } = get();
-    try {
-      const model = await gateway.getModel();
-      set({ model });
-    } catch (e) {
-      console.error("Failed to load model from Rust:", e);
-    }
   },
 
   stopGeneration: async () => {
@@ -432,11 +424,11 @@ export function initializeChatStore() {
   const store = useChatStore.getState();
   const { gateway, dispatch, appendTextDelta, flushAssistantMessage, autoSaveCurrentSession, loadSessions } = store;
 
-  store.fetchModel();
   store.fetchWorkMode(); // Fetch work mode on init
   loadSessions(); // Load sessions on init
 
   gateway.onStreamEvent((event: StreamEvent) => {
+    console.log('[STORE] Received stream event:', event.type);
     switch (event.type) {
       case 'text_delta':
         appendTextDelta(event.delta);

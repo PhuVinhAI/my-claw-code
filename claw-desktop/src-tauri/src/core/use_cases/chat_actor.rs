@@ -74,6 +74,10 @@ pub enum ActorCommand {
         tools: Vec<String>,
         response_tx: oneshot::Sender<Result<(), String>>,
     },
+    ReloadApiClient {
+        model: String,
+        response_tx: oneshot::Sender<Result<(), String>>,
+    },
 }
 
 /// ChatSessionActor - Chạy trên tokio::task độc lập
@@ -113,13 +117,21 @@ impl ChatSessionActor {
 
     /// Main loop - Nhận messages từ inbox và xử lý
     pub async fn run(mut self) {
+        eprintln!("[ACTOR] ChatSessionActor started, waiting for commands...");
         while let Some(command) = self.inbox.recv().await {
+            eprintln!("[ACTOR] Received command: {:?}", std::mem::discriminant(&command));
             match command {
                 ActorCommand::Prompt { text, response_tx } => {
+                    eprintln!("[ACTOR] Processing Prompt command...");
                     let result = self.handle_prompt(text).await;
+                    match &result {
+                        Ok(summary) => eprintln!("[ACTOR] Prompt completed successfully, iterations: {}", summary.iterations),
+                        Err(e) => eprintln!("[ACTOR] Prompt failed: {}", e),
+                    }
                     let _ = response_tx.send(result);
                 }
                 ActorCommand::Cancel => {
+                    eprintln!("[ACTOR] Processing Cancel command");
                     self.handle_cancel();
                 }
                 ActorCommand::LoadSession {
@@ -191,6 +203,11 @@ impl ChatSessionActor {
                 }
                 ActorCommand::SetSelectedTools { tools, response_tx } => {
                     let result = self.handle_set_selected_tools(tools);
+                    let _ = response_tx.send(result);
+                }
+                ActorCommand::ReloadApiClient { model, response_tx } => {
+                    eprintln!("[ACTOR] Processing ReloadApiClient command with model: {}", model);
+                    let result = self.handle_reload_api_client(model);
                     let _ = response_tx.send(result);
                 }
             }
@@ -465,6 +482,29 @@ impl ChatSessionActor {
             );
         }
         
+        Ok(())
+    }
+    
+    fn handle_reload_api_client(&mut self, model: String) -> Result<(), String> {
+        eprintln!("[ACTOR] Reloading API client with model: {}", model);
+        
+        // Get current tool definitions
+        let tool_definitions = self.runtime.api_client().get_tool_definitions();
+        let event_publisher = self.event_publisher.clone();
+        let cancel_flag = Arc::new(std::sync::atomic::AtomicBool::new(false)); // TODO: Share with existing cancel_flag
+        
+        // Create new API client
+        let new_client = crate::adapters::outbound::api_client::TauriApiClient::new(
+            &model,
+            event_publisher,
+            tool_definitions,
+            cancel_flag,
+        ).map_err(|e| format!("Failed to create new API client: {}", e))?;
+        
+        // Replace API client in runtime
+        self.runtime.replace_api_client(new_client);
+        
+        eprintln!("[ACTOR] API client reloaded successfully");
         Ok(())
     }
 }

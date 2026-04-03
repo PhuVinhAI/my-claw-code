@@ -427,9 +427,19 @@ where
         self.system_prompt = new_system_prompt;
     }
     
+    /// Get reference to API client
+    pub fn api_client(&self) -> &C {
+        &self.api_client
+    }
+    
     /// Get mutable reference to API client (for updating tool definitions)
     pub fn api_client_mut(&mut self) -> &mut C {
         &mut self.api_client
+    }
+    
+    /// Replace API client (e.g., when model changes)
+    pub fn replace_api_client(&mut self, new_api_client: C) {
+        self.api_client = new_api_client;
     }
     
     /// Get mutable reference to tool executor (for getting updated definitions)

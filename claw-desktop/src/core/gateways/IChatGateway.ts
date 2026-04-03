@@ -11,7 +11,6 @@ export interface IChatGateway {
   saveSession(sessionId: string): Promise<void>;
   getSession(): Promise<Session>;
   cancelPrompt(): Promise<void>;
-  getModel(): Promise<string>;
   sendToolInput(toolUseId: string, input: string): Promise<void>; // Send stdin to interactive tool
 
   // Session CRUD

@@ -39,6 +39,11 @@ impl TauriApiClient {
     pub fn set_tool_definitions(&mut self, tool_definitions: Vec<api::ToolDefinition>) {
         self.tool_definitions = tool_definitions;
     }
+    
+    /// Get current tool definitions
+    pub fn get_tool_definitions(&self) -> Vec<api::ToolDefinition> {
+        self.tool_definitions.clone()
+    }
 }
 
 impl ApiClient for TauriApiClient {
@@ -63,7 +68,12 @@ impl ApiClient for TauriApiClient {
             } else {
                 Some(self.tool_definitions.clone())
             },
-            tool_choice: Some(ToolChoice::Auto),
+            // Only set tool_choice if tools are available
+            tool_choice: if self.tool_definitions.is_empty() {
+                None
+            } else {
+                Some(ToolChoice::Auto)
+            },
             stream: true,
         };
 

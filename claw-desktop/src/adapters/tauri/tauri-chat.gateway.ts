@@ -29,10 +29,6 @@ export class TauriChatGateway implements IChatGateway {
     await invoke('cancel_prompt');
   }
 
-  async getModel(): Promise<string> {
-    return await invoke('get_model');
-  }
-
   async sendToolInput(toolUseId: string, input: string): Promise<void> {
     await invoke('send_tool_input', { toolUseId, input });
   }

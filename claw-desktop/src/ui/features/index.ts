@@ -4,3 +4,4 @@ export * from './PermissionModal';
 export * from './SessionList';
 export * from './SessionItem';
 export * from './ConfirmDeleteDialog';
+export * from './ModelSelector';

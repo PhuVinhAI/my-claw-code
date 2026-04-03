@@ -2,11 +2,12 @@
 import { useState, useRef, useEffect } from 'react';
 import { useChatStore } from '../../store';
 import { Textarea } from '../../components/ui/textarea';
-import { Send, Square, Bot, FolderOpen, ChevronDown, Sparkles, FolderSync, History } from 'lucide-react';
+import { Send, Square, FolderOpen, ChevronDown, Sparkles, FolderSync, History } from 'lucide-react';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuItem, DropdownMenuGroup } from '../../components/ui/dropdown-menu';
 import { cn } from '../../lib/utils';
 import { WorkMode, WorkModeLabels } from '../../core/entities/WorkMode';
 import { invoke } from '@tauri-apps/api/core';
+import { ModelSelector } from './ModelSelector';
 
 export function ChatInput() {
   const [input, setInput] = useState('');
@@ -14,7 +15,7 @@ export function ChatInput() {
   const [toolsOpen, setToolsOpen] = useState(false); // Tools dropdown
   const modeRef = useRef<HTMLDivElement>(null);
   const toolsRef = useRef<HTMLDivElement>(null);
-  const { state, messages, sendPrompt, stopGeneration, model, workMode, workspacePath, setWorkMode, selectedTools, setSelectedTools, recentWorkspaces } = useChatStore();
+  const { state, messages, sendPrompt, stopGeneration, workMode, workspacePath, setWorkMode, selectedTools, setSelectedTools, recentWorkspaces } = useChatStore();
   const isGenerating = state.status !== 'IDLE';
   const isEmpty = messages.length === 0;
 
@@ -269,11 +270,8 @@ export function ChatInput() {
             </>
           )}
 
-          {/* Model badge */}
-          <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground bg-muted/50 px-3 py-1.5 rounded-lg border border-border/50">
-            <Bot className="h-4 w-4 text-primary" />
-            <span>{model}</span>
-          </div>
+          {/* Model Selector */}
+          <ModelSelector />
         </div>
 
         {/* Send / Stop */}

@@ -13,6 +13,7 @@ use crate::adapters::outbound::tauri_publisher::TauriEventPublisher;
 use crate::core::use_cases::chat_actor::{ActorCommand, ChatSessionActor};
 use crate::core::use_cases::ports::{IEventPublisher, ISessionRepository};
 use crate::setup::app_state::AppState;
+use crate::core::domain::settings::SettingsManager;
 
 /// Load environment variables from .env file
 fn load_env_vars() {
@@ -26,27 +27,27 @@ fn load_env_vars() {
     }
 }
 
-/// Get model from environment or use default
-fn get_model_from_env() -> String {
-    std::env::var("CLAW_MODEL").unwrap_or_else(|_| "stepfun-ai/step-3.5-flash".to_string())
+/// Get model configuration from environment (fallback)
+fn get_model_from_env() -> (String, String, String) {
+    let model = std::env::var("CLAW_MODEL").unwrap_or_else(|_| "gpt-4".to_string());
+    let api_key = std::env::var("OPENAI_API_KEY").unwrap_or_default();
+    let base_url = std::env::var("OPENAI_BASE_URL")
+        .unwrap_or_else(|_| "https://api.openai.com/v1".to_string());
+    (model, api_key, base_url)
 }
 
 /// Initialize DI Container và spawn Actor
 pub fn initialize_app(app_handle: AppHandle) -> Result<AppState, String> {
-    // Load environment variables
+    // Load environment variables (for backward compatibility)
     load_env_vars();
-
-    // Get model from env
-    let model = get_model_from_env();
-    eprintln!("Using model: {}", model);
 
     // Use Tauri's async runtime to initialize
     tauri::async_runtime::block_on(async {
-        initialize_app_async(app_handle, model).await
+        initialize_app_async(app_handle).await
     })
 }
 
-async fn initialize_app_async(app_handle: AppHandle, model: String) -> Result<AppState, String> {
+async fn initialize_app_async(app_handle: AppHandle) -> Result<AppState, String> {
     // 1. Create Event Publisher
     let event_publisher: Arc<dyn IEventPublisher> =
         Arc::new(TauriEventPublisher::new(app_handle.clone()));
@@ -66,6 +67,47 @@ async fn initialize_app_async(app_handle: AppHandle, model: String) -> Result<Ap
     let repository: Arc<dyn ISessionRepository> =
         Arc::new(FileSessionRepository::new(sessions_dir)?);
 
+    // 3.5. Create Settings Manager
+    let settings_path = app_handle
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("Failed to get app data dir: {}", e))?
+        .join("settings.json");
+    let settings_manager = SettingsManager::new(settings_path);
+    
+    // Try to load settings and configure API client
+    let settings = settings_manager.load().unwrap_or_else(|_| {
+        eprintln!("Warning: Could not load settings, using empty settings");
+        use crate::core::domain::settings::Settings;
+        Settings::new()
+    });
+    
+    // Get model configuration from settings or fallback to env
+    let (model, api_key, base_url) = if let Some(ref selected) = settings.selected_model {
+        if let Some(provider) = settings.get_provider(&selected.provider_id) {
+            if let Some(model_obj) = provider.models.iter().find(|m| m.id == selected.model_id) {
+                eprintln!("✓ Using model from settings: {} ({})", model_obj.name, model_obj.id);
+                (model_obj.id.clone(), provider.api_key.clone(), provider.base_url.clone())
+            } else {
+                eprintln!("Warning: Model not found in settings, falling back to env");
+                get_model_from_env()
+            }
+        } else {
+            eprintln!("Warning: Provider not found in settings, falling back to env");
+            get_model_from_env()
+        }
+    } else {
+        eprintln!("Warning: No model selected in settings, falling back to env");
+        get_model_from_env()
+    };
+
+    // Set environment variables for API client
+    if !api_key.is_empty() {
+        std::env::set_var("OPENAI_API_KEY", &api_key);
+        std::env::set_var("OPENAI_BASE_URL", &base_url);
+    } else {
+        eprintln!("Warning: No API key configured. App will start but chat will not work until configured.");
+    }
     // 4. Create cancel flag (shared)
     let cancel_flag = Arc::new(std::sync::atomic::AtomicBool::new(false));
 
@@ -137,5 +179,5 @@ async fn initialize_app_async(app_handle: AppHandle, model: String) -> Result<Ap
     });
 
     // 16. Return AppState
-    Ok(AppState::new(tx, permission_state, cancel_flag, cancel_tx, tool_stdin_tx))
+    Ok(AppState::new(tx, permission_state, cancel_flag, cancel_tx, tool_stdin_tx, settings_manager))
 }
