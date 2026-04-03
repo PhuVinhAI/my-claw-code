@@ -1,7 +1,7 @@
 // CodeBlock - Minimal code block with header and copy
 import { useState } from 'react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { Check, Copy } from 'lucide-react';
 import { cn } from '../lib/utils';
 
@@ -12,6 +12,7 @@ interface CodeBlockProps {
 
 export function CodeBlock({ language, code }: CodeBlockProps) {
   const [copied, setCopied] = useState(false);
+  const isDark = document.documentElement.classList.contains('dark');
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(code);
@@ -20,25 +21,25 @@ export function CodeBlock({ language, code }: CodeBlockProps) {
   };
 
   return (
-    <div className="my-3 rounded-xl overflow-hidden bg-[#1e1e2e] border border-white/[0.06]">
+    <div className="my-3 rounded-xl overflow-hidden bg-muted/10 border border-border/30">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-2 bg-white/[0.03]">
-        <span className="text-[11px] font-mono text-white/30 uppercase tracking-wider">
+      <div className="flex items-center justify-between px-4 py-2.5 bg-muted/20 border-b border-border/30">
+        <span className="text-[11px] font-mono text-muted-foreground/70 uppercase tracking-wider font-semibold">
           {language}
         </span>
         <button
           onClick={handleCopy}
           className={cn(
-            'flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] transition-all duration-150',
+            'flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] transition-all duration-150 font-medium',
             copied
-              ? 'text-emerald-400'
-              : 'text-white/30 hover:text-white/60 hover:bg-white/5'
+              ? 'text-emerald-400 bg-emerald-400/10'
+              : 'text-muted-foreground/70 hover:text-foreground/90 hover:bg-muted/30'
           )}
         >
           {copied ? (
             <>
               <Check className="w-3 h-3" />
-              <span>Copied</span>
+              <span>Đã copy</span>
             </>
           ) : (
             <>
@@ -51,7 +52,7 @@ export function CodeBlock({ language, code }: CodeBlockProps) {
 
       {/* Code */}
       <SyntaxHighlighter
-        style={oneDark as any}
+        style={isDark ? oneDark : oneLight as any}
         language={language}
         PreTag="div"
         customStyle={{

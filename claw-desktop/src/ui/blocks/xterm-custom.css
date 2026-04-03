@@ -25,3 +25,11 @@
   height: 100%;
 }
 
+/* Theme-aware background */
+.xterm-container {
+  background: oklch(0.269 0 0 / 5%);
+}
+
+.dark .xterm-container {
+  background: oklch(0.269 0 0 / 5%);
+}

@@ -39,30 +39,33 @@ export function REPLBlock({
   useEffect(() => {
     if (!terminalRef.current || xtermRef.current) return;
 
+    // Get theme colors from CSS variables
+    const isDark = document.documentElement.classList.contains('dark');
+
     const term = new Terminal({
       cursorBlink: false,
       fontSize: 13,
       fontFamily: 'Consolas, "Courier New", monospace',
       theme: {
-        background: '#0f172a',
-        foreground: '#cbd5e1',
-        cursor: '#22c55e',
-        black: '#1e293b',
+        background: isDark ? '#252525' : '#fafafa', // muted background
+        foreground: isDark ? '#e5e5e5' : '#262626', // foreground
+        cursor: '#22c55e', // emerald-400
+        black: isDark ? '#1a1a1a' : '#525252',
         red: '#ef4444',
         green: '#22c55e',
         yellow: '#eab308',
         blue: '#3b82f6',
         magenta: '#a855f7',
         cyan: '#06b6d4',
-        white: '#cbd5e1',
-        brightBlack: '#475569',
+        white: isDark ? '#d4d4d4' : '#737373',
+        brightBlack: isDark ? '#525252' : '#a3a3a3',
         brightRed: '#f87171',
         brightGreen: '#4ade80',
         brightYellow: '#facc15',
         brightBlue: '#60a5fa',
         brightMagenta: '#c084fc',
         brightCyan: '#22d3ee',
-        brightWhite: '#e2e8f0',
+        brightWhite: isDark ? '#fafafa' : '#171717',
       },
       rows: 15,
       cols: 80,
@@ -105,69 +108,69 @@ export function REPLBlock({
 
   if (isCancelled) {
     return (
-      <div className="bg-slate-900 dark:bg-slate-950 rounded-lg border border-slate-700 w-full overflow-hidden">
-        <div className="flex items-center justify-between px-3 py-2 bg-slate-800 dark:bg-slate-900 border-b border-slate-700">
-          <div className="flex items-center gap-2">
+      <div className="bg-muted/10 rounded-lg border border-border/30 w-full overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-2.5 bg-muted/20 border-b border-border/30">
+          <div className="flex items-center gap-2.5">
             <XCircle className="h-4 w-4 text-red-400" />
-            <Code className="h-4 w-4 text-slate-400" />
-            <span className="text-xs font-medium text-slate-300">Python REPL</span>
+            <Code className="h-4 w-4 text-muted-foreground/70" />
+            <span className="text-sm font-semibold text-foreground/90">Python REPL</span>
           </div>
         </div>
-        <div className="border-t border-slate-700 px-3 py-2 bg-slate-800/50">
-          <p className="text-xs text-red-300 font-mono">Đã dừng bởi người dùng</p>
+        <div className="px-4 py-3 bg-muted/5">
+          <p className="text-sm text-red-400 font-mono">Đã dừng bởi người dùng</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="bg-slate-900 dark:bg-slate-950 rounded-lg border border-slate-700 w-full overflow-hidden">
+    <div className="bg-muted/10 rounded-lg border border-border/30 w-full overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between px-3 py-2 bg-slate-800 dark:bg-slate-900 border-b border-slate-700">
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between px-4 py-2.5 bg-muted/20 border-b border-border/30">
+        <div className="flex items-center gap-2.5">
           <StatusIcon
             className={cn(
               'h-4 w-4',
               isPending && 'animate-spin text-blue-400',
               isError && 'text-red-400',
-              !isPending && !isError && 'text-green-400'
+              !isPending && !isError && 'text-emerald-400'
             )}
           />
-          <Code className="h-4 w-4 text-slate-400" />
-          <span className="text-xs font-medium text-slate-300">Python REPL</span>
+          <Code className="h-4 w-4 text-muted-foreground/70" />
+          <span className="text-sm font-semibold text-foreground/90">Python REPL</span>
         </div>
       </div>
 
       {/* Collapsible Code Section */}
-      <div className="border-b border-slate-800">
+      <div className="border-b border-border/20">
         <button
           onClick={() => setIsCodeExpanded(!isCodeExpanded)}
-          className="w-full flex items-center gap-2 px-3 py-2 bg-slate-900/50 hover:bg-slate-800/50 transition-colors text-left"
+          className="w-full flex items-center gap-2 px-4 py-2 bg-muted/5 hover:bg-muted/10 transition-colors text-left"
         >
           {isCodeExpanded ? (
-            <ChevronDown className="h-4 w-4 text-slate-400" />
+            <ChevronDown className="h-4 w-4 text-muted-foreground/70" />
           ) : (
-            <ChevronRight className="h-4 w-4 text-slate-400" />
+            <ChevronRight className="h-4 w-4 text-muted-foreground/70" />
           )}
-          <span className="text-xs text-slate-400 font-mono">
+          <span className="text-xs text-muted-foreground/80 font-mono">
             {isCodeExpanded ? 'Ẩn code Python' : 'Xem code Python'}
           </span>
-          <span className="text-xs text-slate-500">({code.split('\n').length} dòng)</span>
+          <span className="text-xs text-muted-foreground/50">({code.split('\n').length} dòng)</span>
         </button>
         
         {isCodeExpanded && (
-          <div className="px-3 py-2 bg-slate-950 border-t border-slate-800 max-h-96 overflow-auto">
-            <pre className="text-xs text-slate-300 font-mono whitespace-pre-wrap">{code}</pre>
+          <div className="px-4 py-3 bg-muted/5 border-t border-border/20 max-h-96 overflow-auto">
+            <pre className="text-xs text-foreground/80 font-mono whitespace-pre-wrap">{code}</pre>
           </div>
         )}
       </div>
 
       {/* Output Terminal */}
-      <div className="px-3 py-2 bg-slate-900/30">
-        <div className="text-xs text-slate-400 mb-2 font-mono">Output:</div>
+      <div className="px-4 py-3 bg-muted/5">
+        <div className="text-xs text-muted-foreground/70 mb-2 font-mono">Output:</div>
         <div 
           ref={terminalRef}
-          className="w-full xterm-container"
+          className="w-full xterm-container rounded-md overflow-hidden border border-border/20"
           style={{ height: '300px' }}
         />
       </div>

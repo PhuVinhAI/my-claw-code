@@ -50,30 +50,33 @@ export function XTermBlock({
   useEffect(() => {
     if (!terminalRef.current || xtermRef.current) return;
 
+    // Get theme colors from CSS variables
+    const isDark = document.documentElement.classList.contains('dark');
+    
     const term = new Terminal({
       cursorBlink: true,
       fontSize: 13,
       fontFamily: 'Consolas, "Courier New", monospace',
       theme: {
-        background: '#0f172a', // slate-900
-        foreground: '#cbd5e1', // slate-300
-        cursor: '#22c55e', // green-400
-        black: '#1e293b',
+        background: isDark ? '#252525' : '#fafafa', // muted background
+        foreground: isDark ? '#e5e5e5' : '#262626', // foreground
+        cursor: '#22c55e', // emerald-400
+        black: isDark ? '#1a1a1a' : '#525252',
         red: '#ef4444',
         green: '#22c55e',
         yellow: '#eab308',
         blue: '#3b82f6',
         magenta: '#a855f7',
         cyan: '#06b6d4',
-        white: '#cbd5e1',
-        brightBlack: '#475569',
+        white: isDark ? '#d4d4d4' : '#737373',
+        brightBlack: isDark ? '#525252' : '#a3a3a3',
         brightRed: '#f87171',
         brightGreen: '#4ade80',
         brightYellow: '#facc15',
         brightBlue: '#60a5fa',
         brightMagenta: '#c084fc',
         brightCyan: '#22d3ee',
-        brightWhite: '#e2e8f0',
+        brightWhite: isDark ? '#fafafa' : '#171717',
       },
       rows: 24,
       cols: 80,
@@ -125,19 +128,19 @@ export function XTermBlock({
   // Cancelled state
   if (isCancelled) {
     return (
-      <div className="bg-slate-900 dark:bg-slate-950 rounded-lg border border-slate-700 w-full overflow-hidden">
-        <div className="flex items-center justify-between px-3 py-2 bg-slate-800 dark:bg-slate-900 border-b border-slate-700">
-          <div className="flex items-center gap-2">
+      <div className="bg-muted/10 rounded-lg border border-border/30 w-full overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-2.5 bg-muted/20 border-b border-border/30">
+          <div className="flex items-center gap-2.5">
             <XCircle className="h-4 w-4 text-red-400" />
-            <TerminalIcon className="h-4 w-4 text-slate-400" />
-            <span className="text-xs font-medium text-slate-300">{toolName}</span>
+            <TerminalIcon className="h-4 w-4 text-muted-foreground/70" />
+            <span className="text-sm font-semibold text-foreground/90">{toolName}</span>
           </div>
-          <span className="text-xs text-red-300">Đã dừng bởi người dùng</span>
+          <span className="text-sm text-red-400">Đã dừng bởi người dùng</span>
         </div>
-        <div className="px-3 py-2 font-mono text-sm">
+        <div className="px-4 py-3 bg-muted/5 font-mono text-sm">
           <div className="flex items-center gap-2">
-            <span className="text-green-400 select-none">{toolName === 'PowerShell' ? 'PS>' : '$'}</span>
-            <pre className="flex-1 text-slate-200 whitespace-pre-wrap break-all">{command}</pre>
+            <span className="text-emerald-400 select-none">{toolName === 'PowerShell' ? 'PS>' : '$'}</span>
+            <pre className="flex-1 text-foreground/80 whitespace-pre-wrap break-all">{command}</pre>
           </div>
         </div>
       </div>
@@ -154,20 +157,20 @@ export function XTermBlock({
   };
 
   return (
-    <div className="bg-slate-900 dark:bg-slate-950 rounded-lg border border-slate-700 w-full overflow-hidden font-mono">
+    <div className="bg-muted/10 rounded-lg border border-border/30 w-full overflow-hidden font-mono">
       {/* Header */}
-      <div className="flex items-center justify-between px-3 py-2 bg-slate-800 dark:bg-slate-900 border-b border-slate-700">
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between px-4 py-2.5 bg-muted/20 border-b border-border/30">
+        <div className="flex items-center gap-2.5">
           <StatusIcon
             className={cn(
               'h-4 w-4',
               isPending && 'animate-spin text-blue-400',
               isError && 'text-red-400',
-              !isPending && !isError && 'text-green-400'
+              !isPending && !isError && 'text-emerald-400'
             )}
           />
-          <TerminalIcon className="h-4 w-4 text-slate-400" />
-          <span className="text-xs font-medium text-slate-300">{toolName}</span>
+          <TerminalIcon className="h-4 w-4 text-muted-foreground/70" />
+          <span className="text-sm font-semibold text-foreground/90">{toolName}</span>
         </div>
         
         {/* Stop button - only show when pending */}
@@ -185,10 +188,10 @@ export function XTermBlock({
       </div>
 
       {/* Command Input Line */}
-      <div className="px-3 py-2 bg-slate-900/50 border-b border-slate-800">
+      <div className="px-4 py-2.5 bg-muted/5 border-b border-border/20">
         <div className="flex items-center gap-2">
-          <span className="text-green-400 select-none shrink-0">{getShellPrompt()}</span>
-          <pre className="flex-1 text-slate-200 text-sm whitespace-pre-wrap break-all">{command}</pre>
+          <span className="text-emerald-400 select-none shrink-0">{getShellPrompt()}</span>
+          <pre className="flex-1 text-foreground/80 text-sm whitespace-pre-wrap break-all">{command}</pre>
         </div>
       </div>
 

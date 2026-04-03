@@ -171,7 +171,7 @@ export function ChatInput() {
         placeholder={t('chatInput.placeholder')}
         className={cn(
           "w-full resize-none border-none shadow-none placeholder:text-muted-foreground focus-visible:ring-0",
-          "bg-transparent text-foreground",
+          "!bg-transparent text-foreground",
           workMode === 'normal' ? "rounded-t-2xl rounded-b-none" : "!rounded-none",
           isEmpty
             ? "min-h-[80px] max-h-[300px] px-5 pt-5 pb-3 text-lg leading-relaxed"
