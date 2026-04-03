@@ -65,6 +65,13 @@ pub struct BashCommandOutput {
 }
 
 pub fn execute_bash(input: BashCommandInput) -> io::Result<BashCommandOutput> {
+    execute_bash_with_callback(input, |_chunk| {})
+}
+
+pub fn execute_bash_with_callback<F>(input: BashCommandInput, on_output: F) -> io::Result<BashCommandOutput>
+where
+    F: FnMut(&str) + Send + 'static,
+{
     let cwd = env::current_dir()?;
     let sandbox_status = sandbox_status_for_input(&input, &cwd);
 
@@ -96,23 +103,81 @@ pub fn execute_bash(input: BashCommandInput) -> io::Result<BashCommandOutput> {
     }
 
     let runtime = Builder::new_current_thread().enable_all().build()?;
-    runtime.block_on(execute_bash_async(input, sandbox_status, cwd))
+    runtime.block_on(execute_bash_async(input, sandbox_status, cwd, on_output))
 }
 
-async fn execute_bash_async(
+async fn execute_bash_async<F>(
     input: BashCommandInput,
     sandbox_status: SandboxStatus,
     cwd: std::path::PathBuf,
-) -> io::Result<BashCommandOutput> {
+    mut on_output: F,
+) -> io::Result<BashCommandOutput>
+where
+    F: FnMut(&str) + Send,
+{
+    use tokio::io::{AsyncBufReadExt, BufReader};
+    
     let mut command = prepare_tokio_command(&input.command, &cwd, &sandbox_status, true);
+    command.stdout(Stdio::piped());
+    command.stderr(Stdio::piped());
+
+    let mut child = command.spawn()?;
+    
+    let stdout = child.stdout.take().expect("stdout not captured");
+    let stderr = child.stderr.take().expect("stderr not captured");
+    
+    let mut stdout_reader = BufReader::new(stdout).lines();
+    let mut stderr_reader = BufReader::new(stderr).lines();
+    
+    let mut stdout_lines = Vec::new();
+    let mut stderr_lines = Vec::new();
+    
+    // Stream output line by line
+    let stream_task = async {
+        loop {
+            tokio::select! {
+                result = stdout_reader.next_line() => {
+                    match result {
+                        Ok(Some(line)) => {
+                            on_output(&format!("{}\n", line));
+                            stdout_lines.push(line);
+                        }
+                        Ok(None) => break,
+                        Err(e) => {
+                            eprintln!("[BASH] Error reading stdout: {}", e);
+                            break;
+                        }
+                    }
+                }
+                result = stderr_reader.next_line() => {
+                    match result {
+                        Ok(Some(line)) => {
+                            on_output(&format!("{}\n", line));
+                            stderr_lines.push(line);
+                        }
+                        Ok(None) => {},
+                        Err(e) => {
+                            eprintln!("[BASH] Error reading stderr: {}", e);
+                        }
+                    }
+                }
+            }
+        }
+    };
 
     let output_result = if let Some(timeout_ms) = input.timeout {
-        match timeout(Duration::from_millis(timeout_ms), command.output()).await {
-            Ok(result) => (result?, false),
+        match timeout(Duration::from_millis(timeout_ms), stream_task).await {
+            Ok(_) => {
+                // Wait for process to finish
+                let status = child.wait().await?;
+                (status, false)
+            }
             Err(_) => {
+                // Timeout - kill process
+                let _ = child.kill().await;
                 return Ok(BashCommandOutput {
-                    stdout: String::new(),
-                    stderr: format!("Command exceeded timeout of {timeout_ms} ms"),
+                    stdout: stdout_lines.join("\n"),
+                    stderr: format!("Command exceeded timeout of {timeout_ms} ms\n{}", stderr_lines.join("\n")),
                     raw_output_path: None,
                     interrupted: true,
                     is_image: None,
@@ -130,14 +195,16 @@ async fn execute_bash_async(
             }
         }
     } else {
-        (command.output().await?, false)
+        stream_task.await;
+        let status = child.wait().await?;
+        (status, false)
     };
 
-    let (output, interrupted) = output_result;
-    let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
-    let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
+    let (status, interrupted) = output_result;
+    let stdout = stdout_lines.join("\n");
+    let stderr = stderr_lines.join("\n");
     let no_output_expected = Some(stdout.trim().is_empty() && stderr.trim().is_empty());
-    let return_code_interpretation = output.status.code().and_then(|code| {
+    let return_code_interpretation = status.code().and_then(|code| {
         if code == 0 {
             None
         } else {

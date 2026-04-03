@@ -1,7 +1,7 @@
 // BashBlock - Specialized UI for bash/PowerShell/REPL execution
 import { Terminal, CheckCircle2, XCircle, Loader2, Copy, Check } from 'lucide-react';
 import { cn } from '../../lib/utils';
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 interface BashBlockProps {
   toolName: 'bash' | 'PowerShell' | 'REPL';
@@ -21,6 +21,22 @@ export function BashBlock({
   isCancelled = false,
 }: BashBlockProps) {
   const [copied, setCopied] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
+  const outputRef = useRef<HTMLDivElement>(null);
+
+  // Auto-open when output arrives
+  useEffect(() => {
+    if (output && output.trim().length > 0) {
+      setIsOpen(true);
+    }
+  }, [output]);
+
+  // Auto-scroll to bottom when output changes
+  useEffect(() => {
+    if (outputRef.current && isOpen) {
+      outputRef.current.scrollTop = outputRef.current.scrollHeight;
+    }
+  }, [output, isOpen]);
 
   const handleCopy = async (text: string) => {
     await navigator.clipboard.writeText(text);
@@ -66,7 +82,7 @@ export function BashBlock({
   };
 
   return (
-    <div className="bg-slate-900 dark:bg-slate-950 rounded-lg border border-slate-700 w-full overflow-hidden">
+    <div className="bg-slate-900 dark:bg-slate-950 rounded-lg border border-slate-700 w-full overflow-hidden font-mono">
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2 bg-slate-800 dark:bg-slate-900 border-b border-slate-700">
         <div className="flex items-center gap-2">
@@ -94,32 +110,34 @@ export function BashBlock({
         </button>
       </div>
 
-      {/* Command */}
-      <div className="px-3 py-2 font-mono text-sm">
+      {/* Command Input Line */}
+      <div className="px-3 py-2 bg-slate-900/50 border-b border-slate-800">
         <div className="flex items-start gap-2">
-          <span className="text-green-400 select-none">{getShellPrompt()}</span>
-          <pre className="flex-1 text-slate-200 whitespace-pre-wrap break-all">{command}</pre>
+          <span className="text-green-400 select-none shrink-0">{getShellPrompt()}</span>
+          <pre className="flex-1 text-slate-200 text-sm whitespace-pre-wrap break-all">{command}</pre>
         </div>
       </div>
 
-      {/* Output */}
+      {/* Output - Always visible when exists, auto-scrolling */}
       {output && (
-        <div className="border-t border-slate-700">
-          <details className="group" open={!isPending}>
-            <summary className="px-3 py-1.5 text-xs font-medium text-slate-400 hover:text-slate-300 cursor-pointer select-none bg-slate-800/50 hover:bg-slate-800 transition-colors">
-              {isPending ? 'Đang chạy...' : isError ? 'Lỗi' : 'Kết quả'}
-            </summary>
-            <div className="px-3 py-2 max-h-96 overflow-auto">
-              <pre
-                className={cn(
-                  'font-mono text-xs whitespace-pre-wrap break-all',
-                  isError ? 'text-red-300' : 'text-slate-300'
-                )}
-              >
-                {output}
-              </pre>
+        <div 
+          ref={outputRef}
+          className="px-3 py-2 max-h-96 overflow-auto bg-black/20"
+        >
+          <pre
+            className={cn(
+              'text-xs whitespace-pre-wrap break-all leading-relaxed',
+              isError ? 'text-red-300' : 'text-slate-300'
+            )}
+          >
+            {output}
+          </pre>
+          {isPending && (
+            <div className="flex items-center gap-2 mt-2 text-blue-400">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              <span className="text-xs">Đang chạy...</span>
             </div>
-          </details>
+          )}
         </div>
       )}
     </div>

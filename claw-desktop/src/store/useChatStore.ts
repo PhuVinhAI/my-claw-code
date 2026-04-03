@@ -336,6 +336,57 @@ export function initializeChatStore() {
         });
         dispatch({ type: 'STREAM_TOOL_RESULT' });
         break;
+      case 'tool_output_chunk':
+        // Append chunk to existing tool_result or create new one
+        useChatStore.setState((prev) => {
+          const messages = [...prev.messages];
+
+          // Find the message containing the tool_use with matching id
+          for (let i = messages.length - 1; i >= 0; i--) {
+            const message = messages[i];
+            if (message.role === 'assistant') {
+              const toolUseIdx = message.blocks.findIndex(
+                (b) => b.type === 'tool_use' && b.id === event.tool_use_id
+              );
+
+              if (toolUseIdx !== -1) {
+                const toolUseBlock = message.blocks[toolUseIdx];
+                if (toolUseBlock.type === 'tool_use') {
+                  // Find existing tool_result or create new one
+                  const toolResultIdx = message.blocks.findIndex(
+                    (b) => b.type === 'tool_result' && b.tool_use_id === event.tool_use_id
+                  );
+
+                  if (toolResultIdx !== -1) {
+                    // Append to existing output
+                    const toolResultBlock = message.blocks[toolResultIdx];
+                    if (toolResultBlock.type === 'tool_result') {
+                      message.blocks[toolResultIdx] = {
+                        ...toolResultBlock,
+                        output: (toolResultBlock.output || '') + event.chunk,
+                      };
+                    }
+                  } else {
+                    // Create new tool_result block with chunk
+                    message.blocks.push({
+                      type: 'tool_result',
+                      tool_use_id: event.tool_use_id,
+                      tool_name: toolUseBlock.name,
+                      output: event.chunk,
+                      is_error: false,
+                    });
+                  }
+
+                  messages[i] = { ...message };
+                  break;
+                }
+              }
+            }
+          }
+
+          return { messages };
+        });
+        break;
       case 'message_stop':
         flushAssistantMessage();
         dispatch({ type: 'MESSAGE_STOP' });

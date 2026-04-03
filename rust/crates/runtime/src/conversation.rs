@@ -34,6 +34,12 @@ pub trait ApiClient {
 
 pub trait ToolExecutor {
     fn execute(&mut self, tool_name: &str, input: &str) -> Result<String, ToolError>;
+    
+    /// Execute tool with streaming context (tool_use_id for real-time output)
+    /// Default implementation falls back to execute()
+    fn execute_with_context(&mut self, tool_name: &str, input: &str, _tool_use_id: &str) -> Result<String, ToolError> {
+        self.execute(tool_name, input)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -219,7 +225,7 @@ where
                             )
                         } else {
                             let (mut output, mut is_error) =
-                                match self.tool_executor.execute(&tool_name, &input) {
+                                match self.tool_executor.execute_with_context(&tool_name, &input, &tool_use_id) {
                                     Ok(output) => (output, false),
                                     Err(error) => (error.to_string(), true),
                                 };
@@ -342,7 +348,7 @@ where
                             )
                         } else {
                             let (mut output, mut is_error) =
-                                match self.tool_executor.execute(&tool_name, &input) {
+                                match self.tool_executor.execute_with_context(&tool_name, &input, &tool_use_id) {
                                     Ok(output) => (output, false),
                                     Err(error) => (error.to_string(), true),
                                 };
