@@ -18,6 +18,7 @@ pub enum StreamEvent {
     Usage { usage: TokenUsage },
     MessageStop,
     Error { message: String },
+    SystemMessage { message: String }, // System notification (e.g., tool changes)
 }
 
 /// Permission request event

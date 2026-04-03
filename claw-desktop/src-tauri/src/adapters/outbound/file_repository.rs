@@ -328,4 +328,18 @@ impl ISessionRepository for FileSessionRepository {
     fn set_work_mode(&self, work_mode: String) -> Result<(), String> {
         self.set_work_mode(work_mode)
     }
+    
+    fn get_work_mode(&self) -> Result<String, String> {
+        let mode = self.current_work_mode.read().unwrap();
+        Ok(mode.clone())
+    }
+    
+    fn get_workspace_path(&self) -> Result<Option<String>, String> {
+        let workdir = self.current_working_dir.read().unwrap();
+        if workdir.is_empty() {
+            Ok(None)
+        } else {
+            Ok(Some(workdir.clone()))
+        }
+    }
 }

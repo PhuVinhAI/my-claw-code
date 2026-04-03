@@ -436,3 +436,24 @@ pub async fn reload_tool_definitions(state: State<'_, AppState>) -> Result<(), S
     rx.await
         .map_err(|e| format!("Failed to receive response: {}", e))?
 }
+
+/// Set selected tools for Normal mode (user toggles tools in UI)
+#[tauri::command]
+pub async fn set_selected_tools(
+    tools: Vec<String>,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let (tx, rx) = oneshot::channel();
+
+    state
+        .actor_tx
+        .send(ActorCommand::SetSelectedTools {
+            tools,
+            response_tx: tx,
+        })
+        .await
+        .map_err(|e| format!("Failed to send set selected tools: {}", e))?;
+
+    rx.await
+        .map_err(|e| format!("Failed to receive response: {}", e))?
+}

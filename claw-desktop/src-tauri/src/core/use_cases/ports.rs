@@ -23,4 +23,6 @@ pub trait ISessionRepository: Send + Sync {
     fn load_metadata(&self, session_id: &str) -> Result<SessionMetadata, String>;
     fn set_working_dir(&self, workdir: String) -> Result<(), String>;
     fn set_work_mode(&self, work_mode: String) -> Result<(), String>;
+    fn get_work_mode(&self) -> Result<String, String>;
+    fn get_workspace_path(&self) -> Result<Option<String>, String>;
 }

@@ -25,6 +25,7 @@ export interface IChatGateway {
   getWorkMode(): Promise<WorkMode>;
   setWorkMode(mode: WorkMode, workspacePath?: string): Promise<void>;
   getWorkspacePath(): Promise<string | null>;
+  setSelectedTools(tools: string[]): Promise<void>; // Set selected tools for Normal mode
 
   // Events
   onStreamEvent(callback: (event: StreamEvent) => void): UnsubscribeFn;

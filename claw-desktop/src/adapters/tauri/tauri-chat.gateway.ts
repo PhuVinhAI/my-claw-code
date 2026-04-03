@@ -96,4 +96,8 @@ export class TauriChatGateway implements IChatGateway {
   async getWorkspacePath(): Promise<string | null> {
     return await invoke('get_workspace_path');
   }
+
+  async setSelectedTools(tools: string[]): Promise<void> {
+    await invoke('set_selected_tools', { tools });
+  }
 }

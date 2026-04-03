@@ -420,14 +420,30 @@ pub fn load_system_prompt(
     workspace_path: Option<&str>,
 ) -> Result<Vec<String>, PromptBuildError> {
     let cwd = cwd.into();
-    let project_context = ProjectContext::discover_with_git(&cwd, current_date.into())?;
-    let config = ConfigLoader::default_for(&cwd).load()?;
     
-    let mut sections = SystemPromptBuilder::new()
-        .with_os(os_name, os_version)
-        .with_project_context(project_context)
-        .with_runtime_config(config)
-        .build();
+    // Normal mode: Không load project context (không có path info)
+    // Workspace mode: Load đầy đủ project context
+    let (project_context, config) = if work_mode == Some("workspace") {
+        let project_context = ProjectContext::discover_with_git(&cwd, current_date.into())?;
+        let config = ConfigLoader::default_for(&cwd).load()?;
+        (Some(project_context), Some(config))
+    } else {
+        // Normal mode: Không có project context
+        (None, None)
+    };
+    
+    let mut builder = SystemPromptBuilder::new()
+        .with_os(os_name, os_version);
+    
+    if let Some(ctx) = project_context {
+        builder = builder.with_project_context(ctx);
+    }
+    
+    if let Some(cfg) = config {
+        builder = builder.with_runtime_config(cfg);
+    }
+    
+    let mut sections = builder.build();
     
     // Prepend work mode information if provided
     if let Some(mode) = work_mode {
@@ -442,11 +458,12 @@ pub fn load_system_prompt(
             )
         } else {
             "# Work Mode\n\nYou are currently in NORMAL MODE.\n\n\
-            - You have READ-ONLY access for safety.\n\
-            - You can read files, search code, and access the web.\n\
-            - You CANNOT modify files or execute commands.\n\
+            - You are a GENERAL ASSISTANT without access to the file system.\n\
+            - You do NOT know the current working directory or any file paths.\n\
+            - You can only use tools that the user explicitly enables via the Tools dropdown.\n\
+            - By default, you have NO tools enabled.\n\
             - Sessions are shared across all normal mode conversations.\n\
-            - To enable full access, ask the user to switch to WORKSPACE MODE.".to_string()
+            - To enable full workspace access, ask the user to switch to WORKSPACE MODE.".to_string()
         };
         sections.insert(0, mode_info);
     }

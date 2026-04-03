@@ -22,6 +22,7 @@ interface ChatStore {
   // Work Mode
   workMode: WorkMode;
   workspacePath: string | null;
+  selectedTools: string[]; // Normal mode: user-selected tools
 
   // Actions
   dispatch: (event: ChatEvent) => void;
@@ -42,6 +43,7 @@ interface ChatStore {
   // Work Mode Actions
   fetchWorkMode: () => Promise<void>;
   setWorkMode: (mode: WorkMode, workspacePath?: string) => Promise<void>;
+  setSelectedTools: (tools: string[]) => Promise<void>; // Set selected tools for Normal mode
 
   // Internal
   appendTextDelta: (delta: string) => void;
@@ -59,6 +61,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   isLoadingSessions: false,
   workMode: 'normal',
   workspacePath: null,
+  selectedTools: [], // Mặc định: không có tools nào được chọn
 
   dispatch: (event) => {
     set((prev) => ({
@@ -374,6 +377,18 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       alert(`Không thể chuyển chế độ: ${e}`);
     }
   },
+
+  setSelectedTools: async (tools: string[]) => {
+    const { gateway } = get();
+    try {
+      await gateway.setSelectedTools(tools);
+      set({ selectedTools: tools });
+      console.log('[STORE] Selected tools updated:', tools);
+    } catch (e) {
+      console.error("Failed to set selected tools:", e);
+      alert(`Không thể cập nhật tools: ${e}`);
+    }
+  },
 }));
 
 // Initialize listeners
@@ -536,6 +551,11 @@ export function initializeChatStore() {
           // Reload sessions list to show updated session
           loadSessions();
         });
+        break;
+      case 'system_message':
+        // System message chỉ inject vào session (không render trong UI)
+        // AI sẽ nhận được thông báo này trong turn tiếp theo
+        console.log('[SYSTEM]', event.message);
         break;
       case 'error':
         dispatch({ type: 'ERROR', message: event.message });

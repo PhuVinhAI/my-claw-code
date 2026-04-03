@@ -11,16 +11,27 @@ import { invoke } from '@tauri-apps/api/core';
 export function ChatInput() {
   const [input, setInput] = useState('');
   const [modeOpen, setModeOpen] = useState(false);
+  const [toolsOpen, setToolsOpen] = useState(false); // Tools dropdown
   const modeRef = useRef<HTMLDivElement>(null);
-  const { state, messages, sendPrompt, stopGeneration, model, workMode, workspacePath, setWorkMode } = useChatStore();
+  const toolsRef = useRef<HTMLDivElement>(null);
+  const { state, messages, sendPrompt, stopGeneration, model, workMode, workspacePath, setWorkMode, selectedTools, setSelectedTools } = useChatStore();
   const isGenerating = state.status !== 'IDLE';
   const isEmpty = messages.length === 0;
 
-  // Close dropdown when clicking outside
+  // Available tools for Normal mode
+  const availableTools = [
+    { id: 'WebSearch', label: 'Tìm kiếm Web' },
+    { id: 'WebFetch', label: 'Truy cập Web' },
+  ];
+
+  // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (modeRef.current && !modeRef.current.contains(e.target as Node)) {
         setModeOpen(false);
+      }
+      if (toolsRef.current && !toolsRef.current.contains(e.target as Node)) {
+        setToolsOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -62,6 +73,14 @@ export function ChatInput() {
     } else {
       await setWorkMode('normal');
     }
+  };
+
+  const handleToolToggle = async (toolId: string) => {
+    const newTools = selectedTools.includes(toolId)
+      ? selectedTools.filter(t => t !== toolId)
+      : [...selectedTools, toolId];
+    
+    await setSelectedTools(newTools);
   };
 
   // ── Shared input card ──
@@ -134,6 +153,58 @@ export function ChatInput() {
 
           {/* Separator */}
           <div className="h-3 w-px bg-border/40" />
+
+          {/* Tools dropdown (Normal mode only) */}
+          {workMode === 'normal' && (
+            <>
+              <div className="relative" ref={toolsRef}>
+                <button
+                  onClick={() => setToolsOpen(!toolsOpen)}
+                  className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-muted-foreground/70 hover:text-foreground hover:bg-foreground/5 transition-all duration-150"
+                >
+                  <span>Tools ({selectedTools.length})</span>
+                  <ChevronDown className={cn(
+                    "h-3 w-3 transition-transform duration-200",
+                    toolsOpen && "rotate-180"
+                  )} />
+                </button>
+
+                {/* Tools Dropdown */}
+                {toolsOpen && (
+                  <div className="absolute bottom-full left-0 mb-1.5 min-w-[170px] rounded-xl border border-border/30 bg-popover/95 backdrop-blur-xl p-1.5 space-y-0.5 shadow-lg animate-in fade-in slide-in-from-bottom-2 duration-150 z-50">
+                    {availableTools.map((tool) => (
+                      <button
+                        key={tool.id}
+                        onClick={() => handleToolToggle(tool.id)}
+                        className={cn(
+                          "flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-xs transition-colors duration-100",
+                          selectedTools.includes(tool.id)
+                            ? "bg-foreground/8 text-foreground font-medium"
+                            : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                        )}
+                      >
+                        <div className={cn(
+                          "h-3.5 w-3.5 rounded border flex items-center justify-center",
+                          selectedTools.includes(tool.id)
+                            ? "bg-foreground border-foreground"
+                            : "border-muted-foreground/30"
+                        )}>
+                          {selectedTools.includes(tool.id) && (
+                            <svg className="h-2.5 w-2.5 text-background" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                          )}
+                        </div>
+                        <span>{tool.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="h-3 w-px bg-border/40" />
+            </>
+          )}
 
           {/* Model badge */}
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground/50">

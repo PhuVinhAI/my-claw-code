@@ -17,6 +17,7 @@ pub struct TauriToolExecutor {
     cancel_rx: Receiver<()>,
     pty_executor: PtyExecutor,
     work_mode: Arc<Mutex<WorkMode>>,
+    selected_tools: Arc<Mutex<Vec<String>>>, // Normal mode: user-selected tools
 }
 
 impl TauriToolExecutor {
@@ -39,7 +40,20 @@ impl TauriToolExecutor {
             cancel_rx,
             pty_executor,
             work_mode,
+            selected_tools: Arc::new(Mutex::new(Vec::new())), // Mặc định: không có tools
         }
+    }
+    
+    /// Set selected tools for Normal mode (called when user toggles tools in UI)
+    pub fn set_selected_tools(&self, tools: Vec<String>) {
+        let mut selected = self.selected_tools.lock().unwrap();
+        *selected = tools;
+    }
+    
+    /// Get current selected tools (for detecting changes)
+    pub fn get_selected_tools(&self) -> Vec<String> {
+        let selected = self.selected_tools.lock().unwrap();
+        selected.clone()
     }
 
     pub fn get_tool_definitions(&self) -> Vec<api::ToolDefinition> {
@@ -51,23 +65,18 @@ impl TauriToolExecutor {
                 self.registry.definitions(None)
             }
             WorkMode::Normal => {
-                // Only read-only tools allowed
-                let allowed_tools: std::collections::BTreeSet<String> = [
-                    "read_file",
-                    "grep_search",
-                    "glob_search",
-                    "file_search",
-                    "list_directory",
-                    "read_code",
-                    "WebSearch",
-                    "WebFetch",
-                    "ToolSearch",
-                ]
-                .iter()
-                .map(|s| s.to_string())
-                .collect();
+                // Normal mode: Chỉ tools user đã chọn
+                let selected = self.selected_tools.lock().unwrap();
                 
-                self.registry.definitions(Some(&allowed_tools))
+                if selected.is_empty() {
+                    // Không có tools nào được chọn → return empty
+                    Vec::new()
+                } else {
+                    // Return definitions cho selected tools
+                    let allowed_tools: std::collections::BTreeSet<String> = 
+                        selected.iter().cloned().collect();
+                    self.registry.definitions(Some(&allowed_tools))
+                }
             }
         }
     }

@@ -8,4 +8,5 @@ export type StreamEvent =
   | { type: 'tool_output_chunk'; tool_use_id: string; chunk: string } // Real-time output streaming
   | { type: 'usage'; usage: TokenUsage }
   | { type: 'message_stop' }
-  | { type: 'error'; message: string };
+  | { type: 'error'; message: string }
+  | { type: 'system_message'; message: string }; // System notification

@@ -70,6 +70,10 @@ pub enum ActorCommand {
         work_mode: String,
         response_tx: oneshot::Sender<Result<(), String>>,
     },
+    SetSelectedTools {
+        tools: Vec<String>,
+        response_tx: oneshot::Sender<Result<(), String>>,
+    },
 }
 
 /// ChatSessionActor - Chạy trên tokio::task độc lập
@@ -183,6 +187,10 @@ impl ChatSessionActor {
                 }
                 ActorCommand::SetWorkMode { work_mode, response_tx } => {
                     let result = self.handle_set_work_mode(work_mode);
+                    let _ = response_tx.send(result);
+                }
+                ActorCommand::SetSelectedTools { tools, response_tx } => {
+                    let result = self.handle_set_selected_tools(tools);
                     let _ = response_tx.send(result);
                 }
             }
@@ -361,6 +369,96 @@ impl ChatSessionActor {
     fn handle_set_work_mode(&mut self, work_mode: String) -> Result<(), String> {
         // Update repository's work mode
         self.session_repository.set_work_mode(work_mode)?;
+        Ok(())
+    }
+    
+    fn handle_set_selected_tools(&mut self, tools: Vec<String>) -> Result<(), String> {
+        eprintln!("[ACTOR] Setting selected tools: {:?}", tools);
+        
+        // Get previous tools to detect changes
+        let tool_executor = self.runtime.tool_executor_mut();
+        let previous_tools = tool_executor.get_selected_tools();
+        
+        // Detect changes
+        let added_tools: Vec<String> = tools.iter()
+            .filter(|t| !previous_tools.contains(t))
+            .cloned()
+            .collect();
+        let removed_tools: Vec<String> = previous_tools.iter()
+            .filter(|t| !tools.contains(t))
+            .cloned()
+            .collect();
+        
+        // Update tool executor's selected tools
+        tool_executor.set_selected_tools(tools.clone());
+        
+        // Reload tool definitions to reflect new selection
+        self.handle_reload_tool_definitions()?;
+        
+        // Reload system prompt to include tool instructions
+        let work_mode = self.session_repository.get_work_mode()?;
+        let workspace_path = self.session_repository.get_workspace_path()?;
+        self.handle_reload_system_prompt(work_mode, workspace_path)?;
+        
+        // If there are changes AND session has messages, inject system notification
+        if (!added_tools.is_empty() || !removed_tools.is_empty()) && !self.runtime.session().messages.is_empty() {
+            // Map tool IDs to friendly names
+            let tool_names = |tools: &[String]| -> String {
+                tools.iter()
+                    .map(|t| match t.as_str() {
+                        "WebSearch" => "Tìm kiếm Web",
+                        "WebFetch" => "Truy cập Web",
+                        _ => t.as_str(),
+                    })
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            };
+            
+            let mut notification_parts = Vec::new();
+            
+            if !added_tools.is_empty() {
+                let tools_str = tool_names(&added_tools);
+                notification_parts.push(format!("User đã BẬT tools: {}", tools_str));
+            }
+            
+            if !removed_tools.is_empty() {
+                let tools_str = tool_names(&removed_tools);
+                notification_parts.push(format!("User đã TẮT tools: {}", tools_str));
+            }
+            
+            let notification = format!(
+                "<system-reminder>\n{}\n\nBạn có thể sử dụng các tools đã được bật để trả lời câu hỏi tiếp theo của user.\n</system-reminder>",
+                notification_parts.join("\n")
+            );
+            
+            // Inject system message into session
+            let system_message = runtime::ConversationMessage {
+                role: runtime::MessageRole::System,
+                blocks: vec![runtime::ContentBlock::Text { text: notification.clone() }],
+                usage: None,
+            };
+            
+            // Add to session messages
+            let session = self.runtime.session();
+            let mut messages = session.messages.clone();
+            messages.push(system_message.clone());
+            
+            // Replace session with updated messages
+            let mut new_session = session.clone();
+            new_session.messages = messages;
+            self.runtime.replace_session(new_session);
+            
+            // Emit event to frontend (không render, chỉ log)
+            self.event_publisher.publish_stream_event(
+                crate::core::domain::types::StreamEvent::SystemMessage {
+                    message: notification,
+                }
+            );
+            
+            eprintln!("[ACTOR] Injected tool change notification into session");
+        }
+        
+        eprintln!("[ACTOR] Selected tools updated and system prompt reloaded");
         Ok(())
     }
 }
