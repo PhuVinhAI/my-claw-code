@@ -17,10 +17,11 @@ export function SessionItem({ session, isActive }: SessionItemProps) {
   const [editTitle, setEditTitle] = useState(session.title);
   const [menuOpen, setMenuOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [isInteracting, setIsInteracting] = useState(false);
 
   const handleClick = () => {
-    // Don't switch session if menu is open, editing, or already active
-    if (!isEditing && !isActive && !menuOpen) {
+    // Don't switch session if any interaction is happening or already active
+    if (!isEditing && !isActive && !menuOpen && !deleteDialogOpen && !isInteracting) {
       switchSession(session.id);
     }
   };
@@ -33,12 +34,22 @@ export function SessionItem({ session, isActive }: SessionItemProps) {
   };
 
   const handleDelete = () => {
+    setIsInteracting(true);
     setMenuOpen(false);
     setDeleteDialogOpen(true);
   };
 
   const confirmDelete = () => {
     deleteSession(session.id);
+    setIsInteracting(false);
+  };
+
+  const handleDialogClose = (open: boolean) => {
+    setDeleteDialogOpen(open);
+    if (!open) {
+      // Delay resetting interaction flag to prevent click during close animation
+      setTimeout(() => setIsInteracting(false), 100);
+    }
   };
 
   const formatDate = (timestamp: number) => {
@@ -150,13 +161,17 @@ export function SessionItem({ session, isActive }: SessionItemProps) {
           </>
         )}
       </div>
-      {/* Delete confirmation */}
-      <ConfirmDeleteDialog
-        open={deleteDialogOpen}
-        onOpenChange={setDeleteDialogOpen}
-        sessionTitle={session.title}
-        onConfirm={confirmDelete}
-      />
+      {/* Delete confirmation - isolated from parent click */}
+      {deleteDialogOpen && (
+        <div onClick={(e) => e.stopPropagation()}>
+          <ConfirmDeleteDialog
+            open={deleteDialogOpen}
+            onOpenChange={handleDialogClose}
+            sessionTitle={session.title}
+            onConfirm={confirmDelete}
+          />
+        </div>
+      )}
     </div>
   );
 }

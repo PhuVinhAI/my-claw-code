@@ -2,7 +2,7 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import { useChatStore } from '../../store/useChatStore';
 import { SessionItem } from './SessionItem';
-import { Plus, Search, Settings, Sun, Moon } from 'lucide-react';
+import { Plus, Search, Settings, Sun, Moon, MessageSquareDashed, SearchX } from 'lucide-react';
 
 const PAGE_SIZE = 20;
 
@@ -118,9 +118,21 @@ export function SessionList() {
             ))}
           </div>
         ) : filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-center">
-            <p className="text-sm text-muted-foreground">
-              {search.trim() ? 'Không tìm thấy hội thoại nào' : 'Chưa có hội thoại nào'}
+          <div className="flex flex-col items-center justify-center h-[70%] px-4 text-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full border border-border bg-muted/30 mb-4">
+              {search.trim() ? (
+                <SearchX className="h-5 w-5 text-muted-foreground" />
+              ) : (
+                <MessageSquareDashed className="h-5 w-5 text-muted-foreground" />
+              )}
+            </div>
+            <p className="text-sm font-medium text-foreground">
+              {search.trim() ? 'Không tìm thấy kết quả' : 'Chưa có hội thoại'}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1.5 max-w-[200px] leading-relaxed">
+              {search.trim() 
+                ? 'Thử sử dụng một từ khóa tìm kiếm khác.' 
+                : 'Bắt đầu trò chuyện bằng cách tạo một hội thoại mới.'}
             </p>
           </div>
         ) : (

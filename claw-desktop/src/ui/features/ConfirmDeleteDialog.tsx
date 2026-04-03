@@ -45,13 +45,13 @@ export function ConfirmDeleteDialog({
         <div className="flex items-center justify-end gap-2 px-6 py-4 bg-muted/40 border-t border-border">
           <Button
             variant="outline"
-            onClick={() => onOpenChange(false)}
+            onClick={(e) => { e.stopPropagation(); onOpenChange(false); }}
             className="h-9 px-4 font-medium bg-transparent shadow-none"
           >
             Hủy
           </Button>
           <Button
-            onClick={handleConfirm}
+            onClick={(e) => { e.stopPropagation(); handleConfirm(); }}
             className="h-9 px-4 font-medium bg-red-600 text-white hover:bg-red-700 shadow-none border-transparent transition-colors"
           >
             Xóa
