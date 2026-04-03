@@ -19,7 +19,8 @@ export function SessionItem({ session, isActive }: SessionItemProps) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   const handleClick = () => {
-    if (!isEditing && !isActive) {
+    // Don't switch session if menu is open, editing, or already active
+    if (!isEditing && !isActive && !menuOpen) {
       switchSession(session.id);
     }
   };
@@ -119,7 +120,10 @@ export function SessionItem({ session, isActive }: SessionItemProps) {
         {menuOpen && (
           <>
             <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
-            <div className="absolute right-0 top-full mt-1 min-w-[120px] rounded-xl border border-border/30 bg-popover/95 backdrop-blur-xl p-1 shadow-lg z-50 animate-in fade-in slide-in-from-top-1 duration-100">
+            <div 
+              className="absolute right-0 top-full mt-1 min-w-[120px] rounded-xl border border-border/30 bg-popover/95 backdrop-blur-xl p-1 shadow-lg z-50 animate-in fade-in slide-in-from-top-1 duration-100"
+              onClick={(e) => e.stopPropagation()}
+            >
               <button
                 onClick={(e) => { e.stopPropagation(); setMenuOpen(false); setIsEditing(true); setEditTitle(session.title); }}
                 className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs text-muted-foreground hover:bg-muted/60 hover:text-foreground transition-colors"

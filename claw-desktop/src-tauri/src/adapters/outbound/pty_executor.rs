@@ -156,6 +156,9 @@ impl PtyExecutor {
             }
         }
 
+        // Drop PTY pair to close pipes and signal reader thread to stop
+        drop(pair);
+        
         // Wait for reader thread to finish
         let output = reader_handle.join()
             .map_err(|_| "Reader thread panicked".to_string())?;
