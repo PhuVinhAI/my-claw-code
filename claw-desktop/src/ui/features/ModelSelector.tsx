@@ -1,7 +1,7 @@
-// Model Selector - Dropdown grouped by provider
+// Model Selector - Dropdown grouped by provider using CustomDropdown
 import { useEffect, useState } from 'react';
 import { useSettingsStore } from '../../store/useSettingsStore';
-import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSeparator, SelectTrigger, SelectValue } from '../../components/ui/select';
+import { CustomDropdown, DropdownOption } from '../../components/ui/custom-dropdown';
 import { Bot } from 'lucide-react';
 
 export function ModelSelector() {
@@ -20,8 +20,8 @@ export function ModelSelector() {
 
   if (!settings) return null;
 
-  const handleValueChange = async (value: string | null) => {
-    if (!value) return;
+  const handleValueChange = async (value: string | string[]) => {
+    if (typeof value !== 'string') return;
     const [providerId, modelId] = value.split(':');
     try {
       await setSelectedModel(providerId, modelId);
@@ -40,40 +40,36 @@ export function ModelSelector() {
     return model?.name || 'Chọn mô hình';
   };
 
+  // Build options grouped by provider
+  const options: DropdownOption[] = settings.providers.flatMap((provider) =>
+    provider.models.map((model) => ({
+      id: `${provider.id}:${model.id}`,
+      label: model.name,
+      group: provider.name,
+    }))
+  );
+
+  if (options.length === 0) {
+    return (
+      <div className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm text-muted-foreground bg-muted/50">
+        <Bot className="h-4 w-4" />
+        <span>Chưa có mô hình</span>
+      </div>
+    );
+  }
+
   return (
-    <Select value={selectedValue} onValueChange={handleValueChange}>
-      <SelectTrigger size="sm" className="h-8 gap-2 border-border/50 bg-muted/50">
-        <Bot className="h-4 w-4 text-primary shrink-0" />
-        <SelectValue placeholder="Chọn mô hình">
-          <span className="truncate">{getSelectedModelName()}</span>
-        </SelectValue>
-      </SelectTrigger>
-      <SelectContent align="end">
-        {settings.providers.length === 0 && (
-          <div className="px-2 py-6 text-center text-sm text-muted-foreground">
-            Chưa có nhà cung cấp nào
-          </div>
-        )}
-        
-        {settings.providers.map((provider, index) => (
-          <div key={provider.id}>
-            {index > 0 && <SelectSeparator />}
-            <SelectGroup>
-              <SelectLabel>{provider.name}</SelectLabel>
-              {provider.models.length === 0 && (
-                <div className="px-2 py-2 text-xs text-muted-foreground">
-                  Chưa có mô hình
-                </div>
-              )}
-              {provider.models.map((model) => (
-                <SelectItem key={model.id} value={`${provider.id}:${model.id}`}>
-                  {model.name}
-                </SelectItem>
-              ))}
-            </SelectGroup>
-          </div>
-        ))}
-      </SelectContent>
-    </Select>
+    <CustomDropdown
+      trigger={
+        <>
+          <Bot className="h-4 w-4" />
+          <span className="truncate max-w-[120px]">{getSelectedModelName()}</span>
+        </>
+      }
+      options={options}
+      value={selectedValue}
+      onChange={handleValueChange}
+      dropdownClassName="max-h-[400px] overflow-y-auto"
+    />
   );
 }

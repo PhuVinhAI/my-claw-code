@@ -38,6 +38,45 @@ impl Settings {
         }
     }
 
+    /// Create default settings with 2 pre-configured providers (without API keys)
+    pub fn default_settings() -> Self {
+        let google_provider = Provider {
+            id: "google-gemini".to_string(),
+            name: "Google Gemini".to_string(),
+            api_key: String::new(), // Empty - user needs to fill
+            base_url: "https://generativelanguage.googleapis.com/v1beta/openai/".to_string(),
+            models: vec![
+                Model {
+                    id: "gemma-4-31b-it".to_string(),
+                    name: "Gemma 4 31B IT".to_string(),
+                }
+            ],
+        };
+
+        let nvidia_provider = Provider {
+            id: "nvidia".to_string(),
+            name: "NVIDIA".to_string(),
+            api_key: String::new(), // Empty - user needs to fill
+            base_url: "https://integrate.api.nvidia.com/v1".to_string(),
+            models: vec![
+                Model {
+                    id: "stepfun-ai/step-3.5-flash".to_string(),
+                    name: "Step 3.5 Flash".to_string(),
+                }
+            ],
+        };
+
+        Self {
+            providers: vec![google_provider, nvidia_provider],
+            selected_model: None,
+        }
+    }
+
+    /// Check if settings has at least one provider with API key configured
+    pub fn has_api_key(&self) -> bool {
+        self.providers.iter().any(|p| !p.api_key.is_empty())
+    }
+
     pub fn get_provider(&self, provider_id: &str) -> Option<&Provider> {
         self.providers.iter().find(|p| p.id == provider_id)
     }
@@ -127,7 +166,7 @@ impl Settings {
     }
 
     pub fn is_configured(&self) -> bool {
-        !self.providers.is_empty() && self.selected_model.is_some()
+        self.has_api_key() && self.selected_model.is_some()
     }
 }
 
@@ -142,14 +181,33 @@ impl SettingsManager {
 
     pub fn load(&self) -> Result<Settings, String> {
         if !self.settings_path.exists() {
-            return Ok(Settings::new());
+            eprintln!("[SETTINGS] Settings file not found, creating default settings");
+            // Create default settings on first run
+            let default = Settings::default_settings();
+            eprintln!("[SETTINGS] Default settings: {:?}", default);
+            self.save(&default)?;
+            eprintln!("[SETTINGS] Default settings saved to {:?}", self.settings_path);
+            return Ok(default);
         }
 
+        eprintln!("[SETTINGS] Loading settings from {:?}", self.settings_path);
         let content = fs::read_to_string(&self.settings_path)
             .map_err(|e| format!("Failed to read settings file: {}", e))?;
         
-        serde_json::from_str(&content)
-            .map_err(|e| format!("Failed to parse settings file: {}", e))
+        let settings: Settings = serde_json::from_str(&content)
+            .map_err(|e| format!("Failed to parse settings file: {}", e))?;
+        
+        eprintln!("[SETTINGS] Loaded settings with {} providers", settings.providers.len());
+        
+        // If settings exist but have no providers, replace with default
+        if settings.providers.is_empty() {
+            eprintln!("[SETTINGS] No providers found, replacing with default settings");
+            let default = Settings::default_settings();
+            self.save(&default)?;
+            return Ok(default);
+        }
+        
+        Ok(settings)
     }
 
     pub fn save(&self, settings: &Settings) -> Result<(), String> {

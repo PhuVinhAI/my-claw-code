@@ -18,7 +18,11 @@ function SessionSkeleton() {
   );
 }
 
-export function SessionList() {
+interface SessionListProps {
+  onOpenSettings: () => void;
+}
+
+export function SessionList({ onOpenSettings }: SessionListProps) {
   const { sessions, currentSessionId, isLoadingSessions, createNewSession } = useChatStore();
   const [search, setSearch] = useState('');
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
@@ -159,6 +163,7 @@ export function SessionList() {
       {/* 3. FOOTER */}
       <div className="shrink-0 flex items-center justify-between p-3 border-t border-border/50 bg-background/80 backdrop-blur-sm">
         <button
+          onClick={onOpenSettings}
           className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground px-2 py-1.5 rounded-md hover:bg-muted transition-colors group"
           title="Cài đặt"
         >

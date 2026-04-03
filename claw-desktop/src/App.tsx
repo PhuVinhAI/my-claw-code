@@ -3,9 +3,8 @@ import { initializeChatStore, useChatStore } from './store';
 import { MessageList, ChatInput, PermissionModal, SessionList } from './ui/features';
 import { OnboardingScreen } from './ui/pages/OnboardingScreen';
 import { SettingsScreen } from './ui/pages/SettingsScreen';
-import { PanelLeftClose, PanelLeft, Settings } from 'lucide-react';
+import { PanelLeftClose, PanelLeft } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
-import { Button } from './components/ui/button';
 import './App.css';
 
 type Screen = 'chat' | 'settings' | 'onboarding';
@@ -70,7 +69,7 @@ function App() {
           overflow-hidden
         `}
       >
-        <SessionList />
+        <SessionList onOpenSettings={() => setCurrentScreen('settings')} />
       </div>
 
       {/* Main Content */}
@@ -86,15 +85,6 @@ function App() {
             </button>
             <span className="text-base font-semibold text-foreground">Claw</span>
           </div>
-
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setCurrentScreen('settings')}
-            className="h-9 w-9 p-0"
-          >
-            <Settings className="w-5 h-5" />
-          </Button>
         </div>
 
         {/* Chat Area */}

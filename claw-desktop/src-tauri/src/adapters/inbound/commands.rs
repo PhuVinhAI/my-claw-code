@@ -484,7 +484,10 @@ pub fn check_onboarding_complete(state: State<'_, AppState>) -> Result<bool, Str
 /// Get all settings
 #[tauri::command]
 pub fn get_settings(state: State<'_, AppState>) -> Result<Settings, String> {
-    state.settings_manager.load()
+    eprintln!("[COMMAND] get_settings called");
+    let settings = state.settings_manager.load()?;
+    eprintln!("[COMMAND] Returning settings with {} providers", settings.providers.len());
+    Ok(settings)
 }
 
 /// Save settings

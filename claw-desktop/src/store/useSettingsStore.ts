@@ -12,6 +12,7 @@ interface SettingsStore {
   gateway: ISettingsGateway;
 
   // Actions
+  getSettings: () => Promise<Settings>;
   loadSettings: () => Promise<void>;
   saveSettings: (settings: Settings) => Promise<void>;
 
@@ -34,6 +35,15 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
   settings: null,
   isLoading: false,
   gateway: new TauriSettingsGateway(),
+
+  getSettings: async () => {
+    try {
+      return await get().gateway.getSettings();
+    } catch (error) {
+      console.error('Failed to get settings:', error);
+      throw error;
+    }
+  },
 
   loadSettings: async () => {
     set({ isLoading: true });
