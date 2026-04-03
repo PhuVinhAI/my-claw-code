@@ -40,6 +40,32 @@ impl Settings {
 
     /// Create default settings with 2 pre-configured providers (without API keys)
     pub fn default_settings() -> Self {
+        let openrouter_provider = Provider {
+            id: "openrouter".to_string(),
+            name: "OpenRouter".to_string(),
+            api_key: String::new(), // Empty - user needs to fill
+            base_url: "https://openrouter.ai/api/v1".to_string(),
+            models: vec![
+                Model {
+                    id: "qwen/qwen3.6-plus:free".to_string(),
+                    name: "Qwen 3.6 Plus (Free)".to_string(),
+                },
+            ],
+        };
+
+        let kilo_provider = Provider {
+            id: "kilo".to_string(),
+            name: "Kilo AI Gateway".to_string(),
+            api_key: String::new(), // Empty - user needs to fill
+            base_url: "https://api.kilo.ai/api/gateway".to_string(),
+            models: vec![
+                Model {
+                    id: "kilo-auto/free".to_string(),
+                    name: "Kilo Auto (Free)".to_string(),
+                },
+            ],
+        };
+
         let google_provider = Provider {
             id: "google-gemini".to_string(),
             name: "Google Gemini".to_string(),
@@ -67,7 +93,7 @@ impl Settings {
         };
 
         Self {
-            providers: vec![google_provider, nvidia_provider],
+            providers: vec![openrouter_provider, kilo_provider, google_provider, nvidia_provider],
             selected_model: None,
         }
     }
