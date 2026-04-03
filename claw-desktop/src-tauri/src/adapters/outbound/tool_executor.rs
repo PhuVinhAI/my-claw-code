@@ -55,6 +55,12 @@ impl TauriToolExecutor {
         let selected = self.selected_tools.lock().unwrap();
         selected.clone()
     }
+    
+    /// Update work mode (called when user switches mode)
+    pub fn set_work_mode(&self, mode: WorkMode) {
+        let mut current_mode = self.work_mode.lock().unwrap();
+        *current_mode = mode;
+    }
 
     pub fn get_tool_definitions(&self) -> Vec<api::ToolDefinition> {
         let mode = self.work_mode.lock().unwrap();

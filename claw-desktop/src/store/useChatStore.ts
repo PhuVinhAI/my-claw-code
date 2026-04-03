@@ -117,14 +117,17 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
   stopGeneration: async () => {
     const { gateway, dispatch, flushAssistantMessage } = get();
+    
+    // Immediately update UI state (không đợi backend)
+    flushAssistantMessage();
+    dispatch({ type: 'MESSAGE_STOP' });
+    
+    // Then notify backend to cancel
     try {
-      await gateway.cancelPrompt(); // Ra lệnh cho Rust ngừng chạy
+      await gateway.cancelPrompt();
     } catch (e) {
       console.error("Failed to cancel backend prompt:", e);
     }
-    // Update local UI
-    flushAssistantMessage();
-    dispatch({ type: 'MESSAGE_STOP' });
   },
 
   sendToolInput: async (toolUseId: string, input: string) => {
@@ -544,8 +547,12 @@ export function initializeChatStore() {
         });
         break;
       case 'message_stop':
-        flushAssistantMessage();
-        dispatch({ type: 'MESSAGE_STOP' });
+        // Flush và chuyển về IDLE (nếu chưa)
+        const currentState = useChatStore.getState().state;
+        if (currentState.status !== 'IDLE') {
+          flushAssistantMessage();
+          dispatch({ type: 'MESSAGE_STOP' });
+        }
         // Auto-save after message completes
         autoSaveCurrentSession().then(() => {
           // Reload sessions list to show updated session

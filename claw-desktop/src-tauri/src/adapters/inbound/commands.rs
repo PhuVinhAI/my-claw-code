@@ -6,24 +6,29 @@ use tokio::sync::oneshot;
 use crate::core::use_cases::chat_actor::ActorCommand;
 use crate::setup::app_state::AppState;
 
-/// Send prompt command - Non-blocking
+/// Send prompt command - Non-blocking (fire and forget)
 #[tauri::command]
 pub async fn send_prompt(text: String, state: State<'_, AppState>) -> Result<(), String> {
     // Reset cờ hủy trước khi chạy prompt mới
     state.cancel_flag.store(false, Ordering::Relaxed);
-    let (tx, rx) = oneshot::channel();
+    
+    // Spawn task để không block UI
+    let actor_tx = state.actor_tx.clone();
+    tokio::spawn(async move {
+        let (tx, rx) = oneshot::channel();
+        
+        if let Err(e) = actor_tx.send(ActorCommand::Prompt { text, response_tx: tx }).await {
+            eprintln!("[ERROR] Failed to send prompt to actor: {}", e);
+            return;
+        }
+        
+        // Await response trong background task (không block UI)
+        if let Err(e) = rx.await {
+            eprintln!("[ERROR] Failed to receive response: {}", e);
+        }
+    });
 
-    state
-        .actor_tx
-        .send(ActorCommand::Prompt { text, response_tx: tx })
-        .await
-        .map_err(|e| format!("Failed to send prompt: {}", e))?;
-
-    // Chờ Actor nhận message (không chờ xử lý xong)
-    rx.await
-        .map_err(|e| format!("Failed to receive response: {}", e))?
-        .map_err(|e| format!("Runtime error: {}", e))?;
-
+    // Return ngay lập tức (không đợi Actor xử lý)
     Ok(())
 }
 
@@ -401,7 +406,7 @@ pub async fn set_work_mode(
     state
         .actor_tx
         .send(ActorCommand::SetWorkMode {
-            work_mode: work_mode_str,
+            work_mode: work_mode_str.clone(),
             response_tx: tx,
         })
         .await
@@ -410,7 +415,10 @@ pub async fn set_work_mode(
         .map_err(|e| format!("Failed to receive response: {}", e))??;
     
     // Reload tool definitions to reflect new mode
-    reload_tool_definitions(state).await?;
+    reload_tool_definitions(state.clone()).await?;
+    
+    // Reload system prompt with new work mode context
+    reload_system_prompt(state).await?;
     
     Ok(())
 }

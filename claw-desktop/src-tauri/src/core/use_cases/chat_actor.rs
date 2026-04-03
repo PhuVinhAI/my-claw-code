@@ -367,14 +367,23 @@ impl ChatSessionActor {
     }
     
     fn handle_set_work_mode(&mut self, work_mode: String) -> Result<(), String> {
+        // Parse work mode string to enum
+        let mode = match work_mode.as_str() {
+            "workspace" => crate::core::domain::types::WorkMode::Workspace,
+            _ => crate::core::domain::types::WorkMode::Normal,
+        };
+        
+        // Update tool executor's work mode
+        let tool_executor = self.runtime.tool_executor_mut();
+        tool_executor.set_work_mode(mode);
+        
         // Update repository's work mode
         self.session_repository.set_work_mode(work_mode)?;
+        
         Ok(())
     }
     
     fn handle_set_selected_tools(&mut self, tools: Vec<String>) -> Result<(), String> {
-        eprintln!("[ACTOR] Setting selected tools: {:?}", tools);
-        
         // Get previous tools to detect changes
         let tool_executor = self.runtime.tool_executor_mut();
         let previous_tools = tool_executor.get_selected_tools();
@@ -454,11 +463,8 @@ impl ChatSessionActor {
                     message: notification,
                 }
             );
-            
-            eprintln!("[ACTOR] Injected tool change notification into session");
         }
         
-        eprintln!("[ACTOR] Selected tools updated and system prompt reloaded");
         Ok(())
     }
 }
