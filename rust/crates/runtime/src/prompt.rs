@@ -416,15 +416,42 @@ pub fn load_system_prompt(
     current_date: impl Into<String>,
     os_name: impl Into<String>,
     os_version: impl Into<String>,
+    work_mode: Option<&str>,
+    workspace_path: Option<&str>,
 ) -> Result<Vec<String>, PromptBuildError> {
     let cwd = cwd.into();
     let project_context = ProjectContext::discover_with_git(&cwd, current_date.into())?;
     let config = ConfigLoader::default_for(&cwd).load()?;
-    Ok(SystemPromptBuilder::new()
+    
+    let mut sections = SystemPromptBuilder::new()
         .with_os(os_name, os_version)
         .with_project_context(project_context)
         .with_runtime_config(config)
-        .build())
+        .build();
+    
+    // Prepend work mode information if provided
+    if let Some(mode) = work_mode {
+        let mode_info = if mode == "workspace" {
+            format!(
+                "# Work Mode\n\nYou are currently in WORKSPACE MODE.\n\n\
+                - You have FULL ACCESS to read, write, and execute commands in the workspace.\n\
+                - Workspace directory: {}\n\
+                - You can modify files, run shell commands, and perform any development tasks.\n\
+                - Sessions are saved per workspace and isolated from other workspaces.",
+                workspace_path.unwrap_or("(not set)")
+            )
+        } else {
+            "# Work Mode\n\nYou are currently in NORMAL MODE.\n\n\
+            - You have READ-ONLY access for safety.\n\
+            - You can read files, search code, and access the web.\n\
+            - You CANNOT modify files or execute commands.\n\
+            - Sessions are shared across all normal mode conversations.\n\
+            - To enable full access, ask the user to switch to WORKSPACE MODE.".to_string()
+        };
+        sections.insert(0, mode_info);
+    }
+    
+    Ok(sections)
 }
 
 fn render_config_section(config: &RuntimeConfig) -> String {
@@ -694,7 +721,7 @@ mod tests {
         std::env::set_var("HOME", &root);
         std::env::set_var("CLAW_CONFIG_HOME", root.join("missing-home"));
         std::env::set_current_dir(&root).expect("change cwd");
-        let prompt = super::load_system_prompt(&root, "2026-03-31", "linux", "6.8")
+        let prompt = super::load_system_prompt(&root, "2026-03-31", "linux", "6.8", None, None)
             .expect("system prompt should load")
             .join(
                 "

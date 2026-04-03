@@ -22,15 +22,14 @@ impl FileSessionRepository {
         fs::create_dir_all(&base_path)
             .map_err(|e| format!("Failed to create sessions directory: {}", e))?;
         
-        // Get current working directory
-        let current_working_dir = std::env::current_dir()
-            .map_err(|e| format!("Failed to get current directory: {}", e))?
-            .to_string_lossy()
-            .to_string();
+        // Tạo folder "normal" mặc định
+        let normal_folder = base_path.join("normal");
+        fs::create_dir_all(&normal_folder)
+            .map_err(|e| format!("Failed to create normal sessions folder: {}", e))?;
         
         Ok(Self { 
             base_path,
-            current_working_dir: RwLock::new(current_working_dir),
+            current_working_dir: RwLock::new(String::new()), // Empty - chỉ set khi user chọn workspace
             current_work_mode: RwLock::new("normal".to_string()),
         })
     }
@@ -42,11 +41,16 @@ impl FileSessionRepository {
         format!("{:x}", hasher.finish())
     }
 
-    /// Get sessions folder for current working directory
+    /// Get sessions folder for current working directory (deprecated - dùng sessions_folder_for_mode)
     fn sessions_folder(&self) -> PathBuf {
         let workdir = self.current_working_dir.read().unwrap();
-        let hash = Self::workdir_hash(&workdir);
-        self.base_path.join(hash)
+        if workdir.is_empty() {
+            // Fallback to normal folder if no workspace set
+            self.base_path.join("normal")
+        } else {
+            let hash = Self::workdir_hash(&workdir);
+            self.base_path.join(hash)
+        }
     }
     
     /// Get sessions folder based on work mode
@@ -74,7 +78,11 @@ impl FileSessionRepository {
         let work_mode = self.current_work_mode.read().unwrap();
         let workspace_path = if *work_mode == "workspace" {
             let workdir = self.current_working_dir.read().unwrap();
-            Some(workdir.clone())
+            if workdir.is_empty() {
+                None // Workspace mode nhưng chưa set path
+            } else {
+                Some(workdir.clone())
+            }
         } else {
             None
         };
@@ -101,6 +109,13 @@ impl FileSessionRepository {
     pub fn set_work_mode(&self, work_mode: String) -> Result<(), String> {
         let mut current = self.current_work_mode.write().unwrap();
         *current = work_mode.clone();
+        
+        // Clear working dir khi đổi về Normal mode
+        if work_mode == "normal" {
+            let mut workdir = self.current_working_dir.write().unwrap();
+            *workdir = String::new();
+            eprintln!("[REPO] Cleared working directory (Normal mode)");
+        }
         
         eprintln!("[REPO] Work mode updated to: {}", work_mode);
         Ok(())

@@ -35,6 +35,8 @@ chrono = "0.4"
 crossbeam-channel = "0.5"
 # Portable PTY for real terminal emulation
 portable-pty = "0.8"
+# Dirs for home directory
+dirs = "5"
 
 # --- Claw Code Core Dependencies ---
 # Link trực tiếp tới các module Rust của project

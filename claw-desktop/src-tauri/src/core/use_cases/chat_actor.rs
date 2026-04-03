@@ -55,6 +55,8 @@ pub enum ActorCommand {
         response_tx: oneshot::Sender<Option<String>>,
     },
     ReloadSystemPrompt {
+        work_mode: String,
+        workspace_path: Option<String>,
         response_tx: oneshot::Sender<Result<(), String>>,
     },
     ChangeWorkingDir {
@@ -167,8 +169,8 @@ impl ChatSessionActor {
                 ActorCommand::GetCurrentSessionId { response_tx } => {
                     let _ = response_tx.send(self.current_session_id.clone());
                 }
-                ActorCommand::ReloadSystemPrompt { response_tx } => {
-                    let result = self.handle_reload_system_prompt();
+                ActorCommand::ReloadSystemPrompt { work_mode, workspace_path, response_tx } => {
+                    let result = self.handle_reload_system_prompt(work_mode, workspace_path);
                     let _ = response_tx.send(result);
                 }
                 ActorCommand::ChangeWorkingDir { workdir, response_tx } => {
@@ -291,23 +293,40 @@ impl ChatSessionActor {
         Ok(session_id)
     }
 
-    fn handle_reload_system_prompt(&mut self) -> Result<(), String> {
-        // Get current working directory
-        let cwd = std::env::current_dir()
-            .map_err(|e| format!("Failed to get current directory: {}", e))?;
+    fn handle_reload_system_prompt(&mut self, work_mode: String, workspace_path: Option<String>) -> Result<(), String> {
+        // Determine CWD based on work mode
+        let cwd = if work_mode == "workspace" {
+            // Workspace mode: use workspace path or current dir
+            if let Some(ref path) = workspace_path {
+                std::path::PathBuf::from(path)
+            } else {
+                std::env::current_dir()
+                    .map_err(|e| format!("Failed to get current directory: {}", e))?
+            }
+        } else {
+            // Normal mode: use home directory (generic context)
+            dirs::home_dir().unwrap_or_else(|| std::path::PathBuf::from("/"))
+        };
         
-        // Reload system prompt with new cwd
+        // Reload system prompt with work mode info
         let date = chrono::Local::now().format("%Y-%m-%d").to_string();
         let os_name = std::env::consts::OS.to_string();
-        let os_version = "".to_string(); // Can be empty
+        let os_version = "".to_string();
         
-        let system_prompt = runtime::load_system_prompt(cwd, date, os_name, os_version)
-            .map_err(|e| format!("Failed to load system prompt: {}", e))?;
+        let system_prompt = runtime::load_system_prompt(
+            cwd.clone(), 
+            date, 
+            os_name, 
+            os_version,
+            Some(&work_mode),
+            workspace_path.as_deref(),
+        )
+        .map_err(|e| format!("Failed to load system prompt: {}", e))?;
         
         // Update runtime's system prompt
         self.runtime.update_system_prompt(system_prompt);
         
-        eprintln!("[ACTOR] System prompt reloaded for new workspace");
+        eprintln!("[ACTOR] System prompt reloaded (mode: {}, cwd: {:?})", work_mode, cwd);
         Ok(())
     }
 

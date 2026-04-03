@@ -103,12 +103,15 @@ async fn initialize_app_async(app_handle: AppHandle, model: String) -> Result<Ap
     let session = Session::new();
 
     // Load system prompt from runtime (same as CLI)
-    let cwd = std::env::current_dir().map_err(|e| format!("Failed to get cwd: {}", e))?;
+    // At init time, always use home dir (Normal mode default)
+    let cwd = dirs::home_dir().unwrap_or_else(|| std::path::PathBuf::from("/"));
     let system_prompt = runtime::load_system_prompt(
         cwd,
         chrono::Local::now().format("%Y-%m-%d").to_string(),
         std::env::consts::OS,
         "claw-desktop",
+        Some("normal"),
+        None,
     )
     .map_err(|e| format!("Failed to load system prompt: {}", e))?;
 

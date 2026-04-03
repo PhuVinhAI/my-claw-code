@@ -623,7 +623,7 @@ fn wait_for_oauth_callback(
 }
 
 fn print_system_prompt(cwd: PathBuf, date: String) {
-    match load_system_prompt(cwd, date, env::consts::OS, "unknown") {
+    match load_system_prompt(cwd, date, env::consts::OS, "unknown", None, None) {
         Ok(sections) => println!("{}", sections.join("\n\n")),
         Err(error) => {
             eprintln!("failed to build system prompt: {error}");
@@ -2591,6 +2591,8 @@ fn build_system_prompt() -> Result<Vec<String>, Box<dyn std::error::Error>> {
         DEFAULT_DATE,
         env::consts::OS,
         "unknown",
+        None,
+        None,
     )?)
 }
 

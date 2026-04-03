@@ -300,11 +300,25 @@ pub async fn select_and_set_workspace(app: tauri::AppHandle, state: State<'_, Ap
 /// Reload system prompt (call after workspace change)
 #[tauri::command]
 pub async fn reload_system_prompt(state: State<'_, AppState>) -> Result<(), String> {
+    // Get current work mode and workspace path
+    let work_mode = {
+        let mode = state.work_mode.lock().unwrap();
+        format!("{:?}", *mode).to_lowercase()
+    };
+    let workspace_path = {
+        let path = state.workspace_path.lock().unwrap();
+        path.clone()
+    };
+    
     let (tx, rx) = oneshot::channel();
 
     state
         .actor_tx
-        .send(ActorCommand::ReloadSystemPrompt { response_tx: tx })
+        .send(ActorCommand::ReloadSystemPrompt { 
+            work_mode,
+            workspace_path,
+            response_tx: tx 
+        })
         .await
         .map_err(|e| format!("Failed to send reload system prompt: {}", e))?;
 
