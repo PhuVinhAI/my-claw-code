@@ -1,28 +1,77 @@
 // MessageList Component
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useCallback } from 'react';
 import { useChatStore } from '../../store';
 import { cn } from '../../lib/utils';
 import { renderToolBlock, ThinkingBlock } from '../blocks';
 import { parseThinkingTags } from '../../lib/parseThinking';
 import { MarkdownContent } from '../../components/MarkdownContent';
 
-// Helper: Tạm đóng code blocks chưa hoàn chỉnh khi streaming
 function fixIncompleteCodeBlocks(text: string): string {
   const openingCount = (text.match(/^```/gm) || []).length;
-  if (openingCount % 2 === 1) {
-    return text + '\n```';
-  }
+  if (openingCount % 2 === 1) return text + '\n```';
   return text;
 }
 
 export function MessageList() {
   const { messages, currentAssistantText, state } = useChatStore();
   const bottomRef = useRef<HTMLDivElement>(null);
+  const userScrolledUp = useRef(false);
+  const isProgrammaticScroll = useRef(false);
+  const lastMessageCount = useRef(messages.length);
 
-  // Auto-scroll to bottom on new messages / streaming
+  // Find scroll parent
+  const getScrollParent = useCallback(() => {
+    return bottomRef.current?.closest('.chat-scroll-container') as HTMLElement | null;
+  }, []);
+
+  // Detect REAL user scroll (ignore programmatic)
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'instant', block: 'end' });
-  }, [messages.length, currentAssistantText, state.status]);
+    const el = getScrollParent();
+    if (!el) return;
+
+    const onScroll = () => {
+      // Skip if this scroll was caused by our scrollTo
+      if (isProgrammaticScroll.current) return;
+
+      const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+      if (distFromBottom > 80) {
+        userScrolledUp.current = true;
+      }
+    };
+
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => el.removeEventListener('scroll', onScroll);
+  }, [getScrollParent]);
+
+  // Auto-scroll (only when user hasn't scrolled up)
+  useEffect(() => {
+    if (userScrolledUp.current) return;
+
+    const el = getScrollParent();
+    if (!el) return;
+
+    isProgrammaticScroll.current = true;
+
+    // New message → instant, streaming → smooth
+    const isNewMessage = messages.length > lastMessageCount.current;
+    el.scrollTo({
+      top: el.scrollHeight,
+      behavior: isNewMessage ? 'instant' : 'smooth',
+    });
+
+    // Clear programmatic flag after scroll settles
+    requestAnimationFrame(() => {
+      setTimeout(() => { isProgrammaticScroll.current = false; }, 100);
+    });
+  }, [messages.length, currentAssistantText, state.status, getScrollParent]);
+
+  // Reset scroll lock ONLY when user sends a new message
+  useEffect(() => {
+    if (messages.length > lastMessageCount.current) {
+      userScrolledUp.current = false;
+    }
+    lastMessageCount.current = messages.length;
+  }, [messages.length]);
 
   return (
     <div className="flex-1 p-5 pb-2">
@@ -82,7 +131,7 @@ export function MessageList() {
           </div>
         ))}
 
-        {/* Current streaming text */}
+        {/* Streaming text */}
         {currentAssistantText && (
           <div className="flex w-full items-start justify-start">
             <div className="w-full text-[14px] leading-relaxed">
@@ -114,7 +163,7 @@ export function MessageList() {
           </div>
         )}
 
-        {/* Loading indicator */}
+        {/* Loading */}
         {state.status === 'GENERATING' && !currentAssistantText && (
           <div className="flex w-full items-start justify-start">
             <div className="flex items-center gap-2.5 text-muted-foreground/60 py-2">
@@ -128,7 +177,6 @@ export function MessageList() {
           </div>
         )}
 
-        {/* Scroll anchor */}
         <div ref={bottomRef} className="h-px" />
       </div>
     </div>
