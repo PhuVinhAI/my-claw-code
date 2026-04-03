@@ -24,6 +24,7 @@ interface ChatStore {
   answerPermission: (allow: boolean) => Promise<void>;
   stopGeneration: () => Promise<void>;
   fetchModel: () => Promise<void>;
+  sendToolInput: (toolUseId: string, input: string) => Promise<void>; // Send stdin to tool
 
   // Session Actions
   loadSessions: () => Promise<void>;
@@ -110,6 +111,15 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     // Update local UI
     flushAssistantMessage();
     dispatch({ type: 'MESSAGE_STOP' });
+  },
+
+  sendToolInput: async (toolUseId: string, input: string) => {
+    const { gateway } = get();
+    try {
+      await gateway.sendToolInput(toolUseId, input);
+    } catch (e) {
+      console.error("Failed to send tool input:", e);
+    }
   },
 
   appendTextDelta: (delta) => {
@@ -313,20 +323,38 @@ export function initializeChatStore() {
               );
 
               if (toolUseBlock && toolUseBlock.type === 'tool_use') {
-                // Add tool_result block to the same message
-                messages[i] = {
-                  ...message,
-                  blocks: [
-                    ...message.blocks,
-                    {
-                      type: 'tool_result',
-                      tool_use_id: event.tool_use_id,
-                      tool_name: toolUseBlock.name, // Copy tool name from tool_use
-                      output: event.output,
-                      is_error: event.is_error,
-                    },
-                  ],
-                };
+                // Check if tool_result already exists (from streaming)
+                const existingResultIdx = message.blocks.findIndex(
+                  (b) => b.type === 'tool_result' && b.tool_use_id === event.tool_use_id
+                );
+
+                if (existingResultIdx !== -1) {
+                  // Update existing result - mark as complete
+                  message.blocks[existingResultIdx] = {
+                    type: 'tool_result',
+                    tool_use_id: event.tool_use_id,
+                    tool_name: toolUseBlock.name,
+                    output: event.output, // Use final output from backend
+                    is_error: event.is_error,
+                    isStreaming: false, // Mark as complete
+                  };
+                } else {
+                  // Add new tool_result block
+                  messages[i] = {
+                    ...message,
+                    blocks: [
+                      ...message.blocks,
+                      {
+                        type: 'tool_result',
+                        tool_use_id: event.tool_use_id,
+                        tool_name: toolUseBlock.name,
+                        output: event.output,
+                        is_error: event.is_error,
+                        isStreaming: false,
+                      },
+                    ],
+                  };
+                }
                 break;
               }
             }
@@ -357,13 +385,17 @@ export function initializeChatStore() {
                     (b) => b.type === 'tool_result' && b.tool_use_id === event.tool_use_id
                   );
 
+                  // Filter out internal markers
+                  const cleanChunk = event.chunk.replace(/\[WAITING_FOR_INPUT\]/g, '');
+
                   if (toolResultIdx !== -1) {
                     // Append to existing output
                     const toolResultBlock = message.blocks[toolResultIdx];
                     if (toolResultBlock.type === 'tool_result') {
                       message.blocks[toolResultIdx] = {
                         ...toolResultBlock,
-                        output: (toolResultBlock.output || '') + event.chunk,
+                        output: (toolResultBlock.output || '') + cleanChunk,
+                        isStreaming: true, // Mark as streaming
                       };
                     }
                   } else {
@@ -372,8 +404,9 @@ export function initializeChatStore() {
                       type: 'tool_result',
                       tool_use_id: event.tool_use_id,
                       tool_name: toolUseBlock.name,
-                      output: event.chunk,
+                      output: cleanChunk,
                       is_error: false,
+                      isStreaming: true, // Mark as streaming
                     });
                   }
 

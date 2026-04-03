@@ -11,6 +11,7 @@ export interface ContentBlock {
   tool_name?: string;
   output?: string;
   is_error?: boolean;
+  isStreaming?: boolean; // True when receiving chunks, false when complete
 }
 
 export interface TokenUsage {

@@ -65,10 +65,14 @@ pub struct BashCommandOutput {
 }
 
 pub fn execute_bash(input: BashCommandInput) -> io::Result<BashCommandOutput> {
-    execute_bash_with_callback(input, |_chunk| {})
+    execute_bash_with_callback(input, |_chunk| {}, None)
 }
 
-pub fn execute_bash_with_callback<F>(input: BashCommandInput, on_output: F) -> io::Result<BashCommandOutput>
+pub fn execute_bash_with_callback<F>(
+    input: BashCommandInput,
+    on_output: F,
+    stdin_rx: Option<crossbeam_channel::Receiver<String>>,
+) -> io::Result<BashCommandOutput>
 where
     F: FnMut(&str) + Send + 'static,
 {
@@ -103,7 +107,7 @@ where
     }
 
     let runtime = Builder::new_current_thread().enable_all().build()?;
-    runtime.block_on(execute_bash_async(input, sandbox_status, cwd, on_output))
+    runtime.block_on(execute_bash_async(input, sandbox_status, cwd, on_output, stdin_rx))
 }
 
 async fn execute_bash_async<F>(
@@ -111,20 +115,23 @@ async fn execute_bash_async<F>(
     sandbox_status: SandboxStatus,
     cwd: std::path::PathBuf,
     mut on_output: F,
+    stdin_rx: Option<crossbeam_channel::Receiver<String>>,
 ) -> io::Result<BashCommandOutput>
 where
     F: FnMut(&str) + Send,
 {
-    use tokio::io::{AsyncBufReadExt, BufReader};
+    use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
     
     let mut command = prepare_tokio_command(&input.command, &cwd, &sandbox_status, true);
     command.stdout(Stdio::piped());
     command.stderr(Stdio::piped());
+    command.stdin(Stdio::piped()); // Enable stdin for interactive commands
 
     let mut child = command.spawn()?;
     
     let stdout = child.stdout.take().expect("stdout not captured");
     let stderr = child.stderr.take().expect("stderr not captured");
+    let mut stdin = child.stdin.take().expect("stdin not captured");
     
     let mut stdout_reader = BufReader::new(stdout).lines();
     let mut stderr_reader = BufReader::new(stderr).lines();
@@ -132,13 +139,17 @@ where
     let mut stdout_lines = Vec::new();
     let mut stderr_lines = Vec::new();
     
-    // Stream output line by line
+    // Stream output line by line + handle stdin input
     let stream_task = async {
+        let mut last_output_time = tokio::time::Instant::now();
+        let input_timeout = tokio::time::Duration::from_secs(3); // 3s no output = might be waiting for input
+        
         loop {
             tokio::select! {
                 result = stdout_reader.next_line() => {
                     match result {
                         Ok(Some(line)) => {
+                            last_output_time = tokio::time::Instant::now();
                             on_output(&format!("{}\n", line));
                             stdout_lines.push(line);
                         }
@@ -152,12 +163,66 @@ where
                 result = stderr_reader.next_line() => {
                     match result {
                         Ok(Some(line)) => {
+                            last_output_time = tokio::time::Instant::now();
                             on_output(&format!("{}\n", line));
                             stderr_lines.push(line);
                         }
                         Ok(None) => {},
                         Err(e) => {
                             eprintln!("[BASH] Error reading stderr: {}", e);
+                        }
+                    }
+                }
+                // Check for stdin input from UI
+                _ = tokio::time::sleep(tokio::time::Duration::from_millis(50)) => {
+                    if let Some(ref rx) = stdin_rx {
+                        if let Ok(input_line) = rx.try_recv() {
+                            last_output_time = tokio::time::Instant::now();
+                            
+                            // Check if input is a control sequence (starts with ESC)
+                            let is_control_seq = input_line.starts_with('\x1b');
+                            
+                            // Write input to process stdin
+                            let input_bytes = if is_control_seq {
+                                // Control sequences don't need newline
+                                input_line.as_bytes().to_vec()
+                            } else {
+                                // Regular input needs newline
+                                format!("{}\n", input_line).into_bytes()
+                            };
+                            
+                            if let Err(e) = stdin.write_all(&input_bytes).await {
+                                eprintln!("[BASH] Error writing to stdin: {}", e);
+                            } else if !is_control_seq {
+                                // Echo regular input to output (not control sequences)
+                                on_output(&format!("{}\n", input_line));
+                                stdout_lines.push(input_line);
+                            }
+                        }
+                    }
+                    
+                    // Check if process might be waiting for input
+                    // Reduced timeout to 1s for faster detection
+                    if last_output_time.elapsed() > tokio::time::Duration::from_secs(1) && !stdout_lines.is_empty() {
+                        // Check last few lines for input patterns
+                        let last_lines: Vec<&str> = stdout_lines.iter().rev().take(3).map(|s| s.as_str()).collect();
+                        let combined = last_lines.join(" ").to_lowercase();
+                        
+                        // Detect common interactive patterns
+                        if combined.contains("? ") 
+                            || combined.contains("(y/n)")
+                            || combined.contains("»")
+                            || combined.contains("›")
+                            || combined.contains("select")
+                            || combined.contains("choose")
+                            || combined.contains("enter")
+                            || combined.contains("input")
+                            || combined.contains("continue")
+                            || combined.ends_with('?')
+                            || combined.ends_with(':') {
+                            // Likely waiting for input - emit signal via callback
+                            on_output("\n[WAITING_FOR_INPUT]\n");
+                            last_output_time = tokio::time::Instant::now(); // Reset timer to avoid spam
                         }
                     }
                 }

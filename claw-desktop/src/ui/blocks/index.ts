@@ -1,6 +1,6 @@
 export * from './ToolExecutionBlock';
 export * from './TodoListBlock';
-export * from './BashBlock';
+export * from './XTermBlock';
 export * from './FileOperationBlock';
 export * from './SearchResultBlock';
 export * from './WebSearchBlock';

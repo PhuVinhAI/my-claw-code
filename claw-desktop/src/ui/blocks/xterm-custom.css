@@ -1,0 +1,27 @@
+/* Custom styles for xterm.js terminal */
+
+/* Hide scrollbar completely - xterm manages scrolling internally */
+.xterm-container .xterm-viewport::-webkit-scrollbar {
+  display: none;
+}
+
+.xterm-container .xterm-viewport {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+}
+
+/* Smooth scrolling */
+.xterm-container .xterm-viewport {
+  scroll-behavior: smooth;
+}
+
+/* Better padding */
+.xterm-container .xterm-screen {
+  padding: 12px;
+}
+
+/* Ensure terminal fills container */
+.xterm-container .xterm {
+  height: 100%;
+}
+

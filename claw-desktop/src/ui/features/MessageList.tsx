@@ -3,9 +3,12 @@ import { useChatStore } from '../../store';
 import { cn } from '../../lib/utils';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { renderToolBlock } from '../blocks';
+import 'katex/dist/katex.min.css'; // KaTeX CSS for LaTeX rendering
 
 export function MessageList() {
   const { messages, currentAssistantText, state } = useChatStore();
@@ -35,7 +38,8 @@ export function MessageList() {
                     return (
                       <div key={blockIdx} className="prose prose-sm dark:prose-invert max-w-none">
                         <ReactMarkdown
-                          remarkPlugins={[remarkGfm]}
+                          remarkPlugins={[remarkGfm, remarkMath]}
+                          rehypePlugins={[rehypeKatex]}
                           components={{
                             code({ node, inline, className, children, ...props }: any) {
                               const match = /language-(\w+)/.exec(className || '');
@@ -93,7 +97,10 @@ export function MessageList() {
           <div className="flex w-full items-start gap-2 justify-start">
             <div className="w-full rounded-lg px-3 py-2 text-sm">
               <div className="prose prose-sm dark:prose-invert max-w-none">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                <ReactMarkdown 
+                  remarkPlugins={[remarkGfm, remarkMath]}
+                  rehypePlugins={[rehypeKatex]}
+                >
                   {currentAssistantText}
                 </ReactMarkdown>
               </div>

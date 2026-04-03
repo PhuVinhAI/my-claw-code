@@ -6,24 +6,34 @@ use tools::GlobalToolRegistry;
 use crossbeam_channel::{Receiver, Sender, bounded};
 
 use crate::core::use_cases::ports::IEventPublisher;
+use super::pty_executor::PtyExecutor;
 
 pub struct TauriToolExecutor {
     registry: GlobalToolRegistry,
-    event_publisher: Arc<dyn IEventPublisher>,
     cancel_flag: Arc<AtomicBool>,
     cancel_tx: Sender<()>,
     cancel_rx: Receiver<()>,
+    pty_executor: PtyExecutor,
 }
 
 impl TauriToolExecutor {
-    pub fn new(event_publisher: Arc<dyn IEventPublisher>, cancel_flag: Arc<AtomicBool>) -> Self {
+    pub fn new(
+        event_publisher: Arc<dyn IEventPublisher>,
+        cancel_flag: Arc<AtomicBool>,
+        stdin_rx: crossbeam_channel::Receiver<(String, String)>,
+    ) -> Self {
         let (cancel_tx, cancel_rx) = bounded(1);
+        let pty_executor = PtyExecutor::new(
+            event_publisher.clone(),
+            cancel_flag.clone(),
+            stdin_rx.clone(),
+        );
         Self {
             registry: GlobalToolRegistry::builtin(),
-            event_publisher,
             cancel_flag,
             cancel_tx,
             cancel_rx,
+            pty_executor,
         }
     }
 
@@ -61,9 +71,9 @@ impl ToolExecutor for TauriToolExecutor {
 
         eprintln!("[TOOL EXECUTOR] Parsed input: {:?}", input_value);
 
-        // Special handling for bash/PowerShell tools with streaming
+        // Special handling for bash/PowerShell tools with PTY
         if tool_name == "bash" || tool_name == "PowerShell" {
-            return self.execute_bash_streaming(tool_name, &input_value, tool_use_id);
+            return self.execute_bash_with_pty(tool_name, &input_value, tool_use_id);
         }
 
         // Execute other tools in separate thread with channel-based cancellation
@@ -108,33 +118,36 @@ impl ToolExecutor for TauriToolExecutor {
 }
 
 impl TauriToolExecutor {
-    fn execute_bash_streaming(&self, _tool_name: &str, input: &serde_json::Value, tool_use_id: &str) -> Result<String, ToolError> {
+    fn execute_bash_with_pty(&self, _tool_name: &str, input: &serde_json::Value, tool_use_id: &str) -> Result<String, ToolError> {
         // Parse bash input
         let bash_input: runtime::BashCommandInput = serde_json::from_value(input.clone())
             .map_err(|e| ToolError::new(format!("Invalid bash input: {}", e)))?;
 
-        let event_publisher = self.event_publisher.clone();
-        let tool_use_id_owned = tool_use_id.to_string();
-        
-        // Execute with streaming callback
-        let result = runtime::execute_bash_with_callback(bash_input, move |chunk| {
-            // Emit chunk event with tool_use_id
-            event_publisher.publish_stream_event(
-                crate::core::domain::types::StreamEvent::ToolOutputChunk {
-                    tool_use_id: tool_use_id_owned.clone(),
-                    chunk: chunk.to_string(),
-                }
-            );
-        });
+        // Execute in PTY (blocking call, but runs in separate thread via execute_with_context)
+        let output = self.pty_executor.execute_in_pty(&bash_input.command, tool_use_id)
+            .map_err(|e| ToolError::new(e))?;
 
-        match result {
-            Ok(output) => {
-                let output_json = serde_json::to_string(&output)
-                    .map_err(|e| ToolError::new(format!("Failed to serialize output: {}", e)))?;
-                Ok(output_json)
-            }
-            Err(e) => Err(ToolError::new(format!("Bash execution failed: {}", e))),
-        }
+        // Return as BashCommandOutput JSON
+        let bash_output = runtime::BashCommandOutput {
+            stdout: output,
+            stderr: String::new(),
+            raw_output_path: None,
+            interrupted: false,
+            is_image: None,
+            background_task_id: None,
+            backgrounded_by_user: None,
+            assistant_auto_backgrounded: None,
+            dangerously_disable_sandbox: bash_input.dangerously_disable_sandbox,
+            return_code_interpretation: None,
+            no_output_expected: Some(false),
+            structured_content: None,
+            persisted_output_path: None,
+            persisted_output_size: None,
+            sandbox_status: None,
+        };
+
+        serde_json::to_string(&bash_output)
+            .map_err(|e| ToolError::new(format!("Failed to serialize output: {}", e)))
     }
 }
 

@@ -2,7 +2,7 @@
 import { ContentBlock } from '../../core/entities';
 import { ToolExecutionBlock } from './ToolExecutionBlock';
 import { TodoListBlock, TodoWriteOutput } from './TodoListBlock';
-import { BashBlock } from './BashBlock';
+import { XTermBlock } from './XTermBlock';
 import { FileOperationBlock } from './FileOperationBlock';
 import { SearchResultBlock } from './SearchResultBlock';
 import { WebSearchBlock } from './WebSearchBlock';
@@ -29,8 +29,10 @@ export function renderToolBlock({ toolUseBlock, toolResultBlock }: RenderToolBlo
   const toolInput = toolUseBlock.input || '';
   const toolOutput = toolResultBlock?.output;
   const isError = toolResultBlock?.is_error || false;
-  const isPending = !toolResultBlock;
+  const isStreaming = toolResultBlock?.isStreaming || false;
+  const isPending = !toolResultBlock || isStreaming; // Pending if no result OR still streaming
   const isCancelledState = isError && isCancelled(toolOutput);
+  const toolUseId = toolUseBlock.id;
 
   // Parse input JSON
   let parsedInput: any = {};
@@ -50,16 +52,16 @@ export function renderToolBlock({ toolUseBlock, toolResultBlock }: RenderToolBlo
     }
   }
 
-  // Bash/PowerShell/REPL - Terminal execution
+  // Bash/PowerShell/REPL - Real Terminal with xterm.js
   if (['bash', 'PowerShell', 'REPL'].includes(toolName)) {
     return (
-      <BashBlock
+      <XTermBlock
         toolName={toolName as 'bash' | 'PowerShell' | 'REPL'}
         command={parsedInput.command || parsedInput.code || toolInput}
-        output={toolOutput}
         isError={isError}
         isPending={isPending}
         isCancelled={isCancelledState}
+        toolUseId={toolUseId || undefined}
       />
     );
   }

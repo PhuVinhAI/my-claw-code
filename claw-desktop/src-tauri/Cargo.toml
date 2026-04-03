@@ -33,6 +33,8 @@ dotenvy = "0.15"
 chrono = "0.4"
 # Crossbeam for channel-based cancellation
 crossbeam-channel = "0.5"
+# Portable PTY for real terminal emulation
+portable-pty = "0.8"
 
 # --- Claw Code Core Dependencies ---
 # Link trực tiếp tới các module Rust của project

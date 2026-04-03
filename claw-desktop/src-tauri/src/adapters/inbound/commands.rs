@@ -284,3 +284,18 @@ pub async fn reload_system_prompt(state: State<'_, AppState>) -> Result<(), Stri
     rx.await
         .map_err(|e| format!("Failed to receive response: {}", e))?
 }
+
+/// Send input to interactive tool (stdin)
+#[tauri::command]
+pub async fn send_tool_input(
+    tool_use_id: String,
+    input: String,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    // Send input to tool executor's stdin channel
+    state
+        .tool_stdin_tx
+        .send((tool_use_id, input))
+        .map_err(|e| format!("Failed to send tool input: {}", e))?;
+    Ok(())
+}
