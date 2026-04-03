@@ -71,6 +71,8 @@ export function renderToolBlock({ toolUseBlock, toolResultBlock }: RenderToolBlo
       return (
         <REPLBlock
           code={parsedInput.code || toolInput}
+          language={parsedInput.language || 'python'}
+          toolInput={toolInput}
           isError={isError}
           isPending={isPending}
           isCancelled={isCancelledState}
@@ -85,6 +87,7 @@ export function renderToolBlock({ toolUseBlock, toolResultBlock }: RenderToolBlo
       <XTermBlock
         toolName={toolName as 'bash' | 'PowerShell'}
         command={parsedInput.command || parsedInput.code || toolInput}
+        toolInput={toolInput}
         isError={isError}
         isPending={isPending}
         isCancelled={isCancelledState}
@@ -100,6 +103,7 @@ export function renderToolBlock({ toolUseBlock, toolResultBlock }: RenderToolBlo
       <FileOperationBlock
         toolName={toolName as 'read_file' | 'write_file' | 'edit_file'}
         filePath={parsedInput.path || parsedInput.file_path || 'unknown'}
+        toolInput={toolInput}
         isError={isError}
         isPending={isPending}
         isCancelled={isCancelledState}
@@ -128,6 +132,7 @@ export function renderToolBlock({ toolUseBlock, toolResultBlock }: RenderToolBlo
         toolName={toolName as 'WebSearch' | 'WebFetch'}
         query={parsedInput.query || parsedInput.prompt || toolInput}
         url={parsedInput.url}
+        toolInput={toolInput}
         output={toolOutput}
         isError={isError}
         isPending={isPending}
@@ -144,6 +149,7 @@ export function renderToolBlock({ toolUseBlock, toolResultBlock }: RenderToolBlo
         name={parsedInput.skill || parsedInput.name || toolName}
         description={parsedInput.description}
         prompt={parsedInput.prompt}
+        toolInput={toolInput}
         output={toolOutput}
         isError={isError}
         isPending={isPending}

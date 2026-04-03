@@ -89,7 +89,11 @@ export function ToolExecutionBlock({
     } else if (toolName === 'Config') {
       displayLabel = parsed.setting ? t('toolExecution.setting') : t('toolExecution.getConfig'); displayValue = parsed.setting || '';
     } else if (toolName === 'ToolSearch' && parsed.query) {
-      displayLabel = t('toolExecution.searchTool'); displayValue = `"${parsed.query}"`;
+      displayLabel = t('toolExecution.searchTool'); 
+      displayValue = `"${parsed.query}"`;
+      if (parsed.max_results) {
+        displayValue += ` (${t('toolExecution.maxResults')} ${parsed.max_results})`;
+      }
     } else if (toolName === 'SendUserMessage' && parsed.status) {
       displayLabel = 'status'; displayValue = parsed.status;
     } else if (parsed.query) {

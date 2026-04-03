@@ -13,6 +13,7 @@ import './xterm-custom.css';
 interface XTermBlockProps {
   toolName: 'bash' | 'PowerShell';
   command: string;
+  toolInput?: string; // Add to parse timeout and description
   isError?: boolean;
   isPending?: boolean;
   isCancelled?: boolean;
@@ -23,6 +24,7 @@ interface XTermBlockProps {
 export function XTermBlock({
   toolName,
   command,
+  toolInput,
   isError = false,
   isPending = false,
   isCancelled = false,
@@ -33,6 +35,14 @@ export function XTermBlock({
   const xtermRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
   const cancelToolExecution = useChatStore((state) => state.cancelToolExecution);
+
+  // Parse input for additional params
+  let inputParams: any = {};
+  if (toolInput) {
+    try {
+      inputParams = JSON.parse(toolInput);
+    } catch {}
+  }
 
   // Subscribe to stream events directly (bypass store concatenation)
   // Only listen if no historical output (means it's a new/active command)
@@ -172,6 +182,22 @@ export function XTermBlock({
           />
           <TerminalIcon className="h-4 w-4 text-muted-foreground/70" />
           <span className="text-sm font-semibold text-foreground/90">{toolName}</span>
+          
+          {/* Show timeout if specified */}
+          {inputParams.timeout && (
+            <>
+              <span className="text-muted-foreground/30">|</span>
+              <span className="text-xs text-muted-foreground/60">timeout: {inputParams.timeout}s</span>
+            </>
+          )}
+          
+          {/* Show description if specified */}
+          {inputParams.description && (
+            <>
+              <span className="text-muted-foreground/30">|</span>
+              <span className="text-xs text-muted-foreground/60 truncate max-w-xs">{inputParams.description}</span>
+            </>
+          )}
         </div>
         
         {/* Stop button - only show when pending */}

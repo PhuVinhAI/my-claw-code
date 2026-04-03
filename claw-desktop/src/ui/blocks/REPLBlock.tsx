@@ -12,6 +12,8 @@ import './xterm-custom.css';
 
 interface REPLBlockProps {
   code: string;
+  language?: string; // Add language param
+  toolInput?: string; // Add to parse timeout
   isError?: boolean;
   isPending?: boolean;
   isCancelled?: boolean;
@@ -21,6 +23,8 @@ interface REPLBlockProps {
 
 export function REPLBlock({
   code,
+  language = 'python',
+  toolInput,
   isError = false,
   isPending = false,
   isCancelled = false,
@@ -31,6 +35,14 @@ export function REPLBlock({
   const terminalRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
+
+  // Parse input for timeout
+  let inputParams: any = {};
+  if (toolInput) {
+    try {
+      inputParams = JSON.parse(toolInput);
+    } catch {}
+  }
 
   // Subscribe to stream events
   useTerminalStream(xtermRef.current, toolUseId, !output);
@@ -44,7 +56,6 @@ export function REPLBlock({
 
     // Get theme colors from CSS variables
     const isDark = document.documentElement.classList.contains('dark');
-    const styles = getComputedStyle(document.documentElement);
     
     const term = new Terminal({
       cursorBlink: false,
@@ -118,7 +129,7 @@ export function REPLBlock({
           <div className="flex items-center gap-2.5">
             <XCircle className="h-4 w-4 text-red-400" />
             <Code className="h-4 w-4 text-muted-foreground/70" />
-            <span className="text-sm font-semibold text-foreground/90">Python REPL</span>
+            <span className="text-sm font-semibold text-foreground/90">{language.toUpperCase()} REPL</span>
           </div>
         </div>
         <div className="px-4 py-3 bg-muted/5">
@@ -142,7 +153,15 @@ export function REPLBlock({
             )}
           />
           <Code className="h-4 w-4 text-muted-foreground/70" />
-          <span className="text-sm font-semibold text-foreground/90">Python REPL</span>
+          <span className="text-sm font-semibold text-foreground/90">{language.toUpperCase()} REPL</span>
+          
+          {/* Show timeout if specified */}
+          {inputParams.timeout_ms && (
+            <>
+              <span className="text-muted-foreground/30">|</span>
+              <span className="text-xs text-muted-foreground/60">timeout: {inputParams.timeout_ms}ms</span>
+            </>
+          )}
         </div>
       </div>
 
@@ -167,7 +186,7 @@ export function REPLBlock({
           <div className="border-t border-border/20">
             <SyntaxHighlighter
               style={isDark ? oneDark : oneLight as any}
-              language="python"
+              language={language}
               PreTag="div"
               customStyle={{
                 margin: 0,

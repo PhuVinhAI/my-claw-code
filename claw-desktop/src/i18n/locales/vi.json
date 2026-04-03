@@ -114,7 +114,10 @@
     "showResults": "Xem kết quả",
     "status": "Trạng thái",
     "bytes": "bytes",
-    "duration": "Thời gian"
+    "duration": "Thời gian",
+    "allowedDomains": "Cho phép",
+    "blockedDomains": "Chặn",
+    "purpose": "Mục đích"
   },
   "toolExecution": {
     "duration": "Thời gian",
@@ -144,7 +147,12 @@
     "fields": "{{count}} trường",
     "invalidDate": "Ngày không hợp lệ",
     "unknownSetting": "Cài đặt không tồn tại: \"{{setting}}\"",
-    "noToolsFound": "Không tìm thấy tool nào"
+    "noToolsFound": "Không tìm thấy tool nào",
+    "lines": "dòng",
+    "from": "từ",
+    "to": "đến",
+    "maxResults": "tối đa",
+    "results_short": "kết quả"
   },
   "delegation": {
     "skill": "Skill",
@@ -164,7 +172,8 @@
     "error": "Lỗi",
     "running": "Đang chạy",
     "completed": "Hoàn thành",
-    "failed": "Thất bại"
+    "failed": "Thất bại",
+    "subagentType": "Loại"
   },
   "todoList": {
     "title": "Danh sách công việc",

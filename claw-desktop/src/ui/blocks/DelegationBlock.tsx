@@ -7,8 +7,9 @@ import { cn } from '../../lib/utils';
 interface DelegationBlockProps {
   toolName: 'Skill' | 'Agent';
   name: string;
-  description?: string; // eslint-disable-line @typescript-eslint/no-unused-vars
-  prompt?: string; // eslint-disable-line @typescript-eslint/no-unused-vars
+  description?: string;
+  prompt?: string;
+  toolInput?: string; // Add this to parse input params
   output?: string;
   isError?: boolean;
   isPending?: boolean;
@@ -41,6 +42,7 @@ interface AgentOutput {
 export function DelegationBlock({
   toolName,
   name,
+  toolInput,
   output,
   isError = false,
   isPending = false,
@@ -51,6 +53,14 @@ export function DelegationBlock({
   const StatusIcon = isPending ? Loader2 : (isError || isCancelled) ? XCircle : CheckCircle2;
   const Icon = toolName === 'Skill' ? Zap : Bot;
   const label = t(`delegation.${toolName.toLowerCase()}`);
+
+  // Parse input for additional info
+  let inputParams: any = {};
+  if (toolInput) {
+    try {
+      inputParams = JSON.parse(toolInput);
+    } catch {}
+  }
 
   // Parse output
   let parsedOutput: SkillOutput | AgentOutput | null = null;
@@ -79,6 +89,20 @@ export function DelegationBlock({
         <span className={cn('font-medium text-foreground', isError && 'text-red-400')}>{label}</span>
         <span className="text-muted-foreground/40">|</span>
         <span className="font-medium flex-1 text-foreground/80">{name}</span>
+        
+        {/* Show subagent_type or model from input */}
+        {toolName === 'Agent' && inputParams.subagent_type && (
+          <>
+            <span className="text-muted-foreground/40">|</span>
+            <span className="text-xs text-muted-foreground/70">{t('delegation.subagentType')}: {inputParams.subagent_type}</span>
+          </>
+        )}
+        {toolName === 'Agent' && inputParams.model && (
+          <>
+            <span className="text-muted-foreground/40">|</span>
+            <span className="text-xs text-muted-foreground/70">{inputParams.model}</span>
+          </>
+        )}
         
         {isPending && <span className="text-xs text-indigo-500 animate-pulse">{t('delegation.processing')}</span>}
         {isCancelled && <span className="text-red-400 text-xs font-medium bg-red-400/10 px-2 py-0.5 rounded-md">{t('delegation.stopped')}</span>}

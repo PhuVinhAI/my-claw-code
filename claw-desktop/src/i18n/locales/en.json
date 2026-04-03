@@ -114,7 +114,10 @@
     "showResults": "Show results",
     "status": "Status",
     "bytes": "bytes",
-    "duration": "Duration"
+    "duration": "Duration",
+    "allowedDomains": "Allowed",
+    "blockedDomains": "Blocked",
+    "purpose": "Purpose"
   },
   "toolExecution": {
     "duration": "Duration",
@@ -144,7 +147,12 @@
     "fields": "{{count}} fields",
     "invalidDate": "Invalid Date",
     "unknownSetting": "Unknown setting: \"{{setting}}\"",
-    "noToolsFound": "No tools found"
+    "noToolsFound": "No tools found",
+    "lines": "lines",
+    "from": "from",
+    "to": "to",
+    "maxResults": "max",
+    "results_short": "results"
   },
   "delegation": {
     "skill": "Skill",
@@ -164,7 +172,8 @@
     "error": "Error",
     "running": "Running",
     "completed": "Completed",
-    "failed": "Failed"
+    "failed": "Failed",
+    "subagentType": "Type"
   },
   "todoList": {
     "title": "Todo List",

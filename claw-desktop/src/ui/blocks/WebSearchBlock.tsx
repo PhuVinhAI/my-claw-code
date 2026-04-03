@@ -8,6 +8,7 @@ interface WebSearchBlockProps {
   toolName: 'WebSearch' | 'WebFetch';
   query: string;
   url?: string;
+  toolInput?: string; // Add to parse additional params
   output?: string;
   isError?: boolean;
   isPending?: boolean;
@@ -38,6 +39,7 @@ export function WebSearchBlock({
   toolName,
   query,
   url,
+  toolInput,
   output,
   isError = false,
   isPending = false,
@@ -48,6 +50,14 @@ export function WebSearchBlock({
   const StatusIcon = isPending ? Loader2 : (isError || isCancelled) ? XCircle : CheckCircle2;
   const label = t(`webSearch.${toolName === 'WebSearch' ? 'search' : 'fetch'}`);
   const displayText = toolName === 'WebSearch' ? query : url || query;
+
+  // Parse input for additional params
+  let inputParams: any = {};
+  if (toolInput) {
+    try {
+      inputParams = JSON.parse(toolInput);
+    } catch {}
+  }
 
   // Parse output
   let parsedOutput: WebSearchOutput | WebFetchOutput | null = null;
@@ -101,6 +111,20 @@ export function WebSearchBlock({
         <span className="text-muted-foreground/30">|</span>
         <span className="font-mono truncate flex-1 text-muted-foreground/70 text-xs">{displayText}</span>
         
+        {/* Show allowed/blocked domains for WebSearch */}
+        {toolName === 'WebSearch' && inputParams.allowed_domains && inputParams.allowed_domains.length > 0 && (
+          <>
+            <span className="text-muted-foreground/30">|</span>
+            <span className="text-xs text-emerald-400/80">{t('webSearch.allowedDomains')}: {inputParams.allowed_domains.join(', ')}</span>
+          </>
+        )}
+        {toolName === 'WebSearch' && inputParams.blocked_domains && inputParams.blocked_domains.length > 0 && (
+          <>
+            <span className="text-muted-foreground/30">|</span>
+            <span className="text-xs text-red-400/80">{t('webSearch.blockedDomains')}: {inputParams.blocked_domains.join(', ')}</span>
+          </>
+        )}
+        
         {duration && (
           <span className="flex items-center gap-1 text-xs text-muted-foreground/60">
             <Clock className="h-3 w-3" />
@@ -120,6 +144,13 @@ export function WebSearchBlock({
           </span>
         )}
       </div>
+
+      {/* Purpose section for WebFetch - show below header */}
+      {toolName === 'WebFetch' && inputParams.prompt && (
+        <div className="px-4 py-2 bg-muted/5 border-b border-border/20">
+          <span className="text-xs text-foreground/80 italic">{inputParams.prompt}</span>
+        </div>
+      )}
 
       {/* Expandable Results */}
       {hasResults && (
