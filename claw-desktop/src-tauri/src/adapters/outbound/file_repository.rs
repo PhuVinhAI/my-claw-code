@@ -3,6 +3,7 @@ use std::fs;
 use std::path::PathBuf;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
+use std::sync::RwLock;
 
 use runtime::{MessageRole, Session};
 
@@ -11,7 +12,7 @@ use crate::core::use_cases::ports::ISessionRepository;
 
 pub struct FileSessionRepository {
     base_path: PathBuf,
-    current_working_dir: String, // Current working directory for session isolation
+    current_working_dir: RwLock<String>, // Interior mutability for thread-safe updates
 }
 
 impl FileSessionRepository {
@@ -28,7 +29,7 @@ impl FileSessionRepository {
         
         Ok(Self { 
             base_path,
-            current_working_dir,
+            current_working_dir: RwLock::new(current_working_dir),
         })
     }
 
@@ -41,17 +42,23 @@ impl FileSessionRepository {
 
     /// Get sessions folder for current working directory
     fn sessions_folder(&self) -> PathBuf {
-        let hash = Self::workdir_hash(&self.current_working_dir);
+        let workdir = self.current_working_dir.read().unwrap();
+        let hash = Self::workdir_hash(&workdir);
         self.base_path.join(hash)
     }
 
     /// Update working directory (called when user changes workspace)
-    pub fn set_working_dir(&mut self, workdir: String) -> Result<(), String> {
-        self.current_working_dir = workdir;
+    pub fn set_working_dir(&self, workdir: String) -> Result<(), String> {
+        let mut current = self.current_working_dir.write().unwrap();
+        *current = workdir.clone();
+        
         // Create folder for this working directory
-        let folder = self.sessions_folder();
+        let hash = Self::workdir_hash(&workdir);
+        let folder = self.base_path.join(&hash);
         fs::create_dir_all(&folder)
             .map_err(|e| format!("Failed to create sessions folder for workdir: {}", e))?;
+        
+        eprintln!("[REPO] Working directory updated to: {} (hash: {})", workdir, hash);
         Ok(())
     }
 
@@ -193,5 +200,9 @@ impl ISessionRepository for FileSessionRepository {
             fs::read_to_string(&path).map_err(|e| format!("Failed to read metadata: {}", e))?;
         serde_json::from_str(&contents)
             .map_err(|e| format!("Failed to deserialize metadata: {}", e))
+    }
+
+    fn set_working_dir(&self, workdir: String) -> Result<(), String> {
+        self.set_working_dir(workdir)
     }
 }

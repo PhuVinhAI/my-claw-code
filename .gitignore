@@ -1,5 +1,6 @@
 # Cấu hình môi trường cá nhân
 .env
+.env.local
 
 # Claw runtime data
 .claw/

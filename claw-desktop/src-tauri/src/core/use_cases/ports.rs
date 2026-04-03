@@ -20,4 +20,5 @@ pub trait ISessionRepository: Send + Sync {
     fn rename(&self, session_id: &str, new_title: &str) -> Result<(), String>;
     fn save_metadata(&self, metadata: &SessionMetadata) -> Result<(), String>;
     fn load_metadata(&self, session_id: &str) -> Result<SessionMetadata, String>;
+    fn set_working_dir(&self, workdir: String) -> Result<(), String>;
 }

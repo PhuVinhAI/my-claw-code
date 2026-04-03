@@ -275,8 +275,8 @@ impl<C: ApiClient, T: ToolExecutor, P: PermissionPrompter> ChatSessionActor<C, T
 
     fn handle_change_working_dir(&mut self, workdir: String) -> Result<(), String> {
         // Update repository's working directory
-        // Note: This requires session_repository to be mutable
-        // We need to add a method to ISessionRepository trait
+        self.session_repository.set_working_dir(workdir.clone())?;
+        
         eprintln!("[ACTOR] Working directory changed to: {}", workdir);
         
         // Clear current session when changing workspace
