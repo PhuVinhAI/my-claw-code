@@ -99,7 +99,7 @@ export function SessionList() {
             value={search}
             onChange={(e) => handleSearchChange(e.target.value)}
             placeholder="Tìm hội thoại..."
-            className="w-full h-9 pl-8 pr-3 text-sm bg-background border border-input rounded-md placeholder:text-muted-foreground text-foreground outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all shadow-sm"
+            className="w-full h-9 pl-8 pr-3 text-sm bg-background border border-input rounded-md placeholder:text-muted-foreground text-foreground outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all"
           />
         </div>
       </div>
