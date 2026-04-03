@@ -1,4 +1,4 @@
-// SearchResultBlock - Specialized UI for grep_search/glob_search
+// SearchResultBlock — Clean inline search indicator
 import { Search, FileSearch, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
@@ -21,56 +21,28 @@ export function SearchResultBlock({
 }: SearchResultBlockProps) {
   const StatusIcon = isPending ? Loader2 : (isError || isCancelled) ? XCircle : CheckCircle2;
   const Icon = toolName === 'grep_search' ? Search : FileSearch;
-
-  // Cancelled state
-  if (isCancelled) {
-    return (
-      <div className="bg-muted/60 dark:bg-muted/30 rounded-lg p-3 border w-full">
-        <div className="flex items-center gap-2">
-          <XCircle className="h-5 w-5 shrink-0 text-destructive" />
-          <Icon className="h-5 w-5 text-muted-foreground shrink-0" />
-          <p className="font-medium text-sm text-destructive">
-            {toolName === 'grep_search' ? 'Tìm trong nội dung:' : 'Tìm file:'}
-          </p>
-          <span className="text-sm font-mono text-foreground/80 truncate flex-1">
-            {pattern}
-          </span>
-          <span className="text-xs text-destructive shrink-0">Đã dừng bởi người dùng</span>
-        </div>
-      </div>
-    );
-  }
-
-  // Parse output to count results
-  const resultCount = output
-    ? output.split('\n').filter((line) => line.trim()).length
-    : 0;
+  const label = toolName === 'grep_search' ? 'Tìm nội dung' : 'Tìm file';
+  const resultCount = output ? output.split('\n').filter((l) => l.trim()).length : 0;
 
   return (
-    <div className="bg-muted/60 dark:bg-muted/30 rounded-lg p-3 border w-full">
-      {/* Single line: Status + Icon + Label + Pattern + Result Count */}
-      <div className="flex items-center gap-2">
-        <StatusIcon
-          className={cn(
-            'h-5 w-5 shrink-0',
-            isPending && 'animate-spin text-blue-500',
-            isError && 'text-destructive',
-            !isPending && !isError && 'text-green-500'
-          )}
-        />
-        <Icon className="h-5 w-5 text-muted-foreground shrink-0" />
-        <p className={cn('font-medium text-sm', isError && 'text-destructive')}>
-          {toolName === 'grep_search' ? 'Tìm trong nội dung:' : 'Tìm file:'}
-        </p>
-        <span className="text-sm font-mono text-foreground/80 truncate flex-1">
-          {pattern}
-        </span>
-        {!isPending && !isError && (
-          <span className="text-xs text-muted-foreground shrink-0">
-            {resultCount} kết quả
-          </span>
+    <div className="flex items-center gap-2.5 py-2 text-xs text-muted-foreground">
+      <StatusIcon
+        className={cn(
+          'h-3.5 w-3.5 shrink-0',
+          isPending && 'animate-spin text-foreground/40',
+          isError && 'text-destructive',
+          isCancelled && 'text-destructive',
+          !isPending && !isError && !isCancelled && 'text-emerald-500/70'
         )}
-      </div>
+      />
+      <Icon className="h-3.5 w-3.5 shrink-0 opacity-50" />
+      <span className={cn('font-medium', isError && 'text-destructive')}>{label}</span>
+      <span className="opacity-30">·</span>
+      <span className="font-mono truncate flex-1 opacity-60">{pattern}</span>
+      {!isPending && !isError && !isCancelled && (
+        <span className="opacity-40">{resultCount} kết quả</span>
+      )}
+      {isCancelled && <span className="text-destructive/70">Đã dừng</span>}
     </div>
   );
 }

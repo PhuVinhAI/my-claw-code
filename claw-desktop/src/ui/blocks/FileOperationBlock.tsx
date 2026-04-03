@@ -1,5 +1,5 @@
-// FileOperationBlock - Specialized UI for file operations
-import { FileText, FilePlus, FileEdit, CheckCircle2, XCircle, Loader2, ExternalLink } from 'lucide-react';
+// FileOperationBlock — Clean inline file operation indicator
+import { FileText, FilePlus, FileEdit, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
 interface FileOperationBlockProps {
@@ -17,69 +17,26 @@ export function FileOperationBlock({
   isPending = false,
   isCancelled = false,
 }: FileOperationBlockProps) {
-  const getIcon = () => {
-    switch (toolName) {
-      case 'write_file':
-        return FilePlus;
-      case 'edit_file':
-        return FileEdit;
-      default:
-        return FileText;
-    }
-  };
-
-  const getLabel = () => {
-    switch (toolName) {
-      case 'write_file':
-        return 'Tạo file';
-      case 'edit_file':
-        return 'Sửa file';
-      default:
-        return 'Đọc file';
-    }
-  };
-
-  const Icon = getIcon();
+  const Icon = toolName === 'write_file' ? FilePlus : toolName === 'edit_file' ? FileEdit : FileText;
+  const label = toolName === 'write_file' ? 'Tạo file' : toolName === 'edit_file' ? 'Sửa file' : 'Đọc file';
   const StatusIcon = isPending ? Loader2 : (isError || isCancelled) ? XCircle : CheckCircle2;
 
-  // Cancelled state
-  if (isCancelled) {
-    return (
-      <div className="bg-muted/60 dark:bg-muted/30 rounded-lg p-3 border w-full">
-        <div className="flex items-center gap-2">
-          <XCircle className="h-5 w-5 shrink-0 text-destructive" />
-          <Icon className="h-5 w-5 text-muted-foreground shrink-0" />
-          <p className="font-medium text-sm text-destructive">{getLabel()}:</p>
-          <span className="text-sm font-mono text-foreground/80 truncate flex-1">
-            {filePath}
-          </span>
-          <span className="text-xs text-destructive shrink-0">Đã dừng bởi người dùng</span>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="bg-muted/60 dark:bg-muted/30 rounded-lg p-3 border w-full">
-      {/* Single line: Status + Icon + Label + File Path */}
-      <div className="flex items-center gap-2">
-        <StatusIcon
-          className={cn(
-            'h-5 w-5 shrink-0',
-            isPending && 'animate-spin text-blue-500',
-            isError && 'text-destructive',
-            !isPending && !isError && 'text-green-500'
-          )}
-        />
-        <Icon className="h-5 w-5 text-muted-foreground shrink-0" />
-        <p className={cn('font-medium text-sm', isError && 'text-destructive')}>
-          {getLabel()}:
-        </p>
-        <span className="text-sm font-mono text-foreground/80 truncate flex-1">
-          {filePath}
-        </span>
-        <ExternalLink className="h-3 w-3 text-muted-foreground shrink-0" />
-      </div>
+    <div className="flex items-center gap-2.5 py-2 text-xs text-muted-foreground">
+      <StatusIcon
+        className={cn(
+          'h-3.5 w-3.5 shrink-0',
+          isPending && 'animate-spin text-foreground/40',
+          isError && 'text-destructive',
+          isCancelled && 'text-destructive',
+          !isPending && !isError && !isCancelled && 'text-emerald-500/70'
+        )}
+      />
+      <Icon className="h-3.5 w-3.5 shrink-0 opacity-50" />
+      <span className={cn('font-medium', isError && 'text-destructive')}>{label}</span>
+      <span className="opacity-30">·</span>
+      <span className="font-mono truncate flex-1 opacity-60">{filePath}</span>
+      {isCancelled && <span className="text-destructive/70">Đã dừng</span>}
     </div>
   );
 }

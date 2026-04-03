@@ -120,18 +120,22 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
+    overscroll-behavior: none;
     }
   body {
     @apply bg-background text-foreground;
-    overflow: hidden; /* Prevent body scroll */
+    overflow: hidden;
+    overscroll-behavior: none;
     }
   html {
     @apply font-sans;
-    overflow: hidden; /* Prevent html scroll */
+    overflow: hidden;
     height: 100%;
+    overscroll-behavior: none;
     }
   #root {
     height: 100vh;
     overflow: hidden;
+    overscroll-behavior: none;
   }
 }

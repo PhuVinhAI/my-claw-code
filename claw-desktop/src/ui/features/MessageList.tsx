@@ -1,4 +1,5 @@
 // MessageList Component
+import { useRef, useEffect } from 'react';
 import { useChatStore } from '../../store';
 import { cn } from '../../lib/utils';
 import { renderToolBlock, ThinkingBlock } from '../blocks';
@@ -7,40 +8,42 @@ import { MarkdownContent } from '../../components/MarkdownContent';
 
 // Helper: Tạm đóng code blocks chưa hoàn chỉnh khi streaming
 function fixIncompleteCodeBlocks(text: string): string {
-  // Count opening ``` 
   const openingCount = (text.match(/^```/gm) || []).length;
-  
-  // If odd number of ```, add closing ```
   if (openingCount % 2 === 1) {
     return text + '\n```';
   }
-  
   return text;
 }
 
 export function MessageList() {
   const { messages, currentAssistantText, state } = useChatStore();
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to bottom on new messages / streaming
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'instant', block: 'end' });
+  }, [messages.length, currentAssistantText, state.status]);
 
   return (
-    <div className="flex-1 overflow-y-auto p-4">
-      <div className="max-w-4xl mx-auto space-y-4">
+    <div className="flex-1 p-5 pb-2">
+      <div className="max-w-3xl mx-auto space-y-5">
         {messages.map((message, idx) => (
           <div
             key={idx}
             className={cn(
-              'flex w-full items-start gap-2',
+              'flex w-full items-start',
               message.role === 'user' ? 'justify-end' : 'justify-start'
             )}
           >
             <div
               className={cn(
-                'rounded-lg px-3 py-2 text-sm',
+                'text-[14px] leading-relaxed',
                 message.role === 'user'
-                  ? 'max-w-xs md:max-w-md lg:max-w-lg bg-muted'
+                  ? 'max-w-xs md:max-w-md lg:max-w-lg rounded-2xl bg-muted/60 px-4 py-2.5'
                   : 'w-full'
               )}
             >
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {message.blocks.map((block, blockIdx) => {
                   if (block.type === 'text') {
                     return (
@@ -59,12 +62,9 @@ export function MessageList() {
                     );
                   }
                   if (block.type === 'tool_use') {
-                    // Check if there's a corresponding tool_result in the same message
                     const toolResult = message.blocks.find(
                       (b) => b.type === 'tool_result' && b.tool_use_id === block.id
                     );
-
-                    // Use specialized block renderer
                     return (
                       <div key={blockIdx}>
                         {renderToolBlock({
@@ -74,10 +74,7 @@ export function MessageList() {
                       </div>
                     );
                   }
-                  // Skip tool_result blocks as they're rendered with tool_use
-                  if (block.type === 'tool_result') {
-                    return null;
-                  }
+                  if (block.type === 'tool_result') return null;
                   return null;
                 })}
               </div>
@@ -87,14 +84,12 @@ export function MessageList() {
 
         {/* Current streaming text */}
         {currentAssistantText && (
-          <div className="flex w-full items-start gap-2 justify-start">
-            <div className="w-full rounded-lg px-3 py-2 text-sm">
+          <div className="flex w-full items-start justify-start">
+            <div className="w-full text-[14px] leading-relaxed">
               {(() => {
-                // Parse thinking tags in real-time
                 const parsed = parseThinkingTags(currentAssistantText);
-                
                 return (
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     {parsed.blocks.map((block, idx) => {
                       if (block.type === 'thinking') {
                         return (
@@ -121,15 +116,20 @@ export function MessageList() {
 
         {/* Loading indicator */}
         {state.status === 'GENERATING' && !currentAssistantText && (
-          <div className="flex w-full items-start gap-2 justify-start">
-            <div className="w-full rounded-lg px-3 py-2 text-sm">
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <div className="animate-pulse">●</div>
-                <span>AI đang suy nghĩ...</span>
+          <div className="flex w-full items-start justify-start">
+            <div className="flex items-center gap-2.5 text-muted-foreground/60 py-2">
+              <div className="flex gap-1">
+                <span className="animate-bounce text-xs" style={{ animationDelay: '0ms' }}>●</span>
+                <span className="animate-bounce text-xs" style={{ animationDelay: '150ms' }}>●</span>
+                <span className="animate-bounce text-xs" style={{ animationDelay: '300ms' }}>●</span>
               </div>
+              <span className="text-xs">Đang suy nghĩ...</span>
             </div>
           </div>
         )}
+
+        {/* Scroll anchor */}
+        <div ref={bottomRef} className="h-px" />
       </div>
     </div>
   );

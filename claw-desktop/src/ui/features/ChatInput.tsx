@@ -1,23 +1,31 @@
 // ChatInput Component
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useChatStore } from '../../store';
 import { Textarea } from '../../components/ui/textarea';
 import { Button } from '../../components/ui/button';
-import { Send, Square, Bot, FolderOpen } from 'lucide-react';
+import { Send, Square, Bot, FolderOpen, ChevronDown, Sparkles } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { WorkMode, WorkModeLabels } from '../../core/entities/WorkMode';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-} from '../../components/ui/select';
 import { invoke } from '@tauri-apps/api/core';
 
 export function ChatInput() {
   const [input, setInput] = useState('');
-  const { state, sendPrompt, stopGeneration, model, workMode, workspacePath, setWorkMode } = useChatStore();
+  const [modeOpen, setModeOpen] = useState(false);
+  const modeRef = useRef<HTMLDivElement>(null);
+  const { state, messages, sendPrompt, stopGeneration, model, workMode, workspacePath, setWorkMode } = useChatStore();
   const isGenerating = state.status !== 'IDLE';
+  const isEmpty = messages.length === 0;
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (modeRef.current && !modeRef.current.contains(e.target as Node)) {
+        setModeOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const handleSend = async () => {
     if (!input.trim() || isGenerating) return;
@@ -37,9 +45,10 @@ export function ChatInput() {
     }
   };
 
-  const handleModeChange = async (newMode: WorkMode | null) => {
-    if (!newMode) return;
-    
+  const handleModeChange = async (newMode: WorkMode) => {
+    setModeOpen(false);
+    if (newMode === workMode) return;
+
     if (newMode === 'workspace') {
       try {
         const selectedPath = await invoke<string | null>('select_and_set_workspace');
@@ -55,77 +64,143 @@ export function ChatInput() {
     }
   };
 
-  return (
-    <div className="border-t bg-background p-4">
-      <div className="max-w-4xl mx-auto flex flex-col rounded-xl border bg-background focus-within:ring-1 focus-within:ring-ring overflow-hidden shadow-sm transition-all">
-        
-        {/* TRÊN TEXTAREA - Chỉ hiện khi Workspace mode */}
-        {workMode === 'workspace' && (
-          <div className="flex items-center gap-2 px-3 py-2 border-b bg-muted/30 text-xs text-muted-foreground">
-            <FolderOpen className="h-3.5 w-3.5" />
-            <span className="truncate" title={workspacePath || ''}>
-              {workspacePath || 'Chưa chọn workspace'}
-            </span>
-          </div>
-        )}
-
-        {/* TEXTAREA */}
-        <Textarea
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Nhập yêu cầu của bạn..."
-          className="min-h-[60px] max-h-[200px] w-full resize-none border-none bg-transparent px-4 py-3 shadow-none focus-visible:ring-0"
-          rows={1}
-        />
-
-        {/* DƯỚI TEXTAREA - Luôn hiện: Dropdown + Model + Send */}
-        <div className="flex h-12 items-center justify-between px-3 pb-2 pt-1">
-          <div className="flex items-center gap-2">
-            {/* Mode Selector */}
-            <Select value={workMode} onValueChange={handleModeChange}>
-              <SelectTrigger className="h-8 w-[140px] text-xs">
-                <span>{WorkModeLabels[workMode]}</span>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="normal">{WorkModeLabels.normal}</SelectItem>
-                <SelectItem value="workspace">{WorkModeLabels.workspace}</SelectItem>
-              </SelectContent>
-            </Select>
-
-            {/* Model Display */}
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Bot className="h-3.5 w-3.5" />
-              <span>{model}</span>
-            </div>
-          </div>
-
-          {/* Send/Stop Button */}
-          {isGenerating ? (
-            <Button
-              onClick={handleStop}
-              variant="destructive"
-              size="icon"
-              className="h-8 w-8 shrink-0 rounded-lg animate-in fade-in zoom-in duration-200"
-              title="Dừng AI"
-            >
-              <Square className="h-4 w-4 fill-current" />
-            </Button>
-          ) : (
-            <Button
-              onClick={handleSend}
-              disabled={!input.trim()}
-              size="icon"
-              className={cn(
-                "h-8 w-8 shrink-0 rounded-lg transition-all duration-200 animate-in fade-in zoom-in",
-                input.trim() ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
-              )}
-              title="Gửi tin nhắn"
-            >
-              <Send className="h-4 w-4" />
-            </Button>
-          )}
+  // ── Shared input card ──
+  const inputCard = (
+    <div className="flex flex-col rounded-2xl bg-muted/40 backdrop-blur-xl border border-border/30 transition-all duration-200 focus-within:border-foreground/15">
+      
+      {/* Workspace bar */}
+      {workMode === 'workspace' && (
+        <div className="flex items-center gap-2 px-5 pt-3.5 text-xs text-muted-foreground">
+          <FolderOpen className="h-3.5 w-3.5 shrink-0 opacity-60" />
+          <span className="truncate opacity-70" title={workspacePath || ''}>
+            {workspacePath || 'Chưa chọn workspace'}
+          </span>
         </div>
+      )}
+
+      {/* Textarea */}
+      <Textarea
+        value={input}
+        onChange={(e) => setInput(e.target.value)}
+        onKeyDown={handleKeyDown}
+        placeholder="Hỏi bất cứ điều gì..."
+        className={cn(
+          "w-full resize-none border-none bg-transparent shadow-none placeholder:text-muted-foreground/40 focus-visible:ring-0",
+          isEmpty
+            ? "min-h-[64px] max-h-[200px] px-5 pt-5 pb-2 text-base leading-relaxed"
+            : "min-h-[52px] max-h-[200px] px-5 pt-4 pb-2 text-[15px] leading-relaxed"
+        )}
+        rows={1}
+      />
+
+      {/* Bottom bar */}
+      <div className="flex items-center justify-between gap-3 px-4 pb-3 pt-0.5">
+        <div className="flex items-center gap-2.5">
+          {/* Custom mode dropdown */}
+          <div className="relative" ref={modeRef}>
+            <button
+              onClick={() => setModeOpen(!modeOpen)}
+              className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-muted-foreground/70 hover:text-foreground hover:bg-foreground/5 transition-all duration-150"
+            >
+              <span>{WorkModeLabels[workMode]}</span>
+              <ChevronDown className={cn(
+                "h-3 w-3 transition-transform duration-200",
+                modeOpen && "rotate-180"
+              )} />
+            </button>
+
+            {/* Dropdown */}
+            {modeOpen && (
+              <div className="absolute bottom-full left-0 mb-1.5 min-w-[170px] rounded-xl border border-border/30 bg-popover/95 backdrop-blur-xl p-1.5 space-y-0.5 shadow-lg animate-in fade-in slide-in-from-bottom-2 duration-150 z-50">
+                {(['normal', 'workspace'] as WorkMode[]).map((mode) => (
+                  <button
+                    key={mode}
+                    onClick={() => handleModeChange(mode)}
+                    className={cn(
+                      "flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-xs transition-colors duration-100",
+                      workMode === mode
+                        ? "bg-foreground/8 text-foreground font-medium"
+                        : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                    )}
+                  >
+                    {mode === 'workspace' && <FolderOpen className="h-3.5 w-3.5" />}
+                    {mode === 'normal' && <Sparkles className="h-3.5 w-3.5" />}
+                    <span>{WorkModeLabels[mode]}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Separator */}
+          <div className="h-3 w-px bg-border/40" />
+
+          {/* Model badge */}
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground/50">
+            <Bot className="h-3 w-3" />
+            <span>{model}</span>
+          </div>
+        </div>
+
+        {/* Send / Stop */}
+        {isGenerating ? (
+          <Button
+            onClick={handleStop}
+            variant="destructive"
+            size="icon"
+            className="h-8 w-8 shrink-0 rounded-full animate-in fade-in zoom-in duration-200"
+            title="Dừng AI"
+          >
+            <Square className="h-3.5 w-3.5 fill-current" />
+          </Button>
+        ) : (
+          <button
+            onClick={handleSend}
+            disabled={!input.trim()}
+            className={cn(
+              "h-8 w-8 shrink-0 rounded-full flex items-center justify-center transition-all duration-200",
+              input.trim()
+                ? "bg-foreground text-background hover:opacity-85"
+                : "bg-muted-foreground/15 text-muted-foreground/30 cursor-not-allowed"
+            )}
+            title="Gửi tin nhắn"
+          >
+            <Send className="h-3.5 w-3.5" />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+
+  // ── Empty state: centered ──
+  if (isEmpty) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center px-4 pb-16">
+        <div className="mb-10 text-center">
+          <h1 className="text-4xl font-semibold tracking-tight text-foreground mb-3">
+            {workMode === 'workspace' ? 'Hỏi về dự án của bạn' : 'Tôi có thể giúp gì?'}
+          </h1>
+          <p className="text-base text-muted-foreground/60">
+            {workMode === 'workspace'
+              ? 'Phân tích code, tìm bug, hoặc refactor trong workspace.'
+              : 'Viết code, debug, brainstorm — hỏi bất cứ điều gì.'}
+          </p>
+        </div>
+        <div className="w-full max-w-2xl">
+          {inputCard}
+        </div>
+      </div>
+    );
+  }
+
+  // ── Has messages: sticky bottom ──
+  return (
+    <div
+      className="sticky bottom-0 z-10 pointer-events-none px-4 pb-4 pt-10"
+      style={{ background: 'linear-gradient(to bottom, transparent 0%, var(--background) 35%)' }}
+    >
+      <div className="max-w-3xl mx-auto pointer-events-auto">
+        {inputCard}
       </div>
     </div>
   );

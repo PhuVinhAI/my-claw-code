@@ -1,4 +1,4 @@
-// ToolExecutionBlock Component
+// ToolExecutionBlock — Clean single-line tool indicator
 import { Terminal, FileText, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
@@ -20,109 +20,69 @@ export function ToolExecutionBlock({
 }: ToolExecutionBlockProps) {
   const getToolIcon = () => {
     switch (toolName) {
-      case 'bash':
-      case 'REPL':
-      case 'PowerShell':
-        return Terminal;
-      case 'read_file':
-      case 'write_file':
-      case 'edit_file':
-        return FileText;
-      default:
-        return Terminal;
+      case 'bash': case 'REPL': case 'PowerShell': return Terminal;
+      case 'read_file': case 'write_file': case 'edit_file': return FileText;
+      default: return Terminal;
     }
   };
 
   const ToolIcon = getToolIcon();
   const StatusIcon = isPending ? Loader2 : (isError || isCancelled) ? XCircle : CheckCircle2;
 
-  // Parse input to extract meaningful info with labels
+  // Parse input to extract meaningful info
   let displayLabel = '';
   let displayValue = toolInput;
   
   try {
     const parsed = JSON.parse(toolInput);
-    
-    // Format based on tool type with proper labels
     if (toolName === 'Sleep' && parsed.duration_ms) {
-      displayLabel = 'Thời gian:';
-      displayValue = `${parsed.duration_ms}ms`;
+      displayLabel = 'Thời gian'; displayValue = `${parsed.duration_ms}ms`;
     } else if (toolName === 'Config') {
-      if (parsed.setting) {
-        displayLabel = 'Cài đặt:';
-        displayValue = parsed.setting;
-      } else {
-        displayLabel = 'Lấy cấu hình';
-        displayValue = '';
-      }
+      displayLabel = parsed.setting ? 'Cài đặt' : 'Lấy cấu hình'; displayValue = parsed.setting || '';
     } else if (toolName === 'ToolSearch' && parsed.query) {
-      displayLabel = 'Tìm tool:';
-      displayValue = `"${parsed.query}"`;
+      displayLabel = 'Tìm tool'; displayValue = `"${parsed.query}"`;
     } else if (parsed.query) {
-      displayLabel = 'Truy vấn:';
-      displayValue = parsed.query;
+      displayLabel = 'Truy vấn'; displayValue = parsed.query;
     } else if (parsed.command) {
-      displayLabel = 'Lệnh:';
-      displayValue = parsed.command;
+      displayLabel = 'Lệnh'; displayValue = parsed.command;
     } else if (parsed.path) {
-      displayLabel = 'Đường dẫn:';
-      displayValue = parsed.path;
+      displayLabel = 'Đường dẫn'; displayValue = parsed.path;
     } else {
-      // Keep first meaningful key-value pair
       const entries = Object.entries(parsed);
       if (entries.length > 0) {
         const [key, value] = entries[0];
-        displayLabel = `${key}:`;
-        displayValue = String(value);
+        displayLabel = key; displayValue = String(value);
       }
     }
-  } catch {
-    // Keep original if not JSON
-    displayValue = toolInput;
-  }
-
-  // Cancelled state
-  if (isCancelled) {
-    return (
-      <div className="flex text-sm bg-muted/60 dark:bg-muted/30 rounded-lg p-3 border w-full flex-row items-center gap-2.5">
-        <XCircle className="h-5 w-5 shrink-0 text-destructive" />
-        <ToolIcon className="h-5 w-5 text-muted-foreground shrink-0" />
-        <p className="font-medium text-destructive">{toolName}</p>
-        {displayLabel && (
-          <span className="text-xs text-muted-foreground shrink-0">{displayLabel}</span>
-        )}
-        {displayValue && (
-          <span className="text-xs text-foreground/80 truncate flex-1 font-mono">
-            {displayValue.length > 80 ? displayValue.substring(0, 80) + '...' : displayValue}
-          </span>
-        )}
-        <span className="text-xs text-destructive shrink-0">Đã dừng bởi người dùng</span>
-      </div>
-    );
-  }
+  } catch { displayValue = toolInput; }
 
   return (
-    <div className="flex text-sm bg-muted/60 dark:bg-muted/30 rounded-lg p-3 border w-full flex-row items-center gap-2.5">
+    <div className="flex items-center gap-2.5 py-2 text-xs text-muted-foreground">
       <StatusIcon
         className={cn(
-          'h-5 w-5 shrink-0',
-          isPending && 'animate-spin text-blue-500',
+          'h-3.5 w-3.5 shrink-0',
+          isPending && 'animate-spin text-foreground/40',
           isError && 'text-destructive',
-          !isPending && !isError && 'text-green-500'
+          isCancelled && 'text-destructive',
+          !isPending && !isError && !isCancelled && 'text-emerald-500/70'
         )}
       />
-      <ToolIcon className="h-5 w-5 text-muted-foreground shrink-0" />
-      <p className={cn('font-medium', isError && 'text-destructive')}>
+      <ToolIcon className="h-3.5 w-3.5 shrink-0 opacity-50" />
+      <span className={cn('font-medium', isError && 'text-destructive')}>
         {toolName}
-      </p>
+      </span>
       {displayLabel && (
-        <span className="text-xs text-muted-foreground shrink-0">{displayLabel}</span>
+        <>
+          <span className="opacity-30">·</span>
+          <span className="opacity-60">{displayLabel}</span>
+        </>
       )}
       {displayValue && (
-        <span className="text-xs text-foreground/80 truncate flex-1 font-mono">
-          {displayValue.length > 80 ? displayValue.substring(0, 80) + '...' : displayValue}
+        <span className="font-mono truncate flex-1 opacity-50">
+          {displayValue.length > 60 ? displayValue.substring(0, 60) + '…' : displayValue}
         </span>
       )}
+      {isCancelled && <span className="text-destructive/70">Đã dừng</span>}
     </div>
   );
 }

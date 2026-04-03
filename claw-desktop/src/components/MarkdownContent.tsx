@@ -1,4 +1,4 @@
-// MarkdownContent - Styled markdown renderer with Tailwind
+// MarkdownContent - Clean, spacious markdown renderer
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
@@ -17,40 +17,40 @@ export function MarkdownContent({ content }: MarkdownContentProps) {
         remarkPlugins={[remarkGfm, remarkMath]}
         rehypePlugins={[rehypeKatex]}
         components={{
-          // Headings
+          // Headings — clean, well-spaced
           h1: ({ children }) => (
-            <h1 className="text-3xl font-bold mt-6 mb-4 text-foreground">{children}</h1>
+            <h1 className="text-2xl font-semibold mt-6 mb-3 text-foreground tracking-tight">{children}</h1>
           ),
           h2: ({ children }) => (
-            <h2 className="text-2xl font-bold mt-5 mb-3 text-foreground">{children}</h2>
+            <h2 className="text-xl font-semibold mt-5 mb-2.5 text-foreground tracking-tight">{children}</h2>
           ),
           h3: ({ children }) => (
-            <h3 className="text-xl font-semibold mt-4 mb-2 text-foreground">{children}</h3>
+            <h3 className="text-lg font-medium mt-4 mb-2 text-foreground">{children}</h3>
           ),
           h4: ({ children }) => (
-            <h4 className="text-lg font-semibold mt-3 mb-2 text-foreground">{children}</h4>
+            <h4 className="text-base font-medium mt-3 mb-1.5 text-foreground">{children}</h4>
           ),
           h5: ({ children }) => (
-            <h5 className="text-base font-semibold mt-2 mb-1 text-foreground">{children}</h5>
+            <h5 className="text-sm font-medium mt-2 mb-1 text-foreground">{children}</h5>
           ),
           h6: ({ children }) => (
-            <h6 className="text-sm font-semibold mt-2 mb-1 text-muted-foreground">{children}</h6>
+            <h6 className="text-xs font-medium mt-2 mb-1 text-muted-foreground uppercase tracking-wide">{children}</h6>
           ),
 
-          // Paragraphs
+          // Paragraphs — generous line-height
           p: ({ children }) => (
-            <p className="mb-4 leading-7 text-foreground">{children}</p>
+            <p className="mb-3 leading-[1.75] text-foreground/90">{children}</p>
           ),
 
-          // Lists
+          // Lists — clean spacing
           ul: ({ children }) => (
-            <ul className="list-disc list-outside ml-6 mb-4 space-y-2">{children}</ul>
+            <ul className="list-disc list-outside ml-5 mb-3 space-y-1.5">{children}</ul>
           ),
           ol: ({ children }) => (
-            <ol className="list-decimal list-outside ml-6 mb-4 space-y-2">{children}</ol>
+            <ol className="list-decimal list-outside ml-5 mb-3 space-y-1.5">{children}</ol>
           ),
           li: ({ children }) => (
-            <li className="leading-7 text-foreground">{children}</li>
+            <li className="leading-[1.7] text-foreground/90 pl-1">{children}</li>
           ),
 
           // Links
@@ -59,36 +59,35 @@ export function MarkdownContent({ content }: MarkdownContentProps) {
               href={href}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-primary hover:underline font-medium"
+              className="text-foreground underline underline-offset-[3px] decoration-foreground/25 hover:decoration-foreground/60 transition-colors"
             >
               {children}
             </a>
           ),
 
-          // Blockquotes
+          // Blockquotes — subtle left accent
           blockquote: ({ children }) => (
-            <blockquote className="border-l-4 border-primary/50 pl-4 py-2 my-4 italic bg-muted/30 rounded-r">
+            <blockquote className="border-l-2 border-foreground/15 pl-4 py-0.5 my-3 text-muted-foreground">
               {children}
             </blockquote>
           ),
 
           // Horizontal rule
-          hr: () => <hr className="my-6 border-border" />,
+          hr: () => <hr className="my-6 border-border/50" />,
 
-          // Inline code
+          // Code
           code: ({ node, inline, className, children, ...props }: any) => {
             const match = /language-(\w+)/.exec(className || '');
             
             if (!inline && match) {
-              // Code block with syntax highlighting and header
               const code = String(children).replace(/\n$/, '');
               return <CodeBlock language={match[1]} code={code} />;
             }
             
-            // Inline code
+            // Inline code — subtle
             return (
               <code
-                className="px-1.5 py-0.5 rounded bg-muted text-foreground font-mono text-sm border border-border"
+                className="px-1.5 py-0.5 rounded-md bg-muted/70 text-foreground/90 font-mono text-[0.85em]"
                 {...props}
               >
                 {children}
@@ -96,47 +95,47 @@ export function MarkdownContent({ content }: MarkdownContentProps) {
             );
           },
 
-          // Tables
+          // Tables — modern, borderless-style
           table: ({ children }) => (
-            <div className="my-4 overflow-x-auto">
-              <table className="w-full border-collapse border border-border rounded-lg">
+            <div className="my-4 overflow-x-auto rounded-lg border border-border/40">
+              <table className="w-full text-sm">
                 {children}
               </table>
             </div>
           ),
           thead: ({ children }) => (
-            <thead className="bg-muted/50">{children}</thead>
+            <thead className="bg-muted/30 border-b border-border/40">{children}</thead>
           ),
-          tbody: ({ children }) => <tbody>{children}</tbody>,
+          tbody: ({ children }) => <tbody className="divide-y divide-border/30">{children}</tbody>,
           tr: ({ children }) => (
-            <tr className="border-b border-border hover:bg-muted/30 transition-colors">
+            <tr className="transition-colors hover:bg-muted/20">
               {children}
             </tr>
           ),
           th: ({ children }) => (
-            <th className="px-4 py-2 text-left font-semibold text-foreground border-r border-border last:border-r-0">
+            <th className="px-4 py-2.5 text-left font-medium text-muted-foreground text-xs uppercase tracking-wider">
               {children}
             </th>
           ),
           td: ({ children }) => (
-            <td className="px-4 py-2 text-foreground border-r border-border last:border-r-0">
+            <td className="px-4 py-2.5 text-foreground/85">
               {children}
             </td>
           ),
 
-          // Strong/Bold
+          // Strong
           strong: ({ children }) => (
-            <strong className="font-bold text-foreground">{children}</strong>
+            <strong className="font-semibold text-foreground">{children}</strong>
           ),
 
-          // Emphasis/Italic
+          // Emphasis
           em: ({ children }) => (
-            <em className="italic text-foreground">{children}</em>
+            <em className="italic text-foreground/80">{children}</em>
           ),
 
-          // Delete/Strikethrough
+          // Strikethrough
           del: ({ children }) => (
-            <del className="line-through text-muted-foreground">{children}</del>
+            <del className="line-through text-muted-foreground/60">{children}</del>
           ),
         }}
       >

@@ -12,9 +12,11 @@
   "app": {
     "windows": [
       {
-        "title": "claw-desktop",
-        "width": 800,
-        "height": 600
+        "title": "Claw Desktop",
+        "width": 1200,
+        "height": 800,
+        "minWidth": 700,
+        "minHeight": 500
       }
     ],
     "security": {
