@@ -19,6 +19,36 @@ use runtime::{
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
+/// Tools excluded from Workspace mode by default
+/// These tools are considered too specialized or potentially disruptive for general work mode
+const WORKSPACE_EXCLUDED_TOOLS: &[&str] = &[
+    "NotebookEdit",    // Jupyter notebook editing - specialized use case
+    "Agent",           // Sub-agent spawning - can cause complexity
+    "Skill",           // Skill loading - meta-operation
+    "ToolSearch",      // Tool discovery - meta-operation
+    "Config",          // System configuration - should be explicit
+    "StructuredOutput", // Structured output formatting - specialized
+];
+
+/// Get OS-specific tool exclusions
+/// Windows: exclude bash, keep PowerShell
+/// Linux/macOS: exclude PowerShell, keep bash
+fn get_os_specific_exclusions() -> Vec<String> {
+    let mut exclusions = Vec::new();
+    
+    #[cfg(target_os = "windows")]
+    {
+        exclusions.push("bash".to_string());
+    }
+    
+    #[cfg(not(target_os = "windows"))]
+    {
+        exclusions.push("PowerShell".to_string());
+    }
+    
+    exclusions
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ToolManifestEntry {
     pub name: String,
@@ -139,9 +169,34 @@ impl GlobalToolRegistry {
 
     #[must_use]
     pub fn definitions(&self, allowed_tools: Option<&BTreeSet<String>>) -> Vec<ToolDefinition> {
+        self.definitions_with_exclusions(allowed_tools, None)
+    }
+
+    /// Get tool definitions with optional exclusions
+    /// 
+    /// # Arguments
+    /// * `allowed_tools` - Whitelist of allowed tools (None = all tools)
+    /// * `excluded_tools` - Blacklist of excluded tools (None = no exclusions)
+    /// 
+    /// # Logic
+    /// 1. If `allowed_tools` is Some, only those tools are included
+    /// 2. Then, if `excluded_tools` is Some, those tools are removed
+    /// 3. This allows fine-grained control: whitelist + blacklist
+    #[must_use]
+    pub fn definitions_with_exclusions(
+        &self,
+        allowed_tools: Option<&BTreeSet<String>>,
+        excluded_tools: Option<&BTreeSet<String>>,
+    ) -> Vec<ToolDefinition> {
         let builtin = mvp_tool_specs()
             .into_iter()
-            .filter(|spec| allowed_tools.is_none_or(|allowed| allowed.contains(spec.name)))
+            .filter(|spec| {
+                // First check whitelist
+                let allowed = allowed_tools.is_none_or(|allowed| allowed.contains(spec.name));
+                // Then check blacklist
+                let not_excluded = excluded_tools.is_none_or(|excluded| !excluded.contains(spec.name));
+                allowed && not_excluded
+            })
             .map(|spec| ToolDefinition {
                 name: spec.name.to_string(),
                 description: Some(spec.description.to_string()),
@@ -151,7 +206,10 @@ impl GlobalToolRegistry {
             .plugin_tools
             .iter()
             .filter(|tool| {
-                allowed_tools.is_none_or(|allowed| allowed.contains(tool.definition().name.as_str()))
+                let name = tool.definition().name.as_str();
+                let allowed = allowed_tools.is_none_or(|allowed| allowed.contains(name));
+                let not_excluded = excluded_tools.is_none_or(|excluded| !excluded.contains(name));
+                allowed && not_excluded
             })
             .map(|tool| ToolDefinition {
                 name: tool.definition().name.clone(),
@@ -159,6 +217,28 @@ impl GlobalToolRegistry {
                 input_schema: tool.definition().input_schema.clone(),
             });
         builtin.chain(plugin).collect()
+    }
+
+    /// Get default workspace exclusion list (includes OS-specific exclusions)
+    #[must_use]
+    pub fn default_workspace_exclusions() -> BTreeSet<String> {
+        let mut exclusions: BTreeSet<String> = WORKSPACE_EXCLUDED_TOOLS
+            .iter()
+            .map(|&s| s.to_string())
+            .collect();
+        
+        // Add OS-specific exclusions
+        for tool in get_os_specific_exclusions() {
+            exclusions.insert(tool);
+        }
+        
+        exclusions
+    }
+    
+    /// Get OS-specific exclusions only (for testing/debugging)
+    #[must_use]
+    pub fn os_specific_exclusions() -> BTreeSet<String> {
+        get_os_specific_exclusions().into_iter().collect()
     }
 
     #[must_use]

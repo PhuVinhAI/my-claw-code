@@ -65,23 +65,27 @@ impl TauriToolExecutor {
     pub fn get_tool_definitions(&self) -> Vec<api::ToolDefinition> {
         let mode = self.work_mode.lock().unwrap();
         
+        // Get common exclusions (workspace-specific + OS-specific)
+        // Apply to BOTH modes for consistency
+        let excluded = tools::GlobalToolRegistry::default_workspace_exclusions();
+        
         match *mode {
             WorkMode::Workspace => {
-                // All tools allowed
-                self.registry.definitions(None)
+                // Workspace mode: All tools EXCEPT excluded ones
+                self.registry.definitions_with_exclusions(None, Some(&excluded))
             }
             WorkMode::Normal => {
-                // Normal mode: Chỉ tools user đã chọn
+                // Normal mode: User-selected tools, also excluding common exclusions
                 let selected = self.selected_tools.lock().unwrap();
                 
                 if selected.is_empty() {
                     // Không có tools nào được chọn → return empty
                     Vec::new()
                 } else {
-                    // Return definitions cho selected tools
+                    // Return definitions cho selected tools, excluding common exclusions
                     let allowed_tools: std::collections::BTreeSet<String> = 
                         selected.iter().cloned().collect();
-                    self.registry.definitions(Some(&allowed_tools))
+                    self.registry.definitions_with_exclusions(Some(&allowed_tools), Some(&excluded))
                 }
             }
         }
