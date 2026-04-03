@@ -123,8 +123,15 @@
     }
   body {
     @apply bg-background text-foreground;
+    overflow: hidden; /* Prevent body scroll */
     }
   html {
     @apply font-sans;
+    overflow: hidden; /* Prevent html scroll */
+    height: 100%;
     }
+  #root {
+    height: 100vh;
+    overflow: hidden;
+  }
 }

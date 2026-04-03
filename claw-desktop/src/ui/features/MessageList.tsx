@@ -1,15 +1,9 @@
 // MessageList Component
 import { useChatStore } from '../../store';
 import { cn } from '../../lib/utils';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import remarkMath from 'remark-math';
-import rehypeKatex from 'rehype-katex';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { renderToolBlock, ThinkingBlock } from '../blocks';
 import { parseThinkingTags } from '../../lib/parseThinking';
-import 'katex/dist/katex.min.css'; // KaTeX CSS for LaTeX rendering
+import { MarkdownContent } from '../../components/MarkdownContent';
 
 // Helper: Tạm đóng code blocks chưa hoàn chỉnh khi streaming
 function fixIncompleteCodeBlocks(text: string): string {
@@ -50,32 +44,8 @@ export function MessageList() {
                 {message.blocks.map((block, blockIdx) => {
                   if (block.type === 'text') {
                     return (
-                      <div key={blockIdx} className="prose prose-sm dark:prose-invert max-w-none">
-                        <ReactMarkdown
-                          remarkPlugins={[remarkGfm, remarkMath]}
-                          rehypePlugins={[rehypeKatex]}
-                          components={{
-                            code({ node, inline, className, children, ...props }: any) {
-                              const match = /language-(\w+)/.exec(className || '');
-                              return !inline && match ? (
-                                <SyntaxHighlighter
-                                  style={oneDark as any}
-                                  language={match[1]}
-                                  PreTag="div"
-                                  {...props}
-                                >
-                                  {String(children).replace(/\n$/, '')}
-                                </SyntaxHighlighter>
-                              ) : (
-                                <code className={className} {...props}>
-                                  {children}
-                                </code>
-                              );
-                            },
-                          }}
-                        >
-                          {block.text || ''}
-                        </ReactMarkdown>
+                      <div key={blockIdx}>
+                        <MarkdownContent content={block.text || ''} />
                       </div>
                     );
                   }
@@ -136,32 +106,8 @@ export function MessageList() {
                         );
                       } else {
                         return (
-                          <div key={idx} className="prose prose-sm dark:prose-invert max-w-none">
-                            <ReactMarkdown 
-                              remarkPlugins={[remarkGfm, remarkMath]}
-                              rehypePlugins={[rehypeKatex]}
-                              components={{
-                                code({ node, inline, className, children, ...props }: any) {
-                                  const match = /language-(\w+)/.exec(className || '');
-                                  return !inline && match ? (
-                                    <SyntaxHighlighter
-                                      style={oneDark as any}
-                                      language={match[1]}
-                                      PreTag="div"
-                                      {...props}
-                                    >
-                                      {String(children).replace(/\n$/, '')}
-                                    </SyntaxHighlighter>
-                                  ) : (
-                                    <code className={className} {...props}>
-                                      {children}
-                                    </code>
-                                  );
-                                },
-                              }}
-                            >
-                              {fixIncompleteCodeBlocks(block.content)}
-                            </ReactMarkdown>
+                          <div key={idx}>
+                            <MarkdownContent content={fixIncompleteCodeBlocks(block.content)} />
                           </div>
                         );
                       }
