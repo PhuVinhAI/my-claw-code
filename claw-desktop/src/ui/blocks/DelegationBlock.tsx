@@ -1,46 +1,194 @@
-// DelegationBlock — Clean inline delegation indicator
-import { Zap, Bot, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
+// DelegationBlock — Skill/Agent delegation with full output
+import { useState } from 'react';
+import { Zap, Bot, CheckCircle2, XCircle, Loader2, ChevronDown, ChevronRight, FileText, Calendar } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
 
 interface DelegationBlockProps {
   toolName: 'Skill' | 'Agent';
   name: string;
-  description?: string;
-  prompt?: string;
+  description?: string; // eslint-disable-line @typescript-eslint/no-unused-vars
+  prompt?: string; // eslint-disable-line @typescript-eslint/no-unused-vars
   output?: string;
   isError?: boolean;
   isPending?: boolean;
   isCancelled?: boolean;
 }
 
+interface SkillOutput {
+  skill: string;
+  path: string;
+  args?: string;
+  description?: string;
+  prompt: string;
+}
+
+interface AgentOutput {
+  agentId: string;
+  name: string;
+  description: string;
+  subagentType?: string;
+  model?: string;
+  status: string;
+  outputFile: string;
+  manifestFile: string;
+  createdAt: string;
+  startedAt?: string;
+  completedAt?: string;
+  error?: string;
+}
+
 export function DelegationBlock({
   toolName,
   name,
+  output,
   isError = false,
   isPending = false,
   isCancelled = false,
 }: DelegationBlockProps) {
+  const { t } = useTranslation();
+  const [isExpanded, setIsExpanded] = useState(false);
   const StatusIcon = isPending ? Loader2 : (isError || isCancelled) ? XCircle : CheckCircle2;
   const Icon = toolName === 'Skill' ? Zap : Bot;
-  const label = toolName === 'Skill' ? 'Skill' : 'Agent';
+  const label = t(`delegation.${toolName.toLowerCase()}`);
+
+  // Parse output
+  let parsedOutput: SkillOutput | AgentOutput | null = null;
+  if (output && !isPending) {
+    try {
+      parsedOutput = JSON.parse(output);
+    } catch {}
+  }
+
+  const hasDetails = parsedOutput && !isPending && !isError && !isCancelled;
 
   return (
-    <div className="flex items-center gap-3 p-3 my-1.5 bg-indigo-500/5 dark:bg-indigo-500/10 border border-indigo-500/20 rounded-xl text-sm transition-colors hover:bg-indigo-500/10">
-      <StatusIcon
-        className={cn(
-          'h-4 w-4 shrink-0',
-          isPending && 'animate-spin text-indigo-500',
-          isError && 'text-destructive',
-          isCancelled && 'text-destructive',
-          !isPending && !isError && !isCancelled && 'text-emerald-500'
+    <div className="my-2 bg-indigo-500/5 dark:bg-indigo-500/10 rounded-lg border border-indigo-500/20 overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center gap-3 px-4 py-3 bg-indigo-500/10 border-b border-indigo-500/20">
+        <StatusIcon
+          className={cn(
+            'h-4 w-4 shrink-0',
+            isPending && 'animate-spin text-indigo-500',
+            isError && 'text-red-400',
+            isCancelled && 'text-red-400',
+            !isPending && !isError && !isCancelled && 'text-emerald-500'
+          )}
+        />
+        <Icon className="h-4 w-4 shrink-0 text-indigo-500/70" />
+        <span className={cn('font-medium text-foreground', isError && 'text-red-400')}>{label}</span>
+        <span className="text-muted-foreground/40">|</span>
+        <span className="font-medium flex-1 text-foreground/80">{name}</span>
+        
+        {isPending && <span className="text-xs text-indigo-500 animate-pulse">{t('delegation.processing')}</span>}
+        {isCancelled && <span className="text-red-400 text-xs font-medium bg-red-400/10 px-2 py-0.5 rounded-md">{t('delegation.stopped')}</span>}
+        
+        {parsedOutput && 'status' in parsedOutput && (
+          <span className={cn(
+            'text-xs font-medium px-2 py-0.5 rounded-md',
+            parsedOutput.status === 'running' && 'bg-blue-400/10 text-blue-400',
+            parsedOutput.status === 'completed' && 'bg-emerald-400/10 text-emerald-400',
+            parsedOutput.status === 'failed' && 'bg-red-400/10 text-red-400'
+          )}>
+            {t(`delegation.${parsedOutput.status}`)}
+          </span>
         )}
-      />
-      <Icon className="h-4 w-4 shrink-0 text-indigo-500/70" />
-      <span className={cn('font-medium text-foreground', isError && 'text-destructive')}>{label}</span>
-      <span className="text-muted-foreground/40">·</span>
-      <span className="font-medium flex-1 text-foreground/80">{name}</span>
-      {isPending && <span className="text-xs text-indigo-500 animate-pulse">Đang xử lý…</span>}
-      {isCancelled && <span className="text-destructive text-xs font-medium bg-destructive/10 px-2 py-0.5 rounded-md">Đã dừng</span>}
+      </div>
+
+      {/* Expandable Details */}
+      {hasDetails && (
+        <>
+          <button
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="w-full flex items-center gap-2 px-4 py-2 bg-indigo-500/5 hover:bg-indigo-500/10 transition-colors text-left border-b border-indigo-500/10"
+          >
+            {isExpanded ? (
+              <ChevronDown className="h-4 w-4 text-indigo-500/70" />
+            ) : (
+              <ChevronRight className="h-4 w-4 text-indigo-500/70" />
+            )}
+            <span className="text-xs text-indigo-500/80 font-medium">
+              {isExpanded ? t('delegation.hideDetails') : t('delegation.showDetails')}
+            </span>
+          </button>
+
+          {isExpanded && (
+            <div className="px-4 py-3 bg-indigo-500/5 space-y-3">
+              {toolName === 'Skill' && parsedOutput && 'path' in parsedOutput && (
+                <>
+                  <div className="flex items-start gap-2 text-xs">
+                    <FileText className="h-3.5 w-3.5 mt-0.5 text-indigo-500/70 shrink-0" />
+                    <div className="flex-1">
+                      <div className="text-muted-foreground/70 mb-1">{t('delegation.path')}:</div>
+                      <div className="font-mono text-foreground/80">{parsedOutput.path}</div>
+                    </div>
+                  </div>
+                  
+                  {parsedOutput.description && (
+                    <div className="text-sm text-foreground/80">
+                      <div className="text-muted-foreground/70 text-xs mb-1">{t('delegation.description')}:</div>
+                      {parsedOutput.description}
+                    </div>
+                  )}
+                  
+                  {parsedOutput.args && (
+                    <div className="text-xs">
+                      <div className="text-muted-foreground/70 mb-1">{t('delegation.args')}:</div>
+                      <div className="font-mono text-foreground/80 bg-muted/20 px-2 py-1 rounded">
+                        {parsedOutput.args}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {toolName === 'Agent' && parsedOutput && 'agentId' in parsedOutput && (
+                <>
+                  <div className="grid grid-cols-2 gap-3 text-xs">
+                    <div>
+                      <div className="text-muted-foreground/70 mb-1">{t('delegation.agentId')}:</div>
+                      <div className="font-mono text-foreground/80">{parsedOutput.agentId}</div>
+                    </div>
+                    {parsedOutput.model && (
+                      <div>
+                        <div className="text-muted-foreground/70 mb-1">{t('delegation.model')}:</div>
+                        <div className="font-mono text-foreground/80">{parsedOutput.model}</div>
+                      </div>
+                    )}
+                  </div>
+
+                  {parsedOutput.description && (
+                    <div className="text-sm text-foreground/80">
+                      <div className="text-muted-foreground/70 text-xs mb-1">{t('delegation.description')}:</div>
+                      {parsedOutput.description}
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground/70">
+                    <Calendar className="h-3.5 w-3.5" />
+                    <span>{t('delegation.created')}: {new Date(parsedOutput.createdAt).toLocaleString()}</span>
+                  </div>
+
+                  {parsedOutput.outputFile && (
+                    <div className="text-xs">
+                      <div className="text-muted-foreground/70 mb-1">{t('delegation.outputFile')}:</div>
+                      <div className="font-mono text-foreground/80 bg-muted/20 px-2 py-1 rounded truncate">
+                        {parsedOutput.outputFile}
+                      </div>
+                    </div>
+                  )}
+
+                  {parsedOutput.error && (
+                    <div className="text-xs text-red-400 bg-red-400/10 px-2 py-1 rounded">
+                      {t('delegation.error')}: {parsedOutput.error}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }

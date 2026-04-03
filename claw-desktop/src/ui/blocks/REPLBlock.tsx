@@ -2,6 +2,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { Terminal } from 'xterm';
 import { FitAddon } from '@xterm/addon-fit';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { Code, ChevronDown, ChevronRight, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useTerminalStream } from './useTerminalStream';
@@ -34,6 +36,7 @@ export function REPLBlock({
   useTerminalStream(xtermRef.current, toolUseId, !output);
 
   const StatusIcon = isPending ? Loader2 : (isError || isCancelled) ? XCircle : CheckCircle2;
+  const isDark = document.documentElement.classList.contains('dark');
 
   // Initialize xterm.js for output
   useEffect(() => {
@@ -41,15 +44,17 @@ export function REPLBlock({
 
     // Get theme colors from CSS variables
     const isDark = document.documentElement.classList.contains('dark');
-
+    const styles = getComputedStyle(document.documentElement);
+    
     const term = new Terminal({
       cursorBlink: false,
       fontSize: 13,
       fontFamily: 'Consolas, "Courier New", monospace',
       theme: {
-        background: isDark ? '#252525' : '#fafafa', // muted background
-        foreground: isDark ? '#e5e5e5' : '#262626', // foreground
-        cursor: '#22c55e', // emerald-400
+        background: 'transparent', // Use CSS background
+        foreground: isDark ? '#e5e5e5' : '#262626',
+        cursor: isDark ? '#60a5fa' : '#3b82f6', // blue-400/500
+        cursorAccent: isDark ? '#1e293b' : '#f8fafc',
         black: isDark ? '#1a1a1a' : '#525252',
         red: '#ef4444',
         green: '#22c55e',
@@ -159,8 +164,27 @@ export function REPLBlock({
         </button>
         
         {isCodeExpanded && (
-          <div className="px-4 py-3 bg-muted/5 border-t border-border/20 max-h-96 overflow-auto">
-            <pre className="text-xs text-foreground/80 font-mono whitespace-pre-wrap">{code}</pre>
+          <div className="border-t border-border/20">
+            <SyntaxHighlighter
+              style={isDark ? oneDark : oneLight as any}
+              language="python"
+              PreTag="div"
+              customStyle={{
+                margin: 0,
+                borderRadius: 0,
+                background: 'transparent',
+                padding: '1rem 1.25rem',
+              }}
+              codeTagProps={{
+                style: {
+                  fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace',
+                  fontSize: '0.8125rem',
+                  lineHeight: '1.7',
+                },
+              }}
+            >
+              {code}
+            </SyntaxHighlighter>
           </div>
         )}
       </div>

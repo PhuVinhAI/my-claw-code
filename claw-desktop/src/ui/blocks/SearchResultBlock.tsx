@@ -37,7 +37,7 @@ export function SearchResultBlock({
       />
       <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
       <span className={cn('font-medium text-foreground', isError && 'text-destructive')}>{label}</span>
-      <span className="text-muted-foreground/40">·</span>
+      <span className="text-muted-foreground/40">|</span>
       <span className="font-mono truncate flex-1 text-muted-foreground text-[13px]">{pattern}</span>
       {!isPending && !isError && !isCancelled && (
         <span className="text-xs font-medium bg-foreground/5 text-foreground/70 px-2 py-0.5 rounded-md">{resultCount} kết quả</span>

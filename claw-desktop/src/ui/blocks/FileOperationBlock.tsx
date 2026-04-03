@@ -36,7 +36,7 @@ export function FileOperationBlock({
       />
       <Icon className="h-4 w-4 shrink-0 text-muted-foreground/70" />
       <span className={cn('font-semibold text-foreground/90', isError && 'text-red-400')}>{label}</span>
-      <span className="text-muted-foreground/30">·</span>
+      <span className="text-muted-foreground/30">|</span>
       <span className="font-mono truncate flex-1 text-muted-foreground/70 text-xs">{filePath}</span>
       {isCancelled && (
         <span className="text-red-400 text-xs font-medium bg-red-400/10 px-2 py-1 rounded-md border border-red-400/20">

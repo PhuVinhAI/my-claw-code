@@ -58,9 +58,10 @@ export function XTermBlock({
       fontSize: 13,
       fontFamily: 'Consolas, "Courier New", monospace',
       theme: {
-        background: isDark ? '#252525' : '#fafafa', // muted background
-        foreground: isDark ? '#e5e5e5' : '#262626', // foreground
-        cursor: '#22c55e', // emerald-400
+        background: 'transparent', // Use CSS background
+        foreground: isDark ? '#e5e5e5' : '#262626',
+        cursor: isDark ? '#60a5fa' : '#3b82f6', // blue-400/500
+        cursorAccent: isDark ? '#1e293b' : '#f8fafc',
         black: isDark ? '#1a1a1a' : '#525252',
         red: '#ef4444',
         green: '#22c55e',

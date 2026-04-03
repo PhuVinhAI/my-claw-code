@@ -25,11 +25,16 @@
   height: 100%;
 }
 
-/* Theme-aware background */
+/* Theme-aware background using CSS variables */
 .xterm-container {
-  background: oklch(0.269 0 0 / 5%);
+  background: hsl(var(--muted) / 0.05);
 }
 
 .dark .xterm-container {
-  background: oklch(0.269 0 0 / 5%);
+  background: hsl(var(--muted) / 0.1);
+}
+
+/* Cursor styling */
+.xterm-container .xterm-cursor-layer .xterm-cursor {
+  background: hsl(var(--primary)) !important;
 }
