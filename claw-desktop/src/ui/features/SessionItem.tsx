@@ -1,5 +1,6 @@
 // SessionItem — Clean session row
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { SessionMetadata } from '../../core/entities';
 import { useChatStore } from '../../store/useChatStore';
 import { MoreHorizontal, Trash2, Edit2, Check, X } from 'lucide-react';
@@ -12,6 +13,7 @@ interface SessionItemProps {
 }
 
 export function SessionItem({ session, isActive }: SessionItemProps) {
+  const { t } = useTranslation();
   const { switchSession, deleteSession, renameSession } = useChatStore();
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(session.title);
@@ -60,11 +62,11 @@ export function SessionItem({ session, isActive }: SessionItemProps) {
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);
 
-    if (diffMins < 1) return 'Vừa xong';
+    if (diffMins < 1) return t('sessionItem.justNow');
     if (diffMins < 60) return `${diffMins}m`;
     if (diffHours < 24) return `${diffHours}h`;
     if (diffDays < 7) return `${diffDays}d`;
-    return date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
+    return date.toLocaleDateString(t('sessionItem.locale'), { day: '2-digit', month: '2-digit' });
   };
 
   if (isEditing) {
@@ -83,14 +85,14 @@ export function SessionItem({ session, isActive }: SessionItemProps) {
         <button 
           onClick={handleRename} 
           className="h-7 w-7 shrink-0 flex items-center justify-center rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-          title="Lưu"
+          title={t('sessionItem.save')}
         >
           <Check className="w-3.5 h-3.5" />
         </button>
         <button 
           onClick={() => setIsEditing(false)} 
           className="h-7 w-7 shrink-0 flex items-center justify-center rounded-md bg-background border border-input text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-          title="Hủy"
+          title={t('sessionItem.cancel')}
         >
           <X className="w-3.5 h-3.5" />
         </button>
@@ -148,14 +150,14 @@ export function SessionItem({ session, isActive }: SessionItemProps) {
                 className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
               >
                 <Edit2 className="w-4 h-4" />
-                <span>Đổi tên</span>
+                <span>{t('sessionItem.rename')}</span>
               </button>
               <button
                 onClick={(e) => { e.stopPropagation(); handleDelete(); }}
                 className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-sm font-medium text-red-500 hover:bg-red-500 hover:text-white transition-colors"
               >
                 <Trash2 className="w-4 h-4" />
-                <span>Xóa</span>
+                <span>{t('sessionItem.delete')}</span>
               </button>
             </div>
           </>

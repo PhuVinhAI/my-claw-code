@@ -1,5 +1,6 @@
 // ToolExecutionBlock — Clean single-line tool indicator
 import { Terminal, FileText, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
 
 interface ToolExecutionBlockProps {
@@ -18,6 +19,7 @@ export function ToolExecutionBlock({
   isPending = false,
   isCancelled = false,
 }: ToolExecutionBlockProps) {
+  const { t } = useTranslation();
   const getToolIcon = () => {
     switch (toolName) {
       case 'bash': case 'REPL': case 'PowerShell': return Terminal;
@@ -36,17 +38,17 @@ export function ToolExecutionBlock({
   try {
     const parsed = JSON.parse(toolInput);
     if (toolName === 'Sleep' && parsed.duration_ms) {
-      displayLabel = 'Thời gian'; displayValue = `${parsed.duration_ms}ms`;
+      displayLabel = t('toolExecution.duration'); displayValue = `${parsed.duration_ms}ms`;
     } else if (toolName === 'Config') {
-      displayLabel = parsed.setting ? 'Cài đặt' : 'Lấy cấu hình'; displayValue = parsed.setting || '';
+      displayLabel = parsed.setting ? t('toolExecution.setting') : t('toolExecution.getConfig'); displayValue = parsed.setting || '';
     } else if (toolName === 'ToolSearch' && parsed.query) {
-      displayLabel = 'Tìm tool'; displayValue = `"${parsed.query}"`;
+      displayLabel = t('toolExecution.searchTool'); displayValue = `"${parsed.query}"`;
     } else if (parsed.query) {
-      displayLabel = 'Truy vấn'; displayValue = parsed.query;
+      displayLabel = t('toolExecution.query'); displayValue = parsed.query;
     } else if (parsed.command) {
-      displayLabel = 'Lệnh'; displayValue = parsed.command;
+      displayLabel = t('toolExecution.command'); displayValue = parsed.command;
     } else if (parsed.path) {
-      displayLabel = 'Đường dẫn'; displayValue = parsed.path;
+      displayLabel = t('toolExecution.path'); displayValue = parsed.path;
     } else {
       const entries = Object.entries(parsed);
       if (entries.length > 0) {
@@ -82,7 +84,7 @@ export function ToolExecutionBlock({
           {displayValue.length > 60 ? displayValue.substring(0, 60) + '…' : displayValue}
         </span>
       )}
-      {isCancelled && <span className="text-destructive text-xs font-medium bg-destructive/10 px-2 py-0.5 rounded-md">Đã dừng</span>}
+      {isCancelled && <span className="text-destructive text-xs font-medium bg-destructive/10 px-2 py-0.5 rounded-md">{t('toolExecution.stopped')}</span>}
     </div>
   );
 }

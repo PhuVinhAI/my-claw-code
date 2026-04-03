@@ -1,5 +1,6 @@
 // ThinkingBlock — Minimal collapsible thinking indicator
 import { Brain, Loader2, ChevronDown } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
 import { useState, useEffect } from 'react';
 
@@ -9,6 +10,7 @@ interface ThinkingBlockProps {
 }
 
 export function ThinkingBlock({ thinking, isStreaming = false }: ThinkingBlockProps) {
+  const { t } = useTranslation();
   // Default: collapsed for historical messages, expanded only during streaming
   const [isExpanded, setIsExpanded] = useState(isStreaming);
 
@@ -45,7 +47,7 @@ export function ThinkingBlock({ thinking, isStreaming = false }: ThinkingBlockPr
           <Brain className="h-4 w-4 text-primary" />
         )}
         <span className="font-semibold text-foreground/80">
-          {isStreaming ? 'Đang suy luận…' : 'Suy luận'}
+          {isStreaming ? t('thinking.streaming') : t('thinking.title')}
         </span>
         {!isStreaming && thinking && (
           <ChevronDown

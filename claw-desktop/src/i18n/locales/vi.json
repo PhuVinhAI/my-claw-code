@@ -1,0 +1,145 @@
+{
+  "sessionList": {
+    "title": "Lịch sử hội thoại",
+    "newChat": "Hội thoại mới",
+    "searchPlaceholder": "Tìm hội thoại...",
+    "noResults": "Không tìm thấy kết quả",
+    "noConversations": "Chưa có hội thoại",
+    "noResultsHint": "Thử sử dụng một từ khóa tìm kiếm khác.",
+    "noConversationsHint": "Bắt đầu trò chuyện bằng cách tạo một hội thoại mới.",
+    "loadMore": "{{count}} hội thoại nữa...",
+    "settings": "Cài đặt",
+    "theme": "Đổi giao diện (Sáng/Tối)",
+    "language": "Ngôn ngữ"
+  },
+  "sessionItem": {
+    "save": "Lưu",
+    "cancel": "Hủy",
+    "rename": "Đổi tên",
+    "delete": "Xóa",
+    "justNow": "Vừa xong",
+    "locale": "vi-VN"
+  },
+  "chatInput": {
+    "placeholder": "Hỏi bất cứ điều gì...",
+    "send": "Gửi tin nhắn",
+    "stop": "Dừng AI",
+    "selectFolder": "Chọn thư mục khác",
+    "recentFolders": "Thư mục đã mở gần đây",
+    "recentFoldersEmpty": "Không có dữ liệu",
+    "noWorkspace": "Chưa chọn workspace",
+    "tools": "Công cụ ({{count}})",
+    "emptyTitleWorkspace": "Hỏi về dự án của bạn",
+    "emptyTitleNormal": "Tôi có thể giúp gì?",
+    "emptySubtitleWorkspace": "Phân tích mã nguồn, tìm kiếm lỗi, hoặc tái cấu trúc thư mục làm việc hiện tại.",
+    "emptySubtitleNormal": "Viết code, gỡ lỗi, suy nghĩ ý tưởng — hãy đặt câu hỏi.",
+    "recentFoldersTitle": "Mở gần đây",
+    "selectWorkspaceError": "Không thể chọn workspace: {{error}}"
+  },
+  "workMode": {
+    "normal": "Chế độ thường",
+    "workspace": "Chế độ workspace"
+  },
+  "tools": {
+    "webSearch": "Tìm kiếm Web",
+    "webFetch": "Truy cập Web"
+  },
+  "messageList": {
+    "thinking": "Đang suy nghĩ..."
+  },
+  "settings": {
+    "title": "Cài đặt",
+    "aiSettings": "Cài đặt AI",
+    "providers": "Nhà cung cấp",
+    "addProvider": "Thêm nhà cung cấp",
+    "deleteProvider": "Xóa nhà cung cấp",
+    "editProvider": "Chỉnh sửa nhà cung cấp",
+    "providerId": "ID nhà cung cấp",
+    "providerName": "Tên nhà cung cấp",
+    "apiKey": "API Key",
+    "baseUrl": "Base URL",
+    "models": "Mô hình",
+    "addModel": "Thêm mô hình",
+    "editModel": "Chỉnh sửa",
+    "deleteModel": "Xóa",
+    "modelId": "ID mô hình",
+    "modelName": "Tên mô hình",
+    "noProviders": "Chưa có nhà cung cấp",
+    "noModels": "Chưa có mô hình",
+    "selectProvider": "Chọn nhà cung cấp để xem mô hình"
+  },
+  "onboarding": {
+    "welcome": "Chào mừng đến với Claw",
+    "subtitle": "Cấu hình nhà cung cấp AI để bắt đầu",
+    "start": "Bắt đầu cấu hình",
+    "selectProvider": "Chọn nhà cung cấp AI",
+    "selectProviderHint": "Chọn một trong các nhà cung cấp AI có sẵn",
+    "enterApiKey": "Nhập API Key",
+    "enterApiKeyHint": "Nhập API key của {{provider}} để tiếp tục",
+    "selectedProvider": "Nhà cung cấp đã chọn",
+    "apiKeyPlaceholder": "Nhập API key của bạn...",
+    "apiKeySecure": "API key sẽ được lưu trữ an toàn trên máy tính của bạn",
+    "next": "Tiếp theo",
+    "complete": "Hoàn tất và bắt đầu",
+    "processing": "Đang xử lý...",
+    "defaultModel": "Mô hình mặc định: {{model}}",
+    "error": "Lỗi: {{error}}",
+    "selectProviderError": "Vui lòng chọn nhà cung cấp",
+    "enterApiKeyError": "Vui lòng nhập API key"
+  },
+  "permission": {
+    "title": "Permission Required",
+    "description": "Tool \"{{tool}}\" requires permission to execute.",
+    "currentMode": "Current mode: {{mode}}",
+    "requiredMode": "Required mode: {{mode}}",
+    "allow": "Allow",
+    "deny": "Deny"
+  },
+  "thinking": {
+    "title": "Suy luận",
+    "streaming": "Đang suy luận…"
+  },
+  "fileOperation": {
+    "read": "Đọc file",
+    "write": "Tạo file",
+    "edit": "Sửa file",
+    "stopped": "Đã dừng"
+  },
+  "webSearch": {
+    "search": "Tìm kiếm web",
+    "fetch": "Lấy nội dung web",
+    "results": "{{count}} kết quả",
+    "stopped": "Đã dừng"
+  },
+  "toolExecution": {
+    "duration": "Thời gian",
+    "setting": "Cài đặt",
+    "getConfig": "Lấy cấu hình",
+    "searchTool": "Tìm tool",
+    "query": "Truy vấn",
+    "command": "Lệnh",
+    "path": "Đường dẫn",
+    "stopped": "Đã dừng"
+  },
+  "todoList": {
+    "title": "Danh sách công việc",
+    "empty": "Danh sách công việc trống",
+    "completed": "Hoàn thành",
+    "inProgress": "Đang làm",
+    "pending": "Chờ",
+    "verificationHint": "💡 Gợi ý: Hãy thêm bước xác minh (verification) vào kế hoạch để đảm bảo chất lượng"
+  },
+  "languages": {
+    "vi": "Tiếng Việt",
+    "en": "English"
+  },
+  "common": {
+    "loading": "Đang tải...",
+    "error": "Lỗi",
+    "success": "Thành công",
+    "cancel": "Hủy",
+    "confirm": "Xác nhận",
+    "save": "Lưu",
+    "delete": "Xóa"
+  }
+}

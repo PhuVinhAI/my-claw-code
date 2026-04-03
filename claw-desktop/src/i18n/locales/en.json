@@ -1,0 +1,145 @@
+{
+  "sessionList": {
+    "title": "Chat History",
+    "newChat": "New Chat",
+    "searchPlaceholder": "Search conversations...",
+    "noResults": "No results found",
+    "noConversations": "No conversations yet",
+    "noResultsHint": "Try using a different search term.",
+    "noConversationsHint": "Start chatting by creating a new conversation.",
+    "loadMore": "{{count}} more conversations...",
+    "settings": "Settings",
+    "theme": "Toggle theme (Light/Dark)",
+    "language": "Language"
+  },
+  "sessionItem": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "rename": "Rename",
+    "delete": "Delete",
+    "justNow": "Just now",
+    "locale": "en-US"
+  },
+  "chatInput": {
+    "placeholder": "Ask anything...",
+    "send": "Send message",
+    "stop": "Stop AI",
+    "selectFolder": "Select another folder",
+    "recentFolders": "Recently opened folders",
+    "recentFoldersEmpty": "No data",
+    "noWorkspace": "No workspace selected",
+    "tools": "Tools ({{count}})",
+    "emptyTitleWorkspace": "Ask about your project",
+    "emptyTitleNormal": "How can I help?",
+    "emptySubtitleWorkspace": "Analyze code, find bugs, or refactor your current workspace.",
+    "emptySubtitleNormal": "Write code, debug, brainstorm ideas — just ask.",
+    "recentFoldersTitle": "Recently opened",
+    "selectWorkspaceError": "Cannot select workspace: {{error}}"
+  },
+  "workMode": {
+    "normal": "Normal Mode",
+    "workspace": "Workspace Mode"
+  },
+  "tools": {
+    "webSearch": "Web Search",
+    "webFetch": "Web Fetch"
+  },
+  "messageList": {
+    "thinking": "Thinking..."
+  },
+  "settings": {
+    "title": "Settings",
+    "aiSettings": "AI Settings",
+    "providers": "Providers",
+    "addProvider": "Add provider",
+    "deleteProvider": "Delete provider",
+    "editProvider": "Edit provider",
+    "providerId": "Provider ID",
+    "providerName": "Provider name",
+    "apiKey": "API Key",
+    "baseUrl": "Base URL",
+    "models": "Models",
+    "addModel": "Add model",
+    "editModel": "Edit",
+    "deleteModel": "Delete",
+    "modelId": "Model ID",
+    "modelName": "Model name",
+    "noProviders": "No providers yet",
+    "noModels": "No models yet",
+    "selectProvider": "Select a provider to view models"
+  },
+  "onboarding": {
+    "welcome": "Welcome to Claw",
+    "subtitle": "Configure AI provider to get started",
+    "start": "Start configuration",
+    "selectProvider": "Select AI Provider",
+    "selectProviderHint": "Choose one of the available AI providers",
+    "enterApiKey": "Enter API Key",
+    "enterApiKeyHint": "Enter your {{provider}} API key to continue",
+    "selectedProvider": "Selected provider",
+    "apiKeyPlaceholder": "Enter your API key...",
+    "apiKeySecure": "Your API key will be stored securely on your computer",
+    "next": "Next",
+    "complete": "Complete and start",
+    "processing": "Processing...",
+    "defaultModel": "Default model: {{model}}",
+    "error": "Error: {{error}}",
+    "selectProviderError": "Please select a provider",
+    "enterApiKeyError": "Please enter API key"
+  },
+  "permission": {
+    "title": "Permission Required",
+    "description": "Tool \"{{tool}}\" requires permission to execute.",
+    "currentMode": "Current mode: {{mode}}",
+    "requiredMode": "Required mode: {{mode}}",
+    "allow": "Allow",
+    "deny": "Deny"
+  },
+  "thinking": {
+    "title": "Reasoning",
+    "streaming": "Reasoning…"
+  },
+  "fileOperation": {
+    "read": "Read file",
+    "write": "Create file",
+    "edit": "Edit file",
+    "stopped": "Stopped"
+  },
+  "webSearch": {
+    "search": "Web search",
+    "fetch": "Fetch web content",
+    "results": "{{count}} results",
+    "stopped": "Stopped"
+  },
+  "toolExecution": {
+    "duration": "Duration",
+    "setting": "Setting",
+    "getConfig": "Get config",
+    "searchTool": "Search tool",
+    "query": "Query",
+    "command": "Command",
+    "path": "Path",
+    "stopped": "Stopped"
+  },
+  "todoList": {
+    "title": "Todo List",
+    "empty": "Todo list is empty",
+    "completed": "Completed",
+    "inProgress": "In Progress",
+    "pending": "Pending",
+    "verificationHint": "💡 Tip: Add verification steps to your plan to ensure quality"
+  },
+  "languages": {
+    "vi": "Tiếng Việt",
+    "en": "English"
+  },
+  "common": {
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "save": "Save",
+    "delete": "Delete"
+  }
+}

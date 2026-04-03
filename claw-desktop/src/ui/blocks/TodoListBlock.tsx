@@ -1,5 +1,6 @@
 // TodoListBlock Component - Hiển thị TodoWrite tool output
 import { CheckCircle2, Circle, Clock, AlertCircle } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
 
 export interface TodoItem {
@@ -19,6 +20,7 @@ interface TodoListBlockProps {
 }
 
 export function TodoListBlock({ output }: TodoListBlockProps) {
+  const { t } = useTranslation();
   const { newTodos = [], verificationNudgeNeeded } = output;
 
   // Defensive check
@@ -27,7 +29,7 @@ export function TodoListBlock({ output }: TodoListBlockProps) {
       <div className="bg-muted/40 dark:bg-muted/20 rounded-lg p-3 border w-full">
         <div className="flex items-center gap-2">
           <CheckCircle2 className="h-5 w-5 text-blue-500" />
-          <span className="font-semibold text-sm">Danh sách công việc trống</span>
+          <span className="font-semibold text-sm">{t('todoList.empty')}</span>
         </div>
       </div>
     );
@@ -56,21 +58,14 @@ export function TodoListBlock({ output }: TodoListBlockProps) {
   };
 
   const getStatusLabel = (status: TodoItem['status']) => {
-    switch (status) {
-      case 'completed':
-        return 'Hoàn thành';
-      case 'in_progress':
-        return 'Đang làm';
-      case 'pending':
-        return 'Chờ';
-    }
+    return t(`todoList.${status === 'completed' ? 'completed' : status === 'in_progress' ? 'inProgress' : 'pending'}`);
   };
 
   return (
     <div className="bg-muted/40 dark:bg-muted/20 rounded-lg p-3 border w-full space-y-3">
       <div className="flex items-center gap-2">
         <CheckCircle2 className="h-5 w-5 text-blue-500" />
-        <span className="font-semibold text-sm">Danh sách công việc</span>
+        <span className="font-semibold text-sm">{t('todoList.title')}</span>
       </div>
 
       <div className="space-y-2">
@@ -119,7 +114,7 @@ export function TodoListBlock({ output }: TodoListBlockProps) {
         <div className="flex items-start gap-2 p-2 rounded-md bg-amber-500/10 border border-amber-500/20">
           <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
           <p className="text-xs text-amber-700 dark:text-amber-300">
-            💡 Gợi ý: Hãy thêm bước xác minh (verification) vào kế hoạch để đảm bảo chất lượng
+            {t('todoList.verificationHint')}
           </p>
         </div>
       )}

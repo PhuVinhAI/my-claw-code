@@ -1,5 +1,6 @@
 // FileOperationBlock — Clean inline file operation indicator
 import { FileText, FilePlus, FileEdit, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
 
 interface FileOperationBlockProps {
@@ -17,8 +18,9 @@ export function FileOperationBlock({
   isPending = false,
   isCancelled = false,
 }: FileOperationBlockProps) {
+  const { t } = useTranslation();
   const Icon = toolName === 'write_file' ? FilePlus : toolName === 'edit_file' ? FileEdit : FileText;
-  const label = toolName === 'write_file' ? 'Tạo file' : toolName === 'edit_file' ? 'Sửa file' : 'Đọc file';
+  const label = t(`fileOperation.${toolName === 'write_file' ? 'write' : toolName === 'edit_file' ? 'edit' : 'read'}`);
   const StatusIcon = isPending ? Loader2 : (isError || isCancelled) ? XCircle : CheckCircle2;
 
   return (
@@ -36,7 +38,7 @@ export function FileOperationBlock({
       <span className={cn('font-medium text-foreground', isError && 'text-destructive')}>{label}</span>
       <span className="text-muted-foreground/40">·</span>
       <span className="font-mono truncate flex-1 text-muted-foreground text-[13px]">{filePath}</span>
-      {isCancelled && <span className="text-destructive text-xs font-medium bg-destructive/10 px-2 py-0.5 rounded-md">Đã dừng</span>}
+      {isCancelled && <span className="text-destructive text-xs font-medium bg-destructive/10 px-2 py-0.5 rounded-md">{t('fileOperation.stopped')}</span>}
     </div>
   );
 }

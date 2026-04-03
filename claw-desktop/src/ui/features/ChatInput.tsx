@@ -1,15 +1,17 @@
 // ChatInput Component
 import { useState, useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useChatStore } from '../../store';
 import { Textarea } from '../../components/ui/textarea';
 import { Send, Square, FolderOpen, ChevronDown, Sparkles, FolderSync, History } from 'lucide-react';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuItem, DropdownMenuGroup } from '../../components/ui/dropdown-menu';
 import { cn } from '../../lib/utils';
-import { WorkMode, WorkModeLabels } from '../../core/entities/WorkMode';
+import { WorkMode } from '../../core/entities/WorkMode';
 import { invoke } from '@tauri-apps/api/core';
 import { ModelSelector } from './ModelSelector';
 
 export function ChatInput() {
+  const { t } = useTranslation();
   const [input, setInput] = useState('');
   const [modeOpen, setModeOpen] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false); // Tools dropdown
@@ -21,8 +23,8 @@ export function ChatInput() {
 
   // Available tools for Normal mode
   const availableTools = [
-    { id: 'WebSearch', label: 'Tìm kiếm Web' },
-    { id: 'WebFetch', label: 'Truy cập Web' },
+    { id: 'WebSearch', label: t('tools.webSearch') },
+    { id: 'WebFetch', label: t('tools.webFetch') },
   ];
 
   // Close dropdowns when clicking outside
@@ -73,7 +75,7 @@ export function ChatInput() {
           }
         } catch (e) {
           console.error('Failed to select workspace:', e);
-          alert(`Không thể chọn workspace: ${e}`);
+          alert(t('chatInput.selectWorkspaceError', { error: String(e) }));
         }
       }
     } else {
@@ -89,7 +91,7 @@ export function ChatInput() {
       }
     } catch (e) {
       console.error('Failed to select workspace:', e);
-      alert(`Không thể chọn workspace: ${e}`);
+      alert(t('chatInput.selectWorkspaceError', { error: String(e) }));
     }
   };
 
@@ -111,30 +113,30 @@ export function ChatInput() {
           <div className="flex items-center gap-2 min-w-0 flex-1">
             <FolderOpen className="h-4 w-4 shrink-0 text-primary" />
             <span className="truncate" title={workspacePath || ''}>
-              {workspacePath || 'Chưa chọn workspace'}
+              {workspacePath || t('chatInput.noWorkspace')}
             </span>
           </div>
           <div className="flex items-center gap-1 shrink-0 ml-2">
             <button
               onClick={handleSelectNewFolder}
               className="p-1.5 hover:bg-muted rounded-md text-muted-foreground hover:text-foreground transition-colors"
-              title="Chọn thư mục khác"
+              title={t('chatInput.selectFolder')}
             >
               <FolderSync className="w-4 h-4" />
             </button>
             <DropdownMenu>
               <DropdownMenuTrigger
                 className="p-1.5 hover:bg-muted rounded-md text-muted-foreground hover:text-foreground transition-colors"
-                title="Thư mục đã mở gần đây"
+                title={t('chatInput.recentFolders')}
               >
                 <History className="w-4 h-4" />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-64">
                 <DropdownMenuGroup>
-                  <DropdownMenuLabel>Mở gần đây</DropdownMenuLabel>
+                  <DropdownMenuLabel>{t('chatInput.recentFoldersTitle')}</DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   {(!recentWorkspaces || recentWorkspaces.length === 0) && (
-                    <DropdownMenuItem disabled>Không có dữ liệu</DropdownMenuItem>
+                    <DropdownMenuItem disabled>{t('chatInput.recentFoldersEmpty')}</DropdownMenuItem>
                   )}
                   {recentWorkspaces?.map(path => (
                     <DropdownMenuItem
@@ -166,7 +168,7 @@ export function ChatInput() {
         value={input}
         onChange={(e) => setInput(e.target.value)}
         onKeyDown={handleKeyDown}
-        placeholder="Hỏi bất cứ điều gì..."
+        placeholder={t('chatInput.placeholder')}
         className={cn(
           "w-full resize-none border-none bg-transparent shadow-none placeholder:text-muted-foreground focus-visible:ring-0",
           isEmpty
@@ -185,7 +187,7 @@ export function ChatInput() {
               onClick={() => setModeOpen(!modeOpen)}
               className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-all duration-150"
             >
-              <span>{WorkModeLabels[workMode]}</span>
+              <span>{t(`workMode.${workMode}`)}</span>
               <ChevronDown className={cn(
                 "h-4 w-4 transition-transform duration-200",
                 modeOpen && "rotate-180"
@@ -208,7 +210,7 @@ export function ChatInput() {
                   >
                     {mode === 'workspace' && <FolderOpen className="h-4 w-4" />}
                     {mode === 'normal' && <Sparkles className="h-4 w-4" />}
-                    <span>{WorkModeLabels[mode]}</span>
+                    <span>{t(`workMode.${mode}`)}</span>
                   </button>
                 ))}
               </div>
@@ -226,7 +228,7 @@ export function ChatInput() {
                   onClick={() => setToolsOpen(!toolsOpen)}
                   className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-all duration-150"
                 >
-                  <span>Công cụ ({selectedTools.length})</span>
+                  <span>{t('chatInput.tools', { count: selectedTools.length })}</span>
                   <ChevronDown className={cn(
                     "h-4 w-4 transition-transform duration-200",
                     toolsOpen && "rotate-180"
@@ -279,7 +281,7 @@ export function ChatInput() {
           <button
             onClick={handleStop}
             className="h-10 w-10 shrink-0 rounded-full flex items-center justify-center transition-all duration-200 bg-red-500 text-white hover:bg-red-600 hover:scale-105 shadow-md animate-in fade-in zoom-in"
-            title="Dừng AI"
+            title={t('chatInput.stop')}
           >
             <Square className="h-4 w-4 fill-current" />
           </button>
@@ -293,7 +295,7 @@ export function ChatInput() {
                 ? "bg-primary text-primary-foreground hover:opacity-90 hover:scale-105"
                 : "bg-muted text-muted-foreground cursor-not-allowed"
             )}
-            title="Gửi tin nhắn"
+            title={t('chatInput.send')}
           >
             <Send className="h-4 w-4" />
           </button>
@@ -308,12 +310,12 @@ export function ChatInput() {
       <div className="flex-1 flex flex-col items-center justify-center px-4 pb-20">
         <div className="mb-12 text-center">
           <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-foreground mb-4">
-            {workMode === 'workspace' ? 'Hỏi về dự án của bạn' : 'Tôi có thể giúp gì?'}
+            {workMode === 'workspace' ? t('chatInput.emptyTitleWorkspace') : t('chatInput.emptyTitleNormal')}
           </h1>
           <p className="text-lg text-muted-foreground max-w-lg mx-auto">
             {workMode === 'workspace'
-              ? 'Phân tích mã nguồn, tìm kiếm lỗi, hoặc tái cấu trúc thư mục làm việc hiện tại.'
-              : 'Viết code, gỡ lỗi, suy nghĩ ý tưởng — hãy đặt câu hỏi.'}
+              ? t('chatInput.emptySubtitleWorkspace')
+              : t('chatInput.emptySubtitleNormal')}
           </p>
         </div>
         <div className="w-full max-w-3xl">

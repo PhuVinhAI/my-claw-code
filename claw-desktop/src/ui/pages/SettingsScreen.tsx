@@ -1,5 +1,6 @@
 // Settings Screen - Inline settings without sidebar
 import { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { AISettingsTab } from '../features/settings/AISettingsTab';
 import { ArrowLeft, Settings as SettingsIcon } from 'lucide-react';
@@ -9,6 +10,7 @@ interface SettingsScreenProps {
 }
 
 export function SettingsScreen({ onBack }: SettingsScreenProps) {
+  const { t } = useTranslation();
   const { loadSettings } = useSettingsStore();
 
   useEffect(() => {
@@ -27,7 +29,7 @@ export function SettingsScreen({ onBack }: SettingsScreenProps) {
         </button>
         <div className="flex items-center gap-2">
           <SettingsIcon className="w-5 h-5 text-muted-foreground" />
-          <span className="text-base font-semibold">Cài đặt</span>
+          <span className="text-base font-semibold">{t('settings.title')}</span>
         </div>
       </div>
 

@@ -1,5 +1,6 @@
 // MessageList Component
 import { useRef, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useChatStore } from '../../store';
 import { cn } from '../../lib/utils';
 import { renderToolBlock, ThinkingBlock } from '../blocks';
@@ -13,6 +14,7 @@ function fixIncompleteCodeBlocks(text: string): string {
 }
 
 export function MessageList() {
+  const { t } = useTranslation();
   const { messages, currentAssistantText, state } = useChatStore();
   const bottomRef = useRef<HTMLDivElement>(null);
   const userScrolledUp = useRef(false);
@@ -172,7 +174,7 @@ export function MessageList() {
                 <span className="animate-bounce text-sm" style={{ animationDelay: '150ms' }}>●</span>
                 <span className="animate-bounce text-sm" style={{ animationDelay: '300ms' }}>●</span>
               </div>
-              <span className="text-sm font-medium">Đang suy nghĩ...</span>
+              <span className="text-sm font-medium">{t('messageList.thinking')}</span>
             </div>
           </div>
         )}
