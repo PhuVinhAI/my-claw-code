@@ -40,14 +40,16 @@ export function ModelSelector() {
     return model?.name || 'Chọn mô hình';
   };
 
-  // Build options grouped by provider
-  const options: DropdownOption[] = settings.providers.flatMap((provider) =>
-    provider.models.map((model) => ({
-      id: `${provider.id}:${model.id}`,
-      label: model.name,
-      group: provider.name,
-    }))
-  );
+  // Build options grouped by provider (only providers with API key)
+  const options: DropdownOption[] = settings.providers
+    .filter(provider => provider.api_key && provider.api_key.trim() !== '')
+    .flatMap((provider) =>
+      provider.models.map((model) => ({
+        id: `${provider.id}:${model.id}`,
+        label: model.name,
+        group: provider.name,
+      }))
+    );
 
   if (options.length === 0) {
     return (

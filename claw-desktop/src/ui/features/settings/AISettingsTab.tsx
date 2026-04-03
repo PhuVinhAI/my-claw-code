@@ -4,21 +4,23 @@ import { useSettingsStore } from '../../../store/useSettingsStore';
 import { Provider, Model } from '../../../core/entities';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
-import { Plus, Trash2, X, Check, Bot, Sparkles } from 'lucide-react';
+import { Plus, Trash2, X, Check, Bot, Sparkles, AlertCircle, Pencil } from 'lucide-react';
 import { ConfirmDeleteProviderDialog } from './ConfirmDeleteProviderDialog';
 
 export function AISettingsTab() {
-  const { settings, addProvider, deleteProvider, addModel, deleteModel, setSelectedModel } = useSettingsStore();
+  const { settings, addProvider, updateProvider, deleteProvider, addModel, updateModel, deleteModel } = useSettingsStore();
   const [selectedProviderId, setSelectedProviderId] = useState<string | null>(
     settings?.providers[0]?.id || null
   );
-  const [showAddProvider, setShowAddProvider] = useState(false);
+  const [showProviderForm, setShowProviderForm] = useState(false);
+  const [editingProvider, setEditingProvider] = useState<Provider | null>(null);
   const [showAddModel, setShowAddModel] = useState(false);
+  const [editingModel, setEditingModel] = useState<Model | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [providerToDelete, setProviderToDelete] = useState<Provider | null>(null);
 
-  // New provider form state
-  const [newProvider, setNewProvider] = useState<Partial<Provider>>({
+  // Provider form state (for both add and edit)
+  const [providerForm, setProviderForm] = useState<Partial<Provider>>({
     id: '',
     name: '',
     api_key: '',
@@ -26,8 +28,8 @@ export function AISettingsTab() {
     models: [],
   });
 
-  // New model form state
-  const [newModel, setNewModel] = useState<Partial<Model>>({ id: '', name: '' });
+  // Model form state (for both add and edit)
+  const [modelForm, setModelForm] = useState<Partial<Model>>({ id: '', name: '' });
 
   if (!settings) {
     return (
@@ -39,35 +41,73 @@ export function AISettingsTab() {
 
   const selectedProvider = settings.providers.find((p) => p.id === selectedProviderId);
 
-  const handleAddProvider = async () => {
-    if (!newProvider.id || !newProvider.name || !newProvider.api_key || !newProvider.base_url) {
+  const handleSaveProvider = async () => {
+    if (!providerForm.id || !providerForm.name || !providerForm.api_key || !providerForm.base_url) {
       alert('Vui lòng điền đầy đủ thông tin');
       return;
     }
 
     try {
-      await addProvider(newProvider as Provider);
-      setNewProvider({ id: '', name: '', api_key: '', base_url: '', models: [] });
-      setShowAddProvider(false);
-      setSelectedProviderId(newProvider.id!);
+      if (editingProvider) {
+        // Update existing provider
+        await updateProvider(providerForm as Provider);
+      } else {
+        // Add new provider
+        await addProvider(providerForm as Provider);
+        setSelectedProviderId(providerForm.id!);
+      }
+      setProviderForm({ id: '', name: '', api_key: '', base_url: '', models: [] });
+      setShowProviderForm(false);
+      setEditingProvider(null);
     } catch (error) {
       alert(`Lỗi: ${error}`);
     }
   };
 
-  const handleAddModel = async () => {
-    if (!newModel.id || !newModel.name || !selectedProviderId) {
+  const handleEditProvider = (provider: Provider) => {
+    setEditingProvider(provider);
+    setProviderForm(provider);
+    setShowProviderForm(true);
+  };
+
+  const handleCancelProviderForm = () => {
+    setShowProviderForm(false);
+    setEditingProvider(null);
+    setProviderForm({ id: '', name: '', api_key: '', base_url: '', models: [] });
+  };
+
+  const handleSaveModel = async () => {
+    if (!modelForm.id || !modelForm.name || !selectedProviderId) {
       alert('Vui lòng điền đầy đủ thông tin');
       return;
     }
 
     try {
-      await addModel(selectedProviderId, newModel as Model);
-      setNewModel({ id: '', name: '' });
+      if (editingModel) {
+        // Update existing model
+        await updateModel(selectedProviderId, modelForm as Model);
+      } else {
+        // Add new model
+        await addModel(selectedProviderId, modelForm as Model);
+      }
+      setModelForm({ id: '', name: '' });
       setShowAddModel(false);
+      setEditingModel(null);
     } catch (error) {
       alert(`Lỗi: ${error}`);
     }
+  };
+
+  const handleEditModel = (model: Model) => {
+    setEditingModel(model);
+    setModelForm(model);
+    setShowAddModel(true);
+  };
+
+  const handleCancelModelForm = () => {
+    setShowAddModel(false);
+    setEditingModel(null);
+    setModelForm({ id: '', name: '' });
   };
 
   const handleDeleteProvider = async (providerId: string) => {
@@ -101,21 +141,6 @@ export function AISettingsTab() {
     }
   };
 
-  const handleSelectModel = async (providerId: string, modelId: string) => {
-    try {
-      await setSelectedModel(providerId, modelId);
-    } catch (error) {
-      alert(`Lỗi: ${error}`);
-    }
-  };
-
-  const isSelected = (providerId: string, modelId: string) => {
-    return (
-      settings.selected_model?.provider_id === providerId &&
-      settings.selected_model?.model_id === modelId
-    );
-  };
-
   return (
     <div className="flex h-full">
       {/* Sidebar - Providers List */}
@@ -125,7 +150,7 @@ export function AISettingsTab() {
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-lg font-semibold">Nhà cung cấp</h3>
             <button
-              onClick={() => setShowAddProvider(true)}
+              onClick={() => setShowProviderForm(true)}
               className="flex items-center justify-center h-9 w-9 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-sm"
               title="Thêm nhà cung cấp"
             >
@@ -214,19 +239,20 @@ export function AISettingsTab() {
 
       {/* Main Content */}
       <div className="flex-1 overflow-y-auto">
-        {showAddProvider ? (
-          /* Add Provider Form */
+        {showProviderForm ? (
+          /* Provider Form (Add/Edit) */
           <div className="p-10 max-w-3xl mx-auto">
             <div className="flex items-center justify-between mb-10">
               <div>
-                <h2 className="text-3xl font-bold mb-2">Thêm nhà cung cấp mới</h2>
-                <p className="text-muted-foreground text-lg">Nhập thông tin API của nhà cung cấp AI</p>
+                <h2 className="text-3xl font-bold mb-2">
+                  {editingProvider ? 'Chỉnh sửa nhà cung cấp' : 'Thêm nhà cung cấp mới'}
+                </h2>
+                <p className="text-muted-foreground text-lg">
+                  {editingProvider ? 'Cập nhật thông tin API' : 'Nhập thông tin API của nhà cung cấp AI'}
+                </p>
               </div>
               <button
-                onClick={() => {
-                  setShowAddProvider(false);
-                  setNewProvider({ id: '', name: '', api_key: '', base_url: '', models: [] });
-                }}
+                onClick={handleCancelProviderForm}
                 className="flex items-center justify-center h-11 w-11 rounded-xl hover:bg-muted transition-colors"
               >
                 <X className="w-6 h-6" />
@@ -238,18 +264,19 @@ export function AISettingsTab() {
                 <div>
                   <label className="block text-base font-medium mb-3">ID nhà cung cấp</label>
                   <Input
-                    value={newProvider.id}
-                    onChange={(e) => setNewProvider({ ...newProvider, id: e.target.value })}
+                    value={providerForm.id}
+                    onChange={(e) => setProviderForm({ ...providerForm, id: e.target.value })}
                     placeholder="openai"
                     className="h-12 text-base"
+                    disabled={!!editingProvider}
                   />
                 </div>
 
                 <div>
                   <label className="block text-base font-medium mb-3">Tên hiển thị</label>
                   <Input
-                    value={newProvider.name}
-                    onChange={(e) => setNewProvider({ ...newProvider, name: e.target.value })}
+                    value={providerForm.name}
+                    onChange={(e) => setProviderForm({ ...providerForm, name: e.target.value })}
                     placeholder="OpenAI"
                     className="h-12 text-base"
                   />
@@ -260,8 +287,8 @@ export function AISettingsTab() {
                 <label className="block text-base font-medium mb-3">API Key</label>
                 <Input
                   type="password"
-                  value={newProvider.api_key}
-                  onChange={(e) => setNewProvider({ ...newProvider, api_key: e.target.value })}
+                  value={providerForm.api_key}
+                  onChange={(e) => setProviderForm({ ...providerForm, api_key: e.target.value })}
                   placeholder="sk-..."
                   className="h-12 text-base font-mono"
                 />
@@ -270,25 +297,22 @@ export function AISettingsTab() {
               <div>
                 <label className="block text-base font-medium mb-3">Base URL</label>
                 <Input
-                  value={newProvider.base_url}
-                  onChange={(e) => setNewProvider({ ...newProvider, base_url: e.target.value })}
+                  value={providerForm.base_url}
+                  onChange={(e) => setProviderForm({ ...providerForm, base_url: e.target.value })}
                   placeholder="https://api.openai.com/v1"
                   className="h-12 text-base font-mono"
                 />
               </div>
 
               <div className="flex gap-3 pt-6">
-                <Button onClick={handleAddProvider} size="lg" className="h-12 px-6 text-base">
+                <Button onClick={handleSaveProvider} size="lg" className="h-12 px-6 text-base">
                   <Check className="w-5 h-5 mr-2" />
-                  Lưu nhà cung cấp
+                  {editingProvider ? 'Cập nhật' : 'Lưu nhà cung cấp'}
                 </Button>
                 <Button
                   variant="outline"
                   size="lg"
-                  onClick={() => {
-                    setShowAddProvider(false);
-                    setNewProvider({ id: '', name: '', api_key: '', base_url: '', models: [] });
-                  }}
+                  onClick={handleCancelProviderForm}
                   className="h-12 px-6 text-base"
                 >
                   Hủy
@@ -297,20 +321,19 @@ export function AISettingsTab() {
             </div>
           </div>
         ) : showAddModel && selectedProvider ? (
-          /* Add Model Form */
+          /* Add/Edit Model Form */
           <div className="p-10 max-w-3xl mx-auto">
             <div className="flex items-center justify-between mb-10">
               <div>
-                <h2 className="text-3xl font-bold mb-2">Thêm mô hình mới</h2>
+                <h2 className="text-3xl font-bold mb-2">
+                  {editingModel ? 'Chỉnh sửa mô hình' : 'Thêm mô hình mới'}
+                </h2>
                 <p className="text-muted-foreground text-lg">
-                  Thêm mô hình AI cho {selectedProvider.name}
+                  {editingModel ? 'Cập nhật thông tin mô hình' : `Thêm mô hình AI cho ${selectedProvider.name}`}
                 </p>
               </div>
               <button
-                onClick={() => {
-                  setShowAddModel(false);
-                  setNewModel({ id: '', name: '' });
-                }}
+                onClick={handleCancelModelForm}
                 className="flex items-center justify-center h-11 w-11 rounded-xl hover:bg-muted transition-colors"
               >
                 <X className="w-6 h-6" />
@@ -322,18 +345,19 @@ export function AISettingsTab() {
                 <div>
                   <label className="block text-base font-medium mb-3">ID mô hình</label>
                   <Input
-                    value={newModel.id}
-                    onChange={(e) => setNewModel({ ...newModel, id: e.target.value })}
+                    value={modelForm.id}
+                    onChange={(e) => setModelForm({ ...modelForm, id: e.target.value })}
                     placeholder="gpt-4"
                     className="h-12 text-base font-mono"
+                    disabled={!!editingModel}
                   />
                 </div>
 
                 <div>
                   <label className="block text-base font-medium mb-3">Tên hiển thị</label>
                   <Input
-                    value={newModel.name}
-                    onChange={(e) => setNewModel({ ...newModel, name: e.target.value })}
+                    value={modelForm.name}
+                    onChange={(e) => setModelForm({ ...modelForm, name: e.target.value })}
                     placeholder="GPT-4"
                     className="h-12 text-base"
                   />
@@ -341,17 +365,14 @@ export function AISettingsTab() {
               </div>
 
               <div className="flex gap-3 pt-6">
-                <Button onClick={handleAddModel} size="lg" className="h-12 px-6 text-base">
+                <Button onClick={handleSaveModel} size="lg" className="h-12 px-6 text-base">
                   <Check className="w-5 h-5 mr-2" />
-                  Lưu mô hình
+                  {editingModel ? 'Cập nhật' : 'Lưu mô hình'}
                 </Button>
                 <Button
                   variant="outline"
                   size="lg"
-                  onClick={() => {
-                    setShowAddModel(false);
-                    setNewModel({ id: '', name: '' });
-                  }}
+                  onClick={handleCancelModelForm}
                   className="h-12 px-6 text-base"
                 >
                   Hủy
@@ -368,8 +389,35 @@ export function AISettingsTab() {
                 <Sparkles className="w-8 h-8 text-primary" />
               </div>
               <div className="flex-1">
-                <h2 className="text-3xl font-bold mb-2">{selectedProvider.name}</h2>
-                <p className="text-muted-foreground font-mono">{selectedProvider.base_url}</p>
+                <div className="flex items-start justify-between mb-2">
+                  <h2 className="text-3xl font-bold">{selectedProvider.name}</h2>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleEditProvider(selectedProvider)}
+                    className="h-9"
+                  >
+                    Chỉnh sửa
+                  </Button>
+                </div>
+                <p className="text-muted-foreground font-mono mb-3">{selectedProvider.base_url}</p>
+                
+                {/* API Key Status */}
+                {(!selectedProvider.api_key || selectedProvider.api_key.trim() === '') ? (
+                  <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md bg-amber-100 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-800">
+                    <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-500" />
+                    <span className="text-sm font-medium text-amber-700 dark:text-amber-400">
+                      Chưa có API key
+                    </span>
+                  </div>
+                ) : (
+                  <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md bg-green-100 dark:bg-green-950/30 border border-green-300 dark:border-green-800">
+                    <Check className="w-4 h-4 text-green-600 dark:text-green-500" />
+                    <span className="text-sm font-medium text-green-700 dark:text-green-400">
+                      API key đã cấu hình
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -402,51 +450,37 @@ export function AISettingsTab() {
                 </div>
               ) : (
                 <div className="grid gap-3">
-                  {selectedProvider.models.map((model) => {
-                    const selected = isSelected(selectedProvider.id, model.id);
-                    return (
-                      <div
-                        key={model.id}
-                        className={`flex items-center justify-between p-5 rounded-xl border transition-all ${
-                          selected
-                            ? 'border-primary bg-primary/5 shadow-sm'
-                            : 'border-border hover:border-primary/50 hover:bg-muted/50'
-                        }`}
-                      >
-                        <div className="flex items-center gap-4">
-                          {selected && (
-                            <div className="flex items-center justify-center w-9 h-9 rounded-full bg-primary">
-                              <Check className="w-5 h-5 text-primary-foreground" />
-                            </div>
-                          )}
-                          <div>
-                            <p className="font-semibold text-base">{model.name}</p>
-                            <p className="text-sm text-muted-foreground font-mono mt-0.5">{model.id}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {!selected && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleSelectModel(selectedProvider.id, model.id)}
-                              className="h-10"
-                            >
-                              Chọn
-                            </Button>
-                          )}
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDeleteModel(selectedProvider.id, model.id)}
-                            className="text-destructive hover:text-destructive hover:bg-destructive/10 h-10 w-10 p-0"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
+                  {selectedProvider.models.map((model) => (
+                    <div
+                      key={model.id}
+                      className="flex items-center justify-between p-5 rounded-xl border border-border hover:border-primary/50 hover:bg-muted/50 transition-all"
+                    >
+                      <div>
+                        <p className="font-semibold text-base">{model.name}</p>
+                        <p className="text-sm text-muted-foreground font-mono mt-0.5">{model.id}</p>
                       </div>
-                    );
-                  })}
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEditModel(model)}
+                          className="hover:bg-muted h-10 w-10 p-0"
+                          title="Chỉnh sửa"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeleteModel(selectedProvider.id, model.id)}
+                          className="text-destructive hover:text-destructive hover:bg-destructive/10 h-10 w-10 p-0"
+                          title="Xóa"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
