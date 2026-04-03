@@ -87,13 +87,24 @@ impl OpenAiCompatClient {
     }
 
     pub fn from_env(config: OpenAiCompatConfig) -> Result<Self, ApiError> {
-        let Some(api_key) = read_env_non_empty(config.api_key_env)? else {
-            return Err(ApiError::missing_credentials(
-                config.provider_name,
-                config.credential_env_vars(),
-            ));
-        };
-        Ok(Self::new(api_key, config))
+        let api_key = read_env_non_empty(config.api_key_env)?;
+        
+        // Allow dummy keys for onboarding mode (desktop app)
+        if let Some(key) = api_key {
+            Ok(Self::new(key, config))
+        } else {
+            // Check if there's a dummy key set (for onboarding)
+            let dummy_key = std::env::var(config.api_key_env).unwrap_or_default();
+            if dummy_key.starts_with("sk-dummy-") {
+                eprintln!("⚠ Using dummy API key for onboarding mode");
+                Ok(Self::new(dummy_key, config))
+            } else {
+                Err(ApiError::missing_credentials(
+                    config.provider_name,
+                    config.credential_env_vars(),
+                ))
+            }
+        }
     }
 
     #[must_use]

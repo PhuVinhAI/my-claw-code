@@ -25,7 +25,7 @@ impl TauriApiClient {
         cancel_flag: Arc<AtomicBool>,
     ) -> Result<Self, String> {
         let client = ProviderClient::from_model(model)
-            .map_err(|e| format!("Failed to create API client: {}. Make sure OPENAI_API_KEY and OPENAI_BASE_URL are set in .env", e))?;
+            .map_err(|e| format!("Failed to create API client: {}. Make sure API key is configured in settings.", e))?;
         Ok(Self {
             client,
             event_publisher,

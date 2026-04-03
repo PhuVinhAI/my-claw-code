@@ -101,13 +101,19 @@ async fn initialize_app_async(app_handle: AppHandle) -> Result<AppState, String>
         get_model_from_env()
     };
 
-    // Set environment variables for API client
-    if !api_key.is_empty() {
+    // Set environment variables for API client (only if we have an API key)
+    let has_api_key = !api_key.is_empty();
+    if has_api_key {
         std::env::set_var("OPENAI_API_KEY", &api_key);
         std::env::set_var("OPENAI_BASE_URL", &base_url);
+        eprintln!("✓ API client configured with model: {}", model);
     } else {
-        eprintln!("Warning: No API key configured. App will start but chat will not work until configured.");
+        eprintln!("⚠ No API key configured. App will start in onboarding mode.");
+        // Set dummy values to prevent panics during initialization
+        std::env::set_var("OPENAI_API_KEY", "sk-dummy-key-for-onboarding-mode");
+        std::env::set_var("OPENAI_BASE_URL", "https://api.openai.com/v1");
     }
+    
     // 4. Create cancel flag (shared)
     let cancel_flag = Arc::new(std::sync::atomic::AtomicBool::new(false));
 
@@ -139,7 +145,13 @@ async fn initialize_app_async(app_handle: AppHandle) -> Result<AppState, String>
         tool_definitions,
         cancel_flag.clone(),
     )
-    .map_err(|e| format!("Failed to create API client: {}", e))?;
+    .map_err(|e| {
+        if has_api_key {
+            format!("Failed to create API client with configured credentials: {}", e)
+        } else {
+            format!("Failed to initialize app in onboarding mode: {}", e)
+        }
+    })?;
 
     // 10. Create Permission Policy
     let permission_policy = PermissionPolicy::new(PermissionMode::Prompt);

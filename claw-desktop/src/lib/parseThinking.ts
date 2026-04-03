@@ -14,8 +14,12 @@ const THINKING_PATTERNS = [
 export function parseThinkingTags(text: string): ParsedContent {
   const blocks: Array<{ type: 'text' | 'thinking'; content: string; isComplete: boolean }> = [];
   
-  // Filter out system reminders before parsing
-  let remaining = text.replace(/<system-reminder>[\s\S]*?<\/system-reminder>/g, '').trim();
+  // Filter out system reminders and clean up extra whitespace
+  let remaining = text
+    .replace(/<system-reminder>[\s\S]*?<\/system-reminder>/g, '')
+    .replace(/\n{3,}/g, '\n\n') // Replace 3+ newlines with 2
+    .trim();
+  
   let position = 0;
 
   while (position < remaining.length) {
@@ -91,7 +95,10 @@ export function hasThinkingTags(text: string): boolean {
   return THINKING_PATTERNS.some((pattern) => text.includes(pattern.open));
 }
 
-// Remove system reminders from text
+// Remove system reminders from text and clean up whitespace
 export function cleanSystemReminders(text: string): string {
-  return text.replace(/<system-reminder>[\s\S]*?<\/system-reminder>/g, '').trim();
+  return text
+    .replace(/<system-reminder>[\s\S]*?<\/system-reminder>/g, '')
+    .replace(/\n{3,}/g, '\n\n') // Replace 3+ newlines with 2
+    .trim();
 }
