@@ -13,27 +13,35 @@ export function ThinkingBlock({ thinking, isStreaming = false }: ThinkingBlockPr
   const { t } = useTranslation();
   // Default: collapsed for historical messages, expanded only during streaming
   const [isExpanded, setIsExpanded] = useState(isStreaming);
+  const [userInteracted, setUserInteracted] = useState(false);
 
-  // Auto-collapse when streaming completes
+  // Auto-expand when streaming starts (only if user hasn't manually toggled)
   useEffect(() => {
-    if (!isStreaming && isExpanded) {
+    if (isStreaming && !userInteracted) {
+      setIsExpanded(true);
+    }
+  }, [isStreaming, userInteracted]);
+  
+  // Auto-collapse when streaming completes (only if user hasn't manually toggled)
+  useEffect(() => {
+    if (!isStreaming && isExpanded && !userInteracted) {
       const timer = setTimeout(() => setIsExpanded(false), 500);
       return () => clearTimeout(timer);
     }
-  }, [isStreaming, isExpanded]);
+  }, [isStreaming, isExpanded, userInteracted]);
   
-  // Auto-expand when streaming starts
-  useEffect(() => {
-    if (isStreaming) {
-      setIsExpanded(true);
+  const handleToggle = () => {
+    if (!isStreaming) {
+      setUserInteracted(true);
+      setIsExpanded(!isExpanded);
     }
-  }, [isStreaming]);
+  };
 
   return (
     <div className="my-3">
       {/* Header */}
       <button
-        onClick={() => !isStreaming && setIsExpanded(!isExpanded)}
+        onClick={handleToggle}
         disabled={isStreaming}
         className={cn(
           'flex items-center gap-3 py-2 text-sm text-muted-foreground transition-colors duration-150',

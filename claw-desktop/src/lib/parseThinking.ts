@@ -13,7 +13,9 @@ const THINKING_PATTERNS = [
 
 export function parseThinkingTags(text: string): ParsedContent {
   const blocks: Array<{ type: 'text' | 'thinking'; content: string; isComplete: boolean }> = [];
-  let remaining = text;
+  
+  // Filter out system reminders before parsing
+  let remaining = text.replace(/<system-reminder>[\s\S]*?<\/system-reminder>/g, '').trim();
   let position = 0;
 
   while (position < remaining.length) {
