@@ -4,11 +4,15 @@ import { Terminal } from 'xterm';
 import { listen } from '@tauri-apps/api/event';
 import { StreamEvent } from '../../core/entities';
 
-export function useTerminalStream(terminal: Terminal | null, toolUseId: string | undefined) {
+export function useTerminalStream(
+  terminal: Terminal | null, 
+  toolUseId: string | undefined,
+  shouldListen: boolean = true
+) {
   const unlistenRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
-    if (!terminal || !toolUseId) return;
+    if (!terminal || !toolUseId || !shouldListen) return;
 
     // Subscribe to stream events directly
     listen<StreamEvent>('stream_event', (event) => {
@@ -28,5 +32,5 @@ export function useTerminalStream(terminal: Terminal | null, toolUseId: string |
         unlistenRef.current();
       }
     };
-  }, [terminal, toolUseId]);
+  }, [terminal, toolUseId, shouldListen]);
 }

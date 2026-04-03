@@ -3,6 +3,7 @@ import { ContentBlock } from '../../core/entities';
 import { ToolExecutionBlock } from './ToolExecutionBlock';
 import { TodoListBlock, TodoWriteOutput } from './TodoListBlock';
 import { XTermBlock } from './XTermBlock';
+import { REPLBlock } from './REPLBlock';
 import { FileOperationBlock } from './FileOperationBlock';
 import { SearchResultBlock } from './SearchResultBlock';
 import { WebSearchBlock } from './WebSearchBlock';
@@ -54,14 +55,41 @@ export function renderToolBlock({ toolUseBlock, toolResultBlock }: RenderToolBlo
 
   // Bash/PowerShell/REPL - Real Terminal with xterm.js
   if (['bash', 'PowerShell', 'REPL'].includes(toolName)) {
+    // Parse bash output JSON to get raw stdout
+    let rawOutput: string | undefined;
+    if (toolOutput && !isPending) {
+      try {
+        const bashOutput = JSON.parse(toolOutput);
+        rawOutput = bashOutput.stdout || toolOutput; // Fallback to raw if parse fails
+      } catch {
+        rawOutput = toolOutput; // Use raw if not JSON
+      }
+    }
+
+    // REPL gets special UI with collapsible code
+    if (toolName === 'REPL') {
+      return (
+        <REPLBlock
+          code={parsedInput.code || toolInput}
+          isError={isError}
+          isPending={isPending}
+          isCancelled={isCancelledState}
+          toolUseId={toolUseId || undefined}
+          output={rawOutput}
+        />
+      );
+    }
+
+    // Bash/PowerShell use standard terminal
     return (
       <XTermBlock
-        toolName={toolName as 'bash' | 'PowerShell' | 'REPL'}
+        toolName={toolName as 'bash' | 'PowerShell'}
         command={parsedInput.command || parsedInput.code || toolInput}
         isError={isError}
         isPending={isPending}
         isCancelled={isCancelledState}
         toolUseId={toolUseId || undefined}
+        output={rawOutput}
       />
     );
   }
