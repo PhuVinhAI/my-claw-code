@@ -58,7 +58,7 @@ export function SessionItem({ session, isActive }: SessionItemProps) {
 
   if (isEditing) {
     return (
-      <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg" onClick={(e) => e.stopPropagation()}>
+      <div className="flex items-center gap-2 px-3 py-2 rounded-xl" onClick={(e) => e.stopPropagation()}>
         <input
           value={editTitle}
           onChange={(e) => setEditTitle(e.target.value)}
@@ -66,14 +66,14 @@ export function SessionItem({ session, isActive }: SessionItemProps) {
             if (e.key === 'Enter') handleRename();
             if (e.key === 'Escape') setIsEditing(false);
           }}
-          className="flex-1 min-w-0 h-7 px-2 text-xs bg-background border border-border/40 rounded-md outline-none focus:border-foreground/20"
+          className="flex-1 min-w-0 h-9 px-3 text-sm bg-background border border-border rounded-md outline-none focus:border-primary"
           autoFocus
         />
-        <button onClick={handleRename} className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:text-foreground">
-          <Check className="w-3 h-3" />
+        <button onClick={handleRename} className="h-8 w-8 flex items-center justify-center rounded-md bg-primary/10 text-primary hover:bg-primary/20">
+          <Check className="w-4 h-4" />
         </button>
-        <button onClick={() => setIsEditing(false)} className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:text-foreground">
-          <X className="w-3 h-3" />
+        <button onClick={() => setIsEditing(false)} className="h-8 w-8 flex items-center justify-center rounded-md bg-muted text-muted-foreground hover:text-foreground">
+          <X className="w-4 h-4" />
         </button>
       </div>
     );
@@ -82,22 +82,22 @@ export function SessionItem({ session, isActive }: SessionItemProps) {
   return (
     <div
       className={cn(
-        'group relative flex items-center gap-2 px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-100',
+        'group relative flex items-center gap-3 px-4 py-3 rounded-xl cursor-pointer transition-all duration-150',
         isActive
-          ? 'bg-foreground/[0.06] text-foreground'
-          : 'text-muted-foreground hover:bg-foreground/[0.03] hover:text-foreground'
+          ? 'bg-accent text-accent-foreground'
+          : 'text-muted-foreground hover:bg-muted hover:text-foreground'
       )}
       onClick={handleClick}
     >
       {/* Content */}
       <div className="flex-1 min-w-0">
         <p className={cn(
-          'text-[13px] truncate',
-          isActive ? 'font-medium' : 'font-normal'
+          'text-sm truncate',
+          isActive ? 'font-semibold text-foreground' : 'font-medium'
         )}>
           {session.title}
         </p>
-        <p className="text-[11px] text-muted-foreground/40 mt-0.5">
+        <p className="text-xs text-muted-foreground mt-1">
           {formatDate(session.updated_at)}
         </p>
       </div>
@@ -107,13 +107,13 @@ export function SessionItem({ session, isActive }: SessionItemProps) {
         <button
           onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }}
           className={cn(
-            'flex items-center justify-center h-6 w-6 rounded-md transition-all duration-100',
+            'flex items-center justify-center h-8 w-8 rounded-lg transition-all duration-150',
             menuOpen
-              ? 'opacity-100 bg-foreground/5 text-foreground'
-              : 'opacity-0 group-hover:opacity-100 text-muted-foreground/50 hover:text-foreground hover:bg-foreground/5'
+              ? 'opacity-100 bg-muted-foreground/20 text-foreground'
+              : 'opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground hover:bg-muted-foreground/10'
           )}
         >
-          <MoreHorizontal className="w-3.5 h-3.5" />
+          <MoreHorizontal className="w-4 h-4" />
         </button>
 
         {/* Inline dropdown */}

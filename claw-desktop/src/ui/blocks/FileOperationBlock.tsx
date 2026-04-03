@@ -22,21 +22,21 @@ export function FileOperationBlock({
   const StatusIcon = isPending ? Loader2 : (isError || isCancelled) ? XCircle : CheckCircle2;
 
   return (
-    <div className="flex items-center gap-2.5 py-2 text-xs text-muted-foreground">
+    <div className="flex items-center gap-3 py-2.5 text-sm text-muted-foreground">
       <StatusIcon
         className={cn(
-          'h-3.5 w-3.5 shrink-0',
-          isPending && 'animate-spin text-foreground/40',
+          'h-4 w-4 shrink-0',
+          isPending && 'animate-spin text-primary',
           isError && 'text-destructive',
           isCancelled && 'text-destructive',
-          !isPending && !isError && !isCancelled && 'text-emerald-500/70'
+          !isPending && !isError && !isCancelled && 'text-emerald-500'
         )}
       />
-      <Icon className="h-3.5 w-3.5 shrink-0 opacity-50" />
-      <span className={cn('font-medium', isError && 'text-destructive')}>{label}</span>
-      <span className="opacity-30">·</span>
-      <span className="font-mono truncate flex-1 opacity-60">{filePath}</span>
-      {isCancelled && <span className="text-destructive/70">Đã dừng</span>}
+      <Icon className="h-4 w-4 shrink-0 text-muted-foreground/60" />
+      <span className={cn('font-semibold text-foreground/80', isError && 'text-destructive')}>{label}</span>
+      <span className="text-border">·</span>
+      <span className="font-mono truncate flex-1 text-muted-foreground/40 text-xs pl-1">{filePath}</span>
+      {isCancelled && <span className="text-destructive font-medium">Đã dừng</span>}
     </div>
   );
 }

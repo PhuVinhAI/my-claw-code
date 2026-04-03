@@ -74,8 +74,8 @@ export function MessageList() {
   }, [messages.length]);
 
   return (
-    <div className="flex-1 p-5 pb-2">
-      <div className="max-w-3xl mx-auto space-y-5">
+    <div className="flex-1 p-6 pb-4">
+      <div className="max-w-3xl mx-auto space-y-6">
         {messages.map((message, idx) => (
           <div
             key={idx}
@@ -86,13 +86,13 @@ export function MessageList() {
           >
             <div
               className={cn(
-                'text-[14px] leading-relaxed',
+                'text-base leading-[1.8]',
                 message.role === 'user'
-                  ? 'max-w-xs md:max-w-md lg:max-w-lg rounded-2xl bg-muted/60 px-4 py-2.5'
+                  ? 'max-w-md lg:max-max-lg rounded-2xl bg-secondary text-secondary-foreground px-6 py-3.5'
                   : 'w-full'
               )}
             >
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {message.blocks.map((block, blockIdx) => {
                   if (block.type === 'text') {
                     return (
@@ -133,12 +133,12 @@ export function MessageList() {
 
         {/* Streaming text */}
         {currentAssistantText && (
-          <div className="flex w-full items-start justify-start">
-            <div className="w-full text-[14px] leading-relaxed">
+          <div className="flex w-full items-start justify-start mt-8">
+            <div className="w-full text-base leading-[1.8]">
               {(() => {
                 const parsed = parseThinkingTags(currentAssistantText);
                 return (
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     {parsed.blocks.map((block, idx) => {
                       if (block.type === 'thinking') {
                         return (
@@ -165,14 +165,14 @@ export function MessageList() {
 
         {/* Loading */}
         {state.status === 'GENERATING' && !currentAssistantText && (
-          <div className="flex w-full items-start justify-start">
-            <div className="flex items-center gap-2.5 text-muted-foreground/60 py-2">
-              <div className="flex gap-1">
-                <span className="animate-bounce text-xs" style={{ animationDelay: '0ms' }}>●</span>
-                <span className="animate-bounce text-xs" style={{ animationDelay: '150ms' }}>●</span>
-                <span className="animate-bounce text-xs" style={{ animationDelay: '300ms' }}>●</span>
+          <div className="flex w-full items-start justify-start mt-8">
+            <div className="flex items-center gap-3 text-muted-foreground py-3">
+              <div className="flex gap-1.5">
+                <span className="animate-bounce text-sm" style={{ animationDelay: '0ms' }}>●</span>
+                <span className="animate-bounce text-sm" style={{ animationDelay: '150ms' }}>●</span>
+                <span className="animate-bounce text-sm" style={{ animationDelay: '300ms' }}>●</span>
               </div>
-              <span className="text-xs">Đang suy nghĩ...</span>
+              <span className="text-sm font-medium">Đang suy nghĩ...</span>
             </div>
           </div>
         )}

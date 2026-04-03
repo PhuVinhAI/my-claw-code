@@ -70,11 +70,14 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   },
 
   sendPrompt: async (text) => {
-    const { gateway, dispatch, currentSessionId, createNewSession } = get();
+    const { gateway, dispatch, currentSessionId } = get();
 
-    // Create new session ONLY if none exists
+    // Create new session ONLY if none exists AND this is the first message
     if (!currentSessionId) {
-      await createNewSession();
+      // Generate new session ID
+      const newSessionId = await gateway.newSession();
+      set({ currentSessionId: newSessionId });
+      console.log('[STORE] Created new session on first message:', newSessionId);
     }
 
     // Add user message to UI
@@ -306,7 +309,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   },
 
   deleteSession: async (sessionId: string) => {
-    const { gateway, currentSessionId, loadSessions, createNewSession, sessions } = get();
+    const { gateway, currentSessionId, loadSessions, sessions } = get();
     try {
       // Find session metadata to get work context
       const sessionMeta = sessions.find(s => s.id === sessionId);
@@ -315,12 +318,18 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
       await gateway.deleteSession(sessionId, workMode, workspacePath);
 
-      // If deleted current session, create new one
+      // If deleted current session, clear UI (không tạo session mới)
       if (currentSessionId === sessionId) {
-        await createNewSession();
-      } else {
-        await loadSessions();
+        set({
+          currentSessionId: null,
+          messages: [],
+          currentAssistantText: '',
+          state: { status: 'IDLE' },
+        });
       }
+      
+      // Reload sessions list
+      await loadSessions();
     } catch (error) {
       console.error('Failed to delete session:', error);
     }
@@ -364,17 +373,24 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   },
 
   setWorkMode: async (mode: WorkMode, workspacePath?: string) => {
-    const { gateway, createNewSession, loadSessions } = get();
+    const { gateway, loadSessions } = get();
     try {
       await gateway.setWorkMode(mode, workspacePath);
       const path = await gateway.getWorkspacePath();
-      set({ workMode: mode, workspacePath: path });
+      set({ 
+        workMode: mode, 
+        workspacePath: path,
+        // Clear current session - sẽ tạo mới khi user gửi tin nhắn đầu tiên
+        currentSessionId: null,
+        messages: [],
+        currentAssistantText: '',
+        state: { status: 'IDLE' },
+      });
       
       // Reload sessions to show only sessions for this mode
       await loadSessions();
       
-      // Create new session when switching modes
-      await createNewSession();
+      // KHÔNG tạo session mới - đợi user gửi tin nhắn đầu tiên
     } catch (e) {
       console.error("Failed to set work mode:", e);
       alert(`Không thể chuyển chế độ: ${e}`);

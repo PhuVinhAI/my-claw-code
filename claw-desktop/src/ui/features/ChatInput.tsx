@@ -85,13 +85,13 @@ export function ChatInput() {
 
   // ── Shared input card ──
   const inputCard = (
-    <div className="flex flex-col rounded-2xl bg-muted/40 backdrop-blur-xl border border-border/30 transition-all duration-200 focus-within:border-foreground/15">
+    <div className="flex flex-col rounded-2xl bg-background border-2 border-border transition-all duration-200 focus-within:border-primary">
       
       {/* Workspace bar */}
       {workMode === 'workspace' && (
-        <div className="flex items-center gap-2 px-5 pt-3.5 text-xs text-muted-foreground">
-          <FolderOpen className="h-3.5 w-3.5 shrink-0 opacity-60" />
-          <span className="truncate opacity-70" title={workspacePath || ''}>
+        <div className="flex items-center gap-2 px-5 pt-4 text-sm font-medium text-muted-foreground border-b border-border/50 pb-2 mx-2">
+          <FolderOpen className="h-4 w-4 shrink-0 text-primary" />
+          <span className="truncate" title={workspacePath || ''}>
             {workspacePath || 'Chưa chọn workspace'}
           </span>
         </div>
@@ -104,46 +104,46 @@ export function ChatInput() {
         onKeyDown={handleKeyDown}
         placeholder="Hỏi bất cứ điều gì..."
         className={cn(
-          "w-full resize-none border-none bg-transparent shadow-none placeholder:text-muted-foreground/40 focus-visible:ring-0",
+          "w-full resize-none border-none bg-transparent shadow-none placeholder:text-muted-foreground focus-visible:ring-0",
           isEmpty
-            ? "min-h-[64px] max-h-[200px] px-5 pt-5 pb-2 text-base leading-relaxed"
-            : "min-h-[52px] max-h-[200px] px-5 pt-4 pb-2 text-[15px] leading-relaxed"
+            ? "min-h-[80px] max-h-[300px] px-5 pt-5 pb-3 text-lg leading-relaxed"
+            : "min-h-[60px] max-h-[250px] px-5 pt-4 pb-2 text-base leading-relaxed"
         )}
         rows={1}
       />
 
       {/* Bottom bar */}
-      <div className="flex items-center justify-between gap-3 px-4 pb-3 pt-0.5">
-        <div className="flex items-center gap-2.5">
+      <div className="flex items-center justify-between gap-3 px-4 pb-3 pt-2">
+        <div className="flex items-center gap-3">
           {/* Custom mode dropdown */}
           <div className="relative" ref={modeRef}>
             <button
               onClick={() => setModeOpen(!modeOpen)}
-              className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-muted-foreground/70 hover:text-foreground hover:bg-foreground/5 transition-all duration-150"
+              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-all duration-150"
             >
               <span>{WorkModeLabels[workMode]}</span>
               <ChevronDown className={cn(
-                "h-3 w-3 transition-transform duration-200",
+                "h-4 w-4 transition-transform duration-200",
                 modeOpen && "rotate-180"
               )} />
             </button>
 
             {/* Dropdown */}
             {modeOpen && (
-              <div className="absolute bottom-full left-0 mb-1.5 min-w-[170px] rounded-xl border border-border/30 bg-popover/95 backdrop-blur-xl p-1.5 space-y-0.5 shadow-lg animate-in fade-in slide-in-from-bottom-2 duration-150 z-50">
+              <div className="absolute bottom-full left-0 mb-2 min-w-[200px] rounded-xl border border-border bg-popover p-2 space-y-1 animate-in fade-in slide-in-from-bottom-2 duration-150 z-50">
                 {(['normal', 'workspace'] as WorkMode[]).map((mode) => (
                   <button
                     key={mode}
                     onClick={() => handleModeChange(mode)}
                     className={cn(
-                      "flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-xs transition-colors duration-100",
+                      "flex w-full items-center gap-3 rounded-lg px-3 py-3 text-sm transition-colors duration-150",
                       workMode === mode
-                        ? "bg-foreground/8 text-foreground font-medium"
-                        : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                        ? "bg-primary text-primary-foreground font-semibold"
+                        : "text-foreground hover:bg-muted"
                     )}
                   >
-                    {mode === 'workspace' && <FolderOpen className="h-3.5 w-3.5" />}
-                    {mode === 'normal' && <Sparkles className="h-3.5 w-3.5" />}
+                    {mode === 'workspace' && <FolderOpen className="h-4 w-4" />}
+                    {mode === 'normal' && <Sparkles className="h-4 w-4" />}
                     <span>{WorkModeLabels[mode]}</span>
                   </button>
                 ))}
@@ -152,7 +152,7 @@ export function ChatInput() {
           </div>
 
           {/* Separator */}
-          <div className="h-3 w-px bg-border/40" />
+          <div className="h-4 w-px bg-border" />
 
           {/* Tools dropdown (Normal mode only) */}
           {workMode === 'normal' && (
@@ -160,37 +160,37 @@ export function ChatInput() {
               <div className="relative" ref={toolsRef}>
                 <button
                   onClick={() => setToolsOpen(!toolsOpen)}
-                  className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-muted-foreground/70 hover:text-foreground hover:bg-foreground/5 transition-all duration-150"
+                  className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-all duration-150"
                 >
-                  <span>Tools ({selectedTools.length})</span>
+                  <span>Công cụ ({selectedTools.length})</span>
                   <ChevronDown className={cn(
-                    "h-3 w-3 transition-transform duration-200",
+                    "h-4 w-4 transition-transform duration-200",
                     toolsOpen && "rotate-180"
                   )} />
                 </button>
 
                 {/* Tools Dropdown */}
                 {toolsOpen && (
-                  <div className="absolute bottom-full left-0 mb-1.5 min-w-[170px] rounded-xl border border-border/30 bg-popover/95 backdrop-blur-xl p-1.5 space-y-0.5 shadow-lg animate-in fade-in slide-in-from-bottom-2 duration-150 z-50">
+                  <div className="absolute bottom-full left-0 mb-2 min-w-[200px] rounded-xl border border-border bg-popover p-2 space-y-1 animate-in fade-in slide-in-from-bottom-2 duration-150 z-50">
                     {availableTools.map((tool) => (
                       <button
                         key={tool.id}
                         onClick={() => handleToolToggle(tool.id)}
                         className={cn(
-                          "flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-xs transition-colors duration-100",
+                          "flex w-full items-center gap-3 rounded-lg px-3 py-3 text-sm transition-colors duration-150",
                           selectedTools.includes(tool.id)
-                            ? "bg-foreground/8 text-foreground font-medium"
-                            : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                            ? "bg-primary/10 text-primary font-semibold"
+                            : "text-foreground hover:bg-muted"
                         )}
                       >
                         <div className={cn(
-                          "h-3.5 w-3.5 rounded border flex items-center justify-center",
+                          "h-4 w-4 rounded-[4px] border flex items-center justify-center",
                           selectedTools.includes(tool.id)
-                            ? "bg-foreground border-foreground"
-                            : "border-muted-foreground/30"
+                            ? "bg-primary border-primary text-primary-foreground"
+                            : "border-muted-foreground"
                         )}>
                           {selectedTools.includes(tool.id) && (
-                            <svg className="h-2.5 w-2.5 text-background" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                               <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                             </svg>
                           )}
@@ -202,13 +202,13 @@ export function ChatInput() {
                 )}
               </div>
 
-              <div className="h-3 w-px bg-border/40" />
+              <div className="h-4 w-px bg-border" />
             </>
           )}
 
           {/* Model badge */}
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground/50">
-            <Bot className="h-3 w-3" />
+          <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground bg-muted/50 px-3 py-1.5 rounded-lg border border-border/50">
+            <Bot className="h-4 w-4 text-primary" />
             <span>{model}</span>
           </div>
         </div>
@@ -219,24 +219,24 @@ export function ChatInput() {
             onClick={handleStop}
             variant="destructive"
             size="icon"
-            className="h-8 w-8 shrink-0 rounded-full animate-in fade-in zoom-in duration-200"
+            className="h-10 w-10 shrink-0 rounded-full animate-in fade-in zoom-in duration-200"
             title="Dừng AI"
           >
-            <Square className="h-3.5 w-3.5 fill-current" />
+            <Square className="h-4 w-4 fill-current" />
           </Button>
         ) : (
           <button
             onClick={handleSend}
             disabled={!input.trim()}
             className={cn(
-              "h-8 w-8 shrink-0 rounded-full flex items-center justify-center transition-all duration-200",
+              "h-10 w-10 shrink-0 rounded-full flex items-center justify-center transition-all duration-200",
               input.trim()
-                ? "bg-foreground text-background hover:opacity-85"
-                : "bg-muted-foreground/15 text-muted-foreground/30 cursor-not-allowed"
+                ? "bg-primary text-primary-foreground hover:opacity-90 hover:scale-105"
+                : "bg-muted text-muted-foreground cursor-not-allowed"
             )}
             title="Gửi tin nhắn"
           >
-            <Send className="h-3.5 w-3.5" />
+            <Send className="h-4 w-4" />
           </button>
         )}
       </div>
@@ -246,18 +246,18 @@ export function ChatInput() {
   // ── Empty state: centered ──
   if (isEmpty) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center px-4 pb-16">
-        <div className="mb-10 text-center">
-          <h1 className="text-4xl font-semibold tracking-tight text-foreground mb-3">
+      <div className="flex-1 flex flex-col items-center justify-center px-4 pb-20">
+        <div className="mb-12 text-center">
+          <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-foreground mb-4">
             {workMode === 'workspace' ? 'Hỏi về dự án của bạn' : 'Tôi có thể giúp gì?'}
           </h1>
-          <p className="text-base text-muted-foreground/60">
+          <p className="text-lg text-muted-foreground max-w-lg mx-auto">
             {workMode === 'workspace'
-              ? 'Phân tích code, tìm bug, hoặc refactor trong workspace.'
-              : 'Viết code, debug, brainstorm — hỏi bất cứ điều gì.'}
+              ? 'Phân tích mã nguồn, tìm kiếm lỗi, hoặc tái cấu trúc thư mục làm việc hiện tại.'
+              : 'Viết code, gỡ lỗi, suy nghĩ ý tưởng — hãy đặt câu hỏi.'}
           </p>
         </div>
-        <div className="w-full max-w-2xl">
+        <div className="w-full max-w-3xl">
           {inputCard}
         </div>
       </div>
@@ -270,7 +270,7 @@ export function ChatInput() {
       className="sticky bottom-0 z-10 pointer-events-none px-4 pb-4 pt-10"
       style={{ background: 'linear-gradient(to bottom, transparent 0%, var(--background) 35%)' }}
     >
-      <div className="max-w-3xl mx-auto pointer-events-auto">
+      <div className="max-w-4xl mx-auto pointer-events-auto">
         {inputCard}
       </div>
     </div>

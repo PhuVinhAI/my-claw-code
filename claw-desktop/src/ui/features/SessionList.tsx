@@ -52,31 +52,31 @@ export function SessionList() {
   };
 
   return (
-    <div className="flex flex-col h-full bg-muted/30 border-r border-border/30">
+    <div className="flex flex-col h-full bg-background">
       {/* Header */}
-      <div className="flex items-center justify-between h-12 px-4 shrink-0">
-        <span className="text-xs font-medium text-muted-foreground/60 uppercase tracking-wider">
+      <div className="flex items-center justify-between h-14 px-5 shrink-0">
+        <span className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
           Hội thoại
         </span>
         <button
           onClick={createNewSession}
-          className="flex items-center justify-center h-7 w-7 rounded-lg text-muted-foreground/50 hover:text-foreground hover:bg-foreground/5 transition-all duration-150"
+          className="flex items-center justify-center h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-all duration-150"
           title="Hội thoại mới"
         >
-          <Plus className="w-4 h-4" />
+          <Plus className="w-5 h-5" />
         </button>
       </div>
 
       {/* Search */}
-      <div className="px-3 pb-2 shrink-0">
+      <div className="px-4 pb-4 shrink-0">
         <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/30 pointer-events-none" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
           <input
             type="text"
             value={search}
             onChange={(e) => handleSearchChange(e.target.value)}
             placeholder="Tìm hội thoại..."
-            className="w-full h-8 pl-8 pr-3 text-xs bg-foreground/[0.03] border border-border/20 rounded-lg placeholder:text-muted-foreground/30 text-foreground outline-none focus:border-foreground/15 transition-colors"
+            className="w-full h-10 pl-9 pr-4 text-sm bg-muted/50 border border-border rounded-lg placeholder:text-muted-foreground text-foreground outline-none focus:border-primary transition-colors"
           />
         </div>
       </div>
@@ -85,7 +85,7 @@ export function SessionList() {
       <div
         ref={listRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto px-2 pb-4"
+        className="flex-1 overflow-y-auto px-3 pb-6"
       >
         {isLoadingSessions ? (
           // Skeleton loading

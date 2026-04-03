@@ -18,8 +18,8 @@ function App() {
       {/* Sidebar */}
       <div
         className={`
-          shrink-0 transition-all duration-300 ease-in-out
-          ${sidebarOpen ? 'w-72' : 'w-0'}
+          shrink-0 transition-all duration-300 ease-in-out border-r border-border
+          ${sidebarOpen ? 'w-80' : 'w-0'}
           overflow-hidden
         `}
       >
@@ -29,14 +29,14 @@ function App() {
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
-        <div className="flex items-center gap-2.5 h-12 px-3 shrink-0">
+        <div className="flex items-center gap-3 h-14 px-4 shrink-0 border-b border-border/50">
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="flex items-center justify-center h-8 w-8 rounded-lg text-muted-foreground/50 hover:text-foreground hover:bg-foreground/5 transition-all duration-150"
+            className="flex items-center justify-center h-9 w-9 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-all duration-150"
           >
-            {sidebarOpen ? <PanelLeftClose className="w-4 h-4" /> : <PanelLeft className="w-4 h-4" />}
+            {sidebarOpen ? <PanelLeftClose className="w-5 h-5" /> : <PanelLeft className="w-5 h-5" />}
           </button>
-          <span className="text-sm font-medium text-foreground/60">Claw</span>
+          <span className="text-base font-semibold text-foreground">Claw</span>
         </div>
 
         {/* Chat Area */}

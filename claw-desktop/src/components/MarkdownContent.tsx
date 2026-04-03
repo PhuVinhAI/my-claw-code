@@ -37,20 +37,20 @@ export function MarkdownContent({ content }: MarkdownContentProps) {
             <h6 className="text-xs font-medium mt-2 mb-1 text-muted-foreground uppercase tracking-wide">{children}</h6>
           ),
 
-          // Paragraphs — generous line-height
+          // Paragraphs — clean spacing
           p: ({ children }) => (
-            <p className="mb-3 leading-[1.75] text-foreground/90">{children}</p>
+            <p className="mb-4 text-base leading-[1.8] text-foreground">{children}</p>
           ),
 
           // Lists — clean spacing
           ul: ({ children }) => (
-            <ul className="list-disc list-outside ml-5 mb-3 space-y-1.5">{children}</ul>
+            <ul className="list-disc list-outside ml-6 mb-4 space-y-2 text-base">{children}</ul>
           ),
           ol: ({ children }) => (
-            <ol className="list-decimal list-outside ml-5 mb-3 space-y-1.5">{children}</ol>
+            <ol className="list-decimal list-outside ml-6 mb-4 space-y-2 text-base">{children}</ol>
           ),
           li: ({ children }) => (
-            <li className="leading-[1.7] text-foreground/90 pl-1">{children}</li>
+            <li className="leading-[1.8] text-foreground pl-2">{children}</li>
           ),
 
           // Links
@@ -59,7 +59,7 @@ export function MarkdownContent({ content }: MarkdownContentProps) {
               href={href}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-foreground underline underline-offset-[3px] decoration-foreground/25 hover:decoration-foreground/60 transition-colors"
+              className="text-primary font-medium underline underline-offset-[4px] decoration-primary/30 hover:decoration-primary transition-colors"
             >
               {children}
             </a>
@@ -67,13 +67,13 @@ export function MarkdownContent({ content }: MarkdownContentProps) {
 
           // Blockquotes — subtle left accent
           blockquote: ({ children }) => (
-            <blockquote className="border-l-2 border-foreground/15 pl-4 py-0.5 my-3 text-muted-foreground">
+            <blockquote className="border-l-4 border-muted-foreground/30 pl-5 py-1 my-5 text-muted-foreground bg-muted/30 rounded-r-lg">
               {children}
             </blockquote>
           ),
 
           // Horizontal rule
-          hr: () => <hr className="my-6 border-border/50" />,
+          hr: () => <hr className="my-8 border-border" />,
 
           // Code
           code: ({ node, inline, className, children, ...props }: any) => {
@@ -87,7 +87,7 @@ export function MarkdownContent({ content }: MarkdownContentProps) {
             // Inline code — subtle
             return (
               <code
-                className="px-1.5 py-0.5 rounded-md bg-muted/70 text-foreground/90 font-mono text-[0.85em]"
+                className="px-1.5 py-0.5 rounded-md bg-muted text-foreground font-mono text-[0.9em] font-medium border border-border"
                 {...props}
               >
                 {children}
