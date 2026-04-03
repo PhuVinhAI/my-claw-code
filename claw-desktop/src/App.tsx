@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
 import { initializeChatStore, useChatStore } from './store';
 import { MessageList, ChatInput, PermissionModal, SessionList } from './ui/features';
-import { Button } from './components/ui/button';
-import { Menu, X } from 'lucide-react';
+import { PanelLeftClose, PanelLeft } from 'lucide-react';
 import './App.css';
 
 function App() {
@@ -11,17 +10,16 @@ function App() {
   const isEmpty = messages.length === 0;
 
   useEffect(() => {
-    // Initialize chat store listeners
     initializeChatStore();
   }, []);
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex h-screen overflow-hidden bg-background">
       {/* Sidebar */}
       <div
         className={`
-          transition-all duration-300 ease-in-out
-          ${sidebarOpen ? 'w-80' : 'w-0'}
+          shrink-0 transition-all duration-300 ease-in-out
+          ${sidebarOpen ? 'w-72' : 'w-0'}
           overflow-hidden
         `}
       >
@@ -31,23 +29,20 @@ function App() {
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
-        <div className="flex items-center gap-2 p-2 border-b border-border/40">
-          <Button
-            variant="ghost"
-            size="sm"
+        <div className="flex items-center gap-2.5 h-12 px-3 shrink-0">
+          <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="flex items-center justify-center h-8 w-8 rounded-lg text-muted-foreground/50 hover:text-foreground hover:bg-foreground/5 transition-all duration-150"
           >
-            {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-          </Button>
-          <h1 className="text-lg font-semibold text-foreground/80">Claw Desktop</h1>
+            {sidebarOpen ? <PanelLeftClose className="w-4 h-4" /> : <PanelLeft className="w-4 h-4" />}
+          </button>
+          <span className="text-sm font-medium text-foreground/60">Claw</span>
         </div>
 
         {/* Chat Area */}
         {isEmpty ? (
-          /* Empty: ChatInput renders its own centered layout */
           <ChatInput />
         ) : (
-          /* Active: scrollable with sticky input */
           <div className="flex-1 flex flex-col overflow-y-auto min-h-0">
             <MessageList />
             <ChatInput />
