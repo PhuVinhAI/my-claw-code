@@ -5,8 +5,8 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogClose,
 } from '../../components/ui/dialog';
+import { Button } from '../../components/ui/button';
 import { Trash2 } from 'lucide-react';
 
 interface ConfirmDeleteDialogProps {
@@ -29,36 +29,47 @@ export function ConfirmDeleteDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent showCloseButton={false} className="sm:max-w-[400px] p-0 gap-0 overflow-hidden border-none shadow-none ring-1 ring-border">
+      <DialogContent showCloseButton={false} className="sm:max-w-[400px] p-0 gap-0 overflow-hidden bg-card border-border shadow-2xl">
+        {/* Top Accent Bar */}
+        <div className="h-1.5 w-full bg-gradient-to-r from-red-500/40 via-red-500 to-red-500/40" />
+
         {/* Body */}
-        <div className="px-8 pt-10 pb-8 text-center">
-          <div className="flex items-center justify-center h-16 w-16 rounded-2xl bg-destructive/10 mx-auto mb-6">
-            <Trash2 className="w-8 h-8 text-destructive" />
+        <div className="px-6 pt-8 pb-6 flex flex-col items-center text-center">
+          {/* Glowing Icon */}
+          <div className="relative mb-6">
+            <div className="absolute inset-0 bg-red-500/20 rounded-full blur-xl animate-pulse" />
+            <div className="relative flex items-center justify-center h-14 w-14 rounded-full bg-red-500/10 border border-red-500/20 shadow-sm">
+              <Trash2 className="w-6 h-6 text-red-500" />
+            </div>
           </div>
-          <DialogHeader className="gap-3">
-            <DialogTitle className="text-xl font-bold">Xác nhận xóa</DialogTitle>
-            <DialogDescription className="text-sm leading-relaxed text-muted-foreground px-2">
-              Bạn có chắc chắn muốn xóa hội thoại <span className="font-semibold text-foreground italic">"{sessionTitle}"</span>? 
-              Dữ liệu sẽ bị xóa vĩnh viễn và không thể khôi phục.
+
+          <DialogHeader className="gap-2.5 w-full">
+            <DialogTitle className="text-xl font-bold text-center text-foreground tracking-tight">
+              Xóa hội thoại
+            </DialogTitle>
+            <DialogDescription className="text-sm text-center text-muted-foreground leading-relaxed">
+              Bạn có chắc chắn muốn xóa vĩnh viễn hội thoại <br/>
+              <span className="font-semibold text-foreground px-1">"{sessionTitle}"</span>?<br/>
+              Hành động này sẽ xóa toàn bộ dữ liệu.
             </DialogDescription>
           </DialogHeader>
         </div>
 
-        {/* Actions */}
-        <div className="grid grid-cols-2 border-t border-border/60">
-          <DialogClose
-            render={
-              <button className="h-14 text-sm font-bold text-muted-foreground hover:bg-muted/50 transition-colors border-r border-border/60" />
-            }
+        {/* Actions (Grid for perfect alignment) */}
+        <div className="grid grid-cols-2 gap-3 px-6 py-5 bg-muted/30 border-t border-border">
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            className="w-full h-10 font-medium bg-background"
           >
-            Hủy bỏ
-          </DialogClose>
-          <button
+            Hủy
+          </Button>
+          <Button
             onClick={handleConfirm}
-            className="h-14 text-sm font-bold text-destructive hover:bg-destructive/5 transition-colors"
+            className="w-full h-10 font-medium bg-red-500 text-white hover:bg-red-600 hover:shadow-md hover:shadow-red-500/20 transition-all border-transparent"
           >
-            Xác nhận xóa
-          </button>
+            Xóa
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

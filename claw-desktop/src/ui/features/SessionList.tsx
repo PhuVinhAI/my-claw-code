@@ -78,28 +78,28 @@ export function SessionList() {
   return (
     <div className="flex flex-col h-full bg-background relative">
       {/* 1. HEADER */}
-      <div className="shrink-0 flex flex-col gap-4 px-4 pt-5 pb-4 border-b border-border/60">
-        <div className="flex items-center justify-between">
-          <span className="text-sm font-bold text-foreground uppercase tracking-wider">
+      <div className="shrink-0 flex flex-col gap-4 px-3 pt-5 pb-3 border-b border-border/50">
+        <div className="flex items-center justify-between px-1">
+          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
             Lịch sử hội thoại
           </span>
           <button
             onClick={createNewSession}
-            className="flex items-center justify-center h-8 w-8 rounded-lg bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground transition-all duration-150"
+            className="flex items-center justify-center h-7 w-7 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
             title="Hội thoại mới"
           >
-            <Plus className="w-5 h-5" />
+            <Plus className="w-4 h-4" />
           </button>
         </div>
 
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+        <div className="relative group px-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <input
             type="text"
             value={search}
             onChange={(e) => handleSearchChange(e.target.value)}
             placeholder="Tìm hội thoại..."
-            className="w-full h-10 pl-9 pr-4 text-sm bg-muted/30 border border-border rounded-lg placeholder:text-muted-foreground text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all"
+            className="w-full h-9 pl-8 pr-3 text-sm bg-background border border-input rounded-md placeholder:text-muted-foreground text-foreground outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all shadow-sm"
           />
         </div>
       </div>
@@ -108,7 +108,7 @@ export function SessionList() {
       <div
         ref={listRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto px-3 py-3"
+        className="flex-1 overflow-y-auto px-2 py-3"
       >
         {isLoadingSessions ? (
           // Skeleton loading
@@ -145,20 +145,20 @@ export function SessionList() {
       </div>
 
       {/* 3. FOOTER */}
-      <div className="shrink-0 flex items-center justify-between p-4 border-t border-border/60 bg-background/80 backdrop-blur-sm">
+      <div className="shrink-0 flex items-center justify-between p-3 border-t border-border/50 bg-background/80 backdrop-blur-sm">
         <button
-          className="flex items-center gap-2.5 text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors group"
+          className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground px-2 py-1.5 rounded-md hover:bg-muted transition-colors group"
           title="Cài đặt"
         >
-          <Settings className="w-5 h-5 transition-transform group-hover:rotate-45" />
+          <Settings className="w-4 h-4 transition-transform group-hover:rotate-45" />
           <span>Cài đặt</span>
         </button>
         <button
           onClick={toggleTheme}
-          className="flex items-center justify-center h-9 w-9 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-all duration-150"
+          className="flex items-center justify-center h-8 w-8 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
           title="Đổi giao diện (Sáng/Tối)"
         >
-          {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+          {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
         </button>
       </div>
     </div>

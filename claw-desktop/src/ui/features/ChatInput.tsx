@@ -2,7 +2,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useChatStore } from '../../store';
 import { Textarea } from '../../components/ui/textarea';
-import { Button } from '../../components/ui/button';
 import { Send, Square, Bot, FolderOpen, ChevronDown, Sparkles } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { WorkMode, WorkModeLabels } from '../../core/entities/WorkMode';
@@ -215,15 +214,13 @@ export function ChatInput() {
 
         {/* Send / Stop */}
         {isGenerating ? (
-          <Button
+          <button
             onClick={handleStop}
-            variant="destructive"
-            size="icon"
-            className="h-10 w-10 shrink-0 rounded-full animate-in fade-in zoom-in duration-200"
+            className="h-10 w-10 shrink-0 rounded-full flex items-center justify-center transition-all duration-200 bg-red-500 text-white hover:bg-red-600 hover:scale-105 shadow-md animate-in fade-in zoom-in"
             title="Dừng AI"
           >
             <Square className="h-4 w-4 fill-current" />
-          </Button>
+          </button>
         ) : (
           <button
             onClick={handleSend}
