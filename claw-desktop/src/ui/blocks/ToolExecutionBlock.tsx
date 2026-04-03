@@ -57,7 +57,7 @@ export function ToolExecutionBlock({
   } catch { displayValue = toolInput; }
 
   return (
-    <div className="flex items-center gap-3 py-2.5 text-sm text-muted-foreground">
+    <div className="flex items-center gap-3 p-3 my-1.5 bg-muted/30 border border-border/50 rounded-xl text-sm transition-colors hover:bg-muted/50">
       <StatusIcon
         className={cn(
           'h-4 w-4 shrink-0',
@@ -67,22 +67,22 @@ export function ToolExecutionBlock({
           !isPending && !isError && !isCancelled && 'text-emerald-500'
         )}
       />
-      <ToolIcon className="h-4 w-4 shrink-0 text-muted-foreground/60" />
-      <span className={cn('font-semibold text-foreground/80', isError && 'text-destructive')}>
+      <ToolIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
+      <span className={cn('font-medium text-foreground', isError && 'text-destructive')}>
         {toolName}
       </span>
       {displayLabel && (
         <>
-          <span className="text-border">·</span>
-          <span className="text-muted-foreground/60">{displayLabel}</span>
+          <span className="text-muted-foreground/40">·</span>
+          <span className="text-muted-foreground">{displayLabel}:</span>
         </>
       )}
       {displayValue && (
-        <span className="font-mono truncate flex-1 text-muted-foreground/40 text-xs pl-1">
+        <span className="font-mono truncate flex-1 text-muted-foreground text-[13px]">
           {displayValue.length > 60 ? displayValue.substring(0, 60) + '…' : displayValue}
         </span>
       )}
-      {isCancelled && <span className="text-destructive font-medium">Đã dừng</span>}
+      {isCancelled && <span className="text-destructive text-xs font-medium bg-destructive/10 px-2 py-0.5 rounded-md">Đã dừng</span>}
     </div>
   );
 }

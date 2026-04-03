@@ -25,24 +25,24 @@ export function SearchResultBlock({
   const resultCount = output ? output.split('\n').filter((l) => l.trim()).length : 0;
 
   return (
-    <div className="flex items-center gap-2.5 py-2 text-xs text-muted-foreground">
+    <div className="flex items-center gap-3 p-3 my-1.5 bg-muted/30 border border-border/50 rounded-xl text-sm transition-colors hover:bg-muted/50">
       <StatusIcon
         className={cn(
-          'h-3.5 w-3.5 shrink-0',
-          isPending && 'animate-spin text-foreground/40',
+          'h-4 w-4 shrink-0',
+          isPending && 'animate-spin text-primary',
           isError && 'text-destructive',
           isCancelled && 'text-destructive',
-          !isPending && !isError && !isCancelled && 'text-emerald-500/70'
+          !isPending && !isError && !isCancelled && 'text-emerald-500'
         )}
       />
-      <Icon className="h-3.5 w-3.5 shrink-0 opacity-50" />
-      <span className={cn('font-medium', isError && 'text-destructive')}>{label}</span>
-      <span className="opacity-30">·</span>
-      <span className="font-mono truncate flex-1 opacity-60">{pattern}</span>
+      <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
+      <span className={cn('font-medium text-foreground', isError && 'text-destructive')}>{label}</span>
+      <span className="text-muted-foreground/40">·</span>
+      <span className="font-mono truncate flex-1 text-muted-foreground text-[13px]">{pattern}</span>
       {!isPending && !isError && !isCancelled && (
-        <span className="opacity-40">{resultCount} kết quả</span>
+        <span className="text-xs font-medium bg-foreground/5 text-foreground/70 px-2 py-0.5 rounded-md">{resultCount} kết quả</span>
       )}
-      {isCancelled && <span className="text-destructive/70">Đã dừng</span>}
+      {isCancelled && <span className="text-destructive text-xs font-medium bg-destructive/10 px-2 py-0.5 rounded-md">Đã dừng</span>}
     </div>
   );
 }
