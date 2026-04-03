@@ -1,6 +1,8 @@
 use std::io::{Read, Write};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::collections::HashMap;
+use std::sync::Mutex;
 use portable_pty::{CommandBuilder, PtySize, native_pty_system};
 use crossbeam_channel::Receiver;
 
@@ -11,6 +13,7 @@ pub struct PtyExecutor {
     event_publisher: Arc<dyn IEventPublisher>,
     cancel_flag: Arc<AtomicBool>,
     stdin_rx: Receiver<(String, String)>, // (tool_use_id, input)
+    running_processes: Arc<Mutex<HashMap<String, Arc<AtomicBool>>>>, // tool_use_id -> cancel flag
 }
 
 impl PtyExecutor {
@@ -23,6 +26,19 @@ impl PtyExecutor {
             event_publisher,
             cancel_flag,
             stdin_rx,
+            running_processes: Arc::new(Mutex::new(HashMap::new())),
+        }
+    }
+
+    /// Cancel a specific tool execution by tool_use_id
+    pub fn cancel_tool(&self, tool_use_id: &str) -> Result<(), String> {
+        let processes = self.running_processes.lock().unwrap();
+        if let Some(cancel_flag) = processes.get(tool_use_id) {
+            cancel_flag.store(true, Ordering::Relaxed);
+            eprintln!("[PTY] Cancelled tool execution: {}", tool_use_id);
+            Ok(())
+        } else {
+            Err(format!("Tool execution not found: {}", tool_use_id))
         }
     }
 
@@ -32,6 +48,15 @@ impl PtyExecutor {
         command: &str,
         tool_use_id: &str,
     ) -> Result<String, String> {
+        // Create per-tool cancel flag
+        let tool_cancel_flag = Arc::new(AtomicBool::new(false));
+        
+        // Register this tool execution
+        {
+            let mut processes = self.running_processes.lock().unwrap();
+            processes.insert(tool_use_id.to_string(), tool_cancel_flag.clone());
+        }
+
         // Create PTY system
         let pty_system = native_pty_system();
         
@@ -74,6 +99,7 @@ impl PtyExecutor {
         let event_publisher = self.event_publisher.clone();
         let tool_use_id_owned = tool_use_id.to_string();
         let cancel_flag = self.cancel_flag.clone();
+        let tool_cancel_flag_reader = tool_cancel_flag.clone();
 
         // Spawn reader thread - stream raw bytes to frontend
         let reader_handle = std::thread::spawn(move || {
@@ -81,7 +107,8 @@ impl PtyExecutor {
             let mut accumulated = String::new();
             
             loop {
-                if cancel_flag.load(Ordering::Relaxed) {
+                // Check both global and tool-specific cancel flags
+                if cancel_flag.load(Ordering::Relaxed) || tool_cancel_flag_reader.load(Ordering::Relaxed) {
                     break;
                 }
 
@@ -133,17 +160,18 @@ impl PtyExecutor {
         });
 
         // Wait for process to finish or cancellation
-        loop {
-            if self.cancel_flag.load(Ordering::Relaxed) {
-                drop(pair); // Close PTY to kill process
-                return Err("Tool execution cancelled by user".to_string());
+        let result = loop {
+            // Check both global and tool-specific cancel flags
+            if self.cancel_flag.load(Ordering::Relaxed) || tool_cancel_flag.load(Ordering::Relaxed) {
+                // Will drop pair after loop
+                break Err("Tool execution cancelled by user".to_string());
             }
 
             // Check if child process finished
             match child.try_wait() {
                 Ok(Some(_status)) => {
                     // Process finished
-                    break;
+                    break Ok(());
                 }
                 Ok(None) => {
                     // Still running
@@ -151,19 +179,30 @@ impl PtyExecutor {
                 }
                 Err(e) => {
                     eprintln!("[PTY] Error checking process status: {}", e);
-                    break;
+                    break Ok(());
                 }
             }
-        }
+        };
 
         // Drop PTY pair to close pipes and signal reader thread to stop
+        // This will kill the child process if still running
         drop(pair);
         
         // Wait for reader thread to finish
         let output = reader_handle.join()
             .map_err(|_| "Reader thread panicked".to_string())?;
 
-        Ok(output)
+        // Cleanup: remove from running processes
+        {
+            let mut processes = self.running_processes.lock().unwrap();
+            processes.remove(tool_use_id);
+        }
+
+        // Return result
+        match result {
+            Ok(()) => Ok(output),
+            Err(e) => Err(e),
+        }
     }
 }
 

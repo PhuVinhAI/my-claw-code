@@ -2,10 +2,11 @@
 import { useEffect, useRef } from 'react';
 import { Terminal } from 'xterm';
 import { FitAddon } from '@xterm/addon-fit';
-import { Terminal as TerminalIcon, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
+import { Terminal as TerminalIcon, CheckCircle2, XCircle, Loader2, StopCircle } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useChatStore } from '../../store/useChatStore';
 import { useTerminalStream } from './useTerminalStream';
+import { Button } from '../../components/ui/button';
 import 'xterm/css/xterm.css';
 import './xterm-custom.css';
 
@@ -31,12 +32,19 @@ export function XTermBlock({
   const terminalRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
+  const cancelToolExecution = useChatStore((state) => state.cancelToolExecution);
 
   // Subscribe to stream events directly (bypass store concatenation)
   // Only listen if no historical output (means it's a new/active command)
   useTerminalStream(xtermRef.current, toolUseId, !output);
 
   const StatusIcon = isPending ? Loader2 : (isError || isCancelled) ? XCircle : CheckCircle2;
+
+  const handleStop = async () => {
+    if (toolUseId && isPending) {
+      await cancelToolExecution(toolUseId);
+    }
+  };
 
   // Initialize xterm.js ONCE
   useEffect(() => {
@@ -124,15 +132,13 @@ export function XTermBlock({
             <TerminalIcon className="h-4 w-4 text-slate-400" />
             <span className="text-xs font-medium text-slate-300">{toolName}</span>
           </div>
+          <span className="text-xs text-red-300">Đã dừng bởi người dùng</span>
         </div>
         <div className="px-3 py-2 font-mono text-sm">
           <div className="flex items-center gap-2">
             <span className="text-green-400 select-none">{toolName === 'PowerShell' ? 'PS>' : '$'}</span>
             <pre className="flex-1 text-slate-200 whitespace-pre-wrap break-all">{command}</pre>
           </div>
-        </div>
-        <div className="border-t border-slate-700 px-3 py-2 bg-slate-800/50">
-          <p className="text-xs text-red-300 font-mono">Đã dừng bởi người dùng</p>
         </div>
       </div>
     );
@@ -163,6 +169,19 @@ export function XTermBlock({
           <TerminalIcon className="h-4 w-4 text-slate-400" />
           <span className="text-xs font-medium text-slate-300">{toolName}</span>
         </div>
+        
+        {/* Stop button - only show when pending */}
+        {isPending && toolUseId && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleStop}
+            className="h-7 px-2 text-xs text-red-400 hover:text-red-300 hover:bg-red-950/30"
+          >
+            <StopCircle className="h-3.5 w-3.5 mr-1" />
+            Dừng
+          </Button>
+        )}
       </div>
 
       {/* Command Input Line */}

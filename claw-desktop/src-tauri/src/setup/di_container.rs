@@ -125,6 +125,9 @@ async fn initialize_app_async(app_handle: AppHandle) -> Result<AppState, String>
         work_mode.clone(),
     );
 
+    // 7.5. Get PTY executor reference for cancellation (before moving tool_executor)
+    let pty_executor_for_cancel = tool_executor.get_pty_executor();
+
     // 8. Get tool definitions and cancel sender
     let tool_definitions = tool_executor.get_tool_definitions();
     let cancel_tx = tool_executor.get_cancel_sender();
@@ -179,5 +182,5 @@ async fn initialize_app_async(app_handle: AppHandle) -> Result<AppState, String>
     });
 
     // 16. Return AppState
-    Ok(AppState::new(tx, permission_state, cancel_flag, cancel_tx, tool_stdin_tx, settings_manager))
+    Ok(AppState::new(tx, permission_state, cancel_flag, cancel_tx, tool_stdin_tx, settings_manager, pty_executor_for_cancel))
 }

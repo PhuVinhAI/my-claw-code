@@ -15,7 +15,7 @@ pub struct TauriToolExecutor {
     cancel_flag: Arc<AtomicBool>,
     cancel_tx: Sender<()>,
     cancel_rx: Receiver<()>,
-    pty_executor: PtyExecutor,
+    pty_executor: Arc<PtyExecutor>, // Make Arc to share with commands
     work_mode: Arc<Mutex<WorkMode>>,
     selected_tools: Arc<Mutex<Vec<String>>>, // Normal mode: user-selected tools
 }
@@ -28,11 +28,11 @@ impl TauriToolExecutor {
         work_mode: Arc<Mutex<WorkMode>>,
     ) -> Self {
         let (cancel_tx, cancel_rx) = bounded(1);
-        let pty_executor = PtyExecutor::new(
+        let pty_executor = Arc::new(PtyExecutor::new(
             event_publisher.clone(),
             cancel_flag.clone(),
             stdin_rx.clone(),
-        );
+        ));
         Self {
             registry: GlobalToolRegistry::builtin(),
             cancel_flag,
@@ -42,6 +42,11 @@ impl TauriToolExecutor {
             work_mode,
             selected_tools: Arc::new(Mutex::new(Vec::new())), // Mặc định: không có tools
         }
+    }
+    
+    /// Get PTY executor for cancelling specific tools
+    pub fn get_pty_executor(&self) -> Arc<PtyExecutor> {
+        self.pty_executor.clone()
     }
     
     /// Set selected tools for Normal mode (called when user toggles tools in UI)

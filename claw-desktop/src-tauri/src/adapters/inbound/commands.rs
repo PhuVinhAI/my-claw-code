@@ -347,6 +347,15 @@ pub async fn send_tool_input(
     Ok(())
 }
 
+/// Cancel a specific tool execution (for bash/PowerShell)
+#[tauri::command]
+pub fn cancel_tool_execution(
+    tool_use_id: String,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    state.pty_executor.cancel_tool(&tool_use_id)
+}
+
 /// Get current work mode
 #[tauri::command]
 pub fn get_work_mode(state: State<'_, AppState>) -> Result<crate::core::domain::types::WorkMode, String> {

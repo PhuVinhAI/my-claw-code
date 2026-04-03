@@ -8,6 +8,7 @@ use crate::adapters::outbound::tauri_prompter::PermissionState;
 use crate::core::use_cases::chat_actor::ActorCommand;
 use crate::core::domain::types::WorkMode;
 use crate::core::domain::settings::SettingsManager;
+use crate::adapters::outbound::pty_executor::PtyExecutor;
 
 /// Application State - Shared across Tauri commands
 pub struct AppState {
@@ -19,6 +20,7 @@ pub struct AppState {
     pub work_mode: Arc<Mutex<WorkMode>>,
     pub workspace_path: Arc<Mutex<Option<String>>>,
     pub settings_manager: SettingsManager,
+    pub pty_executor: Arc<PtyExecutor>, // For cancelling specific PTY tools
 }
 
 impl AppState {
@@ -29,6 +31,7 @@ impl AppState {
         cancel_tx: Sender<()>,
         tool_stdin_tx: crossbeam_channel::Sender<(String, String)>,
         settings_manager: SettingsManager,
+        pty_executor: Arc<PtyExecutor>,
     ) -> Self {
         Self {
             actor_tx,
@@ -39,6 +42,7 @@ impl AppState {
             work_mode: Arc::new(Mutex::new(WorkMode::Normal)),
             workspace_path: Arc::new(Mutex::new(None)),
             settings_manager,
+            pty_executor,
         }
     }
 }

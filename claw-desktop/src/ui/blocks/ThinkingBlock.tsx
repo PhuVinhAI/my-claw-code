@@ -9,13 +9,21 @@ interface ThinkingBlockProps {
 }
 
 export function ThinkingBlock({ thinking, isStreaming = false }: ThinkingBlockProps) {
-  const [isExpanded, setIsExpanded] = useState(true);
+  // Default: collapsed for historical messages, expanded only during streaming
+  const [isExpanded, setIsExpanded] = useState(isStreaming);
 
   // Auto-collapse when streaming completes
   useEffect(() => {
     if (!isStreaming && isExpanded) {
       const timer = setTimeout(() => setIsExpanded(false), 500);
       return () => clearTimeout(timer);
+    }
+  }, [isStreaming, isExpanded]);
+  
+  // Auto-expand when streaming starts
+  useEffect(() => {
+    if (isStreaming) {
+      setIsExpanded(true);
     }
   }, [isStreaming]);
 

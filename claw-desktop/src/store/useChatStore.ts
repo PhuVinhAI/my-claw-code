@@ -30,6 +30,7 @@ interface ChatStore {
   answerPermission: (allow: boolean) => Promise<void>;
   stopGeneration: () => Promise<void>;
   sendToolInput: (toolUseId: string, input: string) => Promise<void>; // Send stdin to tool
+  cancelToolExecution: (toolUseId: string) => Promise<void>; // Cancel specific tool execution
 
   // Session Actions
   loadSessions: () => Promise<void>;
@@ -143,6 +144,15 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       await gateway.sendToolInput(toolUseId, input);
     } catch (e) {
       console.error("Failed to send tool input:", e);
+    }
+  },
+
+  cancelToolExecution: async (toolUseId: string) => {
+    const { gateway } = get();
+    try {
+      await gateway.cancelToolExecution(toolUseId);
+    } catch (e) {
+      console.error("Failed to cancel tool execution:", e);
     }
   },
 
