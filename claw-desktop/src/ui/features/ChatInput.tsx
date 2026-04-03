@@ -330,8 +330,8 @@ export function ChatInput() {
   // ── Has messages: sticky bottom ──
   return (
     <div
-      className="sticky bottom-0 z-10 pointer-events-none px-4 pb-4 pt-10"
-      style={{ background: 'linear-gradient(to bottom, transparent 0%, var(--background) 35%)' }}
+      className="sticky bottom-0 z-10 pointer-events-none px-4 pb-4 pt-6"
+      style={{ background: 'linear-gradient(to bottom, transparent 0%, var(--background) 60%)' }}
     >
       <div className="max-w-3xl mx-auto pointer-events-auto">
         {inputCard}
