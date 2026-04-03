@@ -170,7 +170,9 @@ export function ChatInput() {
         onKeyDown={handleKeyDown}
         placeholder={t('chatInput.placeholder')}
         className={cn(
-          "w-full resize-none border-none bg-transparent shadow-none placeholder:text-muted-foreground focus-visible:ring-0",
+          "w-full resize-none border-none shadow-none placeholder:text-muted-foreground focus-visible:ring-0",
+          "bg-transparent text-foreground",
+          workMode === 'normal' ? "rounded-t-2xl rounded-b-none" : "!rounded-none",
           isEmpty
             ? "min-h-[80px] max-h-[300px] px-5 pt-5 pb-3 text-lg leading-relaxed"
             : "min-h-[60px] max-h-[250px] px-5 pt-4 pb-2 text-base leading-relaxed"
@@ -331,7 +333,7 @@ export function ChatInput() {
       className="sticky bottom-0 z-10 pointer-events-none px-4 pb-4 pt-10"
       style={{ background: 'linear-gradient(to bottom, transparent 0%, var(--background) 35%)' }}
     >
-      <div className="max-w-4xl mx-auto pointer-events-auto">
+      <div className="max-w-3xl mx-auto pointer-events-auto">
         {inputCard}
       </div>
     </div>

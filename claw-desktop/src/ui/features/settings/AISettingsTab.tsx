@@ -6,6 +6,7 @@ import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import { Plus, Trash2, X, Check, Bot, Sparkles, AlertCircle, Pencil, Eye, EyeOff } from 'lucide-react';
 import { ConfirmDeleteProviderDialog } from './ConfirmDeleteProviderDialog';
+import { cn } from '../../../lib/utils';
 
 export function AISettingsTab() {
   const { settings, addProvider, updateProvider, deleteProvider, addModel, updateModel, deleteModel } = useSettingsStore();
@@ -146,93 +147,98 @@ export function AISettingsTab() {
   };
 
   return (
-    <div className="flex h-full">
+    <div className="flex h-full bg-background">
       {/* Sidebar - Providers List */}
-      <div className="w-72 border-r border-border flex flex-col bg-muted/20">
+      <div className="w-64 border-r border-border flex flex-col bg-background">
         {/* Sidebar Header */}
-        <div className="p-5 border-b border-border">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-lg font-semibold">Nhà cung cấp</h3>
+        <div className="px-3 pt-4 pb-3 border-b border-border/50 bg-background">
+          <div className="flex items-center justify-between mb-1 px-1">
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              Nhà cung cấp
+            </span>
             <button
               onClick={() => setShowProviderForm(true)}
-              className="flex items-center justify-center h-9 w-9 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-sm"
+              className="flex items-center justify-center h-7 w-7 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
               title="Thêm nhà cung cấp"
             >
-              <Plus className="w-5 h-5" />
+              <Plus className="w-4 h-4" />
             </button>
           </div>
-          <p className="text-xs text-muted-foreground">
-            Quản lý các API provider
-          </p>
         </div>
 
         {/* Providers List */}
-        <div className="flex-1 overflow-y-auto p-3">
+        <div className="flex-1 overflow-y-auto px-2 py-3">
           {settings.providers.length === 0 ? (
-            <div className="text-center py-12 px-4">
-              <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-muted mb-3">
-                <Bot className="w-6 h-6 text-muted-foreground" />
+            <div className="flex flex-col items-center justify-center h-[70%] px-4 text-center">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full border border-border bg-muted/30 mb-4">
+                <Bot className="h-5 w-5 text-muted-foreground" />
               </div>
-              <p className="text-sm text-muted-foreground">Chưa có nhà cung cấp</p>
+              <p className="text-sm font-medium text-foreground">Chưa có provider</p>
+              <p className="text-xs text-muted-foreground mt-1.5 max-w-[180px] leading-relaxed">
+                Thêm API provider để bắt đầu
+              </p>
             </div>
           ) : (
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               {settings.providers.map((provider) => (
                 <div
                   key={provider.id}
-                  className={`group relative rounded-lg transition-all ${
+                  className={cn(
+                    "group relative rounded-lg transition-all",
                     selectedProviderId === provider.id
-                      ? 'bg-primary text-primary-foreground shadow-sm'
-                      : 'hover:bg-muted'
-                  }`}
+                      ? "bg-accent text-accent-foreground"
+                      : "hover:bg-muted"
+                  )}
                 >
                   <button
                     onClick={() => setSelectedProviderId(provider.id)}
-                    className="w-full text-left p-3"
+                    className="w-full text-left px-3 py-2.5"
                   >
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2.5">
                       <div
-                        className={`flex items-center justify-center w-9 h-9 rounded-lg shrink-0 ${
+                        className={cn(
+                          "flex items-center justify-center w-8 h-8 rounded-md shrink-0",
                           selectedProviderId === provider.id
-                            ? 'bg-primary-foreground/10'
-                            : 'bg-primary/10'
-                        }`}
+                            ? "bg-primary/10"
+                            : "bg-primary/10"
+                        )}
                       >
                         <Bot
-                          className={`w-5 h-5 ${
-                            selectedProviderId === provider.id ? 'text-primary-foreground' : 'text-primary'
-                          }`}
+                          className={cn(
+                            "w-4 h-4",
+                            selectedProviderId === provider.id
+                              ? "text-primary"
+                              : "text-primary"
+                          )}
                         />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm truncate">{provider.name}</p>
-                        <p
-                          className={`text-xs truncate mt-0.5 ${
-                            selectedProviderId === provider.id
-                              ? 'text-primary-foreground/70'
-                              : 'text-muted-foreground'
-                          }`}
-                        >
+                        <p className={cn(
+                          "font-medium text-sm truncate",
+                          selectedProviderId === provider.id && "text-foreground"
+                        )}>
+                          {provider.name}
+                        </p>
+                        <p className="text-xs truncate text-muted-foreground">
                           {provider.models.length} mô hình
                         </p>
                       </div>
                     </div>
                   </button>
-                  
-                  {/* Delete button - show on hover */}
+
+                  {/* Delete button */}
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
                       handleDeleteProvider(provider.id);
                     }}
-                    className={`absolute right-2 top-1/2 -translate-y-1/2 flex items-center justify-center h-7 w-7 rounded-md transition-all ${
-                      selectedProviderId === provider.id
-                        ? 'opacity-0 group-hover:opacity-100 bg-primary-foreground/10 hover:bg-primary-foreground/20 text-primary-foreground'
-                        : 'opacity-0 group-hover:opacity-100 bg-destructive/10 hover:bg-destructive/20 text-destructive'
-                    }`}
-                    title="Xóa nhà cung cấp"
+                    className={cn(
+                      "absolute right-2 top-1/2 -translate-y-1/2 flex items-center justify-center h-6 w-6 rounded-md transition-all",
+                      "opacity-0 group-hover:opacity-100 bg-destructive/10 hover:bg-destructive/20 text-destructive"
+                    )}
+                    title="Xóa"
                   >
-                    <Trash2 className="w-4 h-4" />
+                    <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
               ))}
@@ -242,93 +248,87 @@ export function AISettingsTab() {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto bg-background">
         {showProviderForm ? (
           /* Provider Form (Add/Edit) */
-          <div className="p-10 max-w-3xl mx-auto">
-            <div className="flex items-center justify-between mb-10">
+          <div className="p-6 max-w-2xl mx-auto">
+            <div className="flex items-center justify-between mb-6">
               <div>
-                <h2 className="text-3xl font-bold mb-2">
-                  {editingProvider ? 'Chỉnh sửa nhà cung cấp' : 'Thêm nhà cung cấp mới'}
+                <h2 className="text-xl font-semibold mb-1">
+                  {editingProvider ? 'Chỉnh sửa provider' : 'Thêm provider mới'}
                 </h2>
-                <p className="text-muted-foreground text-lg">
-                  {editingProvider ? 'Cập nhật thông tin API' : 'Nhập thông tin API của nhà cung cấp AI'}
+                <p className="text-sm text-muted-foreground">
+                  {editingProvider ? 'Cập nhật thông tin API' : 'Nhập thông tin API provider'}
                 </p>
               </div>
               <button
                 onClick={handleCancelProviderForm}
-                className="flex items-center justify-center h-11 w-11 rounded-xl hover:bg-muted transition-colors"
+                className="flex items-center justify-center h-8 w-8 rounded-md hover:bg-muted transition-colors"
               >
-                <X className="w-6 h-6" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="space-y-7">
-              <div className="grid grid-cols-2 gap-5">
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-base font-medium mb-3">ID nhà cung cấp</label>
+                  <label className="block text-sm font-medium mb-2">ID</label>
                   <Input
                     value={providerForm.id}
                     onChange={(e) => setProviderForm({ ...providerForm, id: e.target.value })}
                     placeholder="openai"
-                    className="h-12 text-base"
+                    className="h-10"
                     disabled={!!editingProvider}
                   />
                 </div>
 
                 <div>
-                  <label className="block text-base font-medium mb-3">Tên hiển thị</label>
+                  <label className="block text-sm font-medium mb-2">Tên</label>
                   <Input
                     value={providerForm.name}
                     onChange={(e) => setProviderForm({ ...providerForm, name: e.target.value })}
                     placeholder="OpenAI"
-                    className="h-12 text-base"
+                    className="h-10"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-base font-medium mb-3">API Key</label>
+                <label className="block text-sm font-medium mb-2">API Key</label>
                 <div className="relative">
                   <Input
                     type={showApiKey ? 'text' : 'password'}
                     value={providerForm.api_key}
                     onChange={(e) => setProviderForm({ ...providerForm, api_key: e.target.value })}
                     placeholder="sk-..."
-                    className="h-12 text-base font-mono pr-12"
+                    className="h-10 font-mono pr-10"
                   />
                   <button
                     type="button"
                     onClick={() => setShowApiKey(!showApiKey)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                    title={showApiKey ? 'Ẩn API key' : 'Hiện API key'}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                   >
-                    {showApiKey ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                    {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
               </div>
 
               <div>
-                <label className="block text-base font-medium mb-3">Base URL</label>
+                <label className="block text-sm font-medium mb-2">Base URL</label>
                 <Input
                   value={providerForm.base_url}
                   onChange={(e) => setProviderForm({ ...providerForm, base_url: e.target.value })}
                   placeholder="https://api.openai.com/v1"
-                  className="h-12 text-base font-mono"
+                  className="h-10 font-mono"
                 />
               </div>
 
-              <div className="flex gap-3 pt-6">
-                <Button onClick={handleSaveProvider} size="lg" className="h-12 px-6 text-base">
-                  <Check className="w-5 h-5 mr-2" />
-                  {editingProvider ? 'Cập nhật' : 'Lưu nhà cung cấp'}
+              <div className="flex gap-2 pt-4">
+                <Button onClick={handleSaveProvider} size="sm" className="h-9">
+                  <Check className="w-4 h-4 mr-2" />
+                  {editingProvider ? 'Cập nhật' : 'Lưu'}
                 </Button>
-                <Button
-                  variant="outline"
-                  size="lg"
-                  onClick={handleCancelProviderForm}
-                  className="h-12 px-6 text-base"
-                >
+                <Button variant="outline" size="sm" onClick={handleCancelProviderForm} className="h-9">
                   Hủy
                 </Button>
               </div>
@@ -336,59 +336,54 @@ export function AISettingsTab() {
           </div>
         ) : showAddModel && selectedProvider ? (
           /* Add/Edit Model Form */
-          <div className="p-10 max-w-3xl mx-auto">
-            <div className="flex items-center justify-between mb-10">
+          <div className="p-6 max-w-2xl mx-auto">
+            <div className="flex items-center justify-between mb-6">
               <div>
-                <h2 className="text-3xl font-bold mb-2">
-                  {editingModel ? 'Chỉnh sửa mô hình' : 'Thêm mô hình mới'}
+                <h2 className="text-xl font-semibold mb-1">
+                  {editingModel ? 'Chỉnh sửa mô hình' : 'Thêm mô hình'}
                 </h2>
-                <p className="text-muted-foreground text-lg">
-                  {editingModel ? 'Cập nhật thông tin mô hình' : `Thêm mô hình AI cho ${selectedProvider.name}`}
+                <p className="text-sm text-muted-foreground">
+                  {editingModel ? 'Cập nhật thông tin' : `Cho ${selectedProvider.name}`}
                 </p>
               </div>
               <button
                 onClick={handleCancelModelForm}
-                className="flex items-center justify-center h-11 w-11 rounded-xl hover:bg-muted transition-colors"
+                className="flex items-center justify-center h-8 w-8 rounded-md hover:bg-muted transition-colors"
               >
-                <X className="w-6 h-6" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="space-y-7">
-              <div className="grid grid-cols-2 gap-5">
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-base font-medium mb-3">ID mô hình</label>
+                  <label className="block text-sm font-medium mb-2">ID</label>
                   <Input
                     value={modelForm.id}
                     onChange={(e) => setModelForm({ ...modelForm, id: e.target.value })}
                     placeholder="gpt-4"
-                    className="h-12 text-base font-mono"
+                    className="h-10 font-mono"
                     disabled={!!editingModel}
                   />
                 </div>
 
                 <div>
-                  <label className="block text-base font-medium mb-3">Tên hiển thị</label>
+                  <label className="block text-sm font-medium mb-2">Tên</label>
                   <Input
                     value={modelForm.name}
                     onChange={(e) => setModelForm({ ...modelForm, name: e.target.value })}
                     placeholder="GPT-4"
-                    className="h-12 text-base"
+                    className="h-10"
                   />
                 </div>
               </div>
 
-              <div className="flex gap-3 pt-6">
-                <Button onClick={handleSaveModel} size="lg" className="h-12 px-6 text-base">
-                  <Check className="w-5 h-5 mr-2" />
-                  {editingModel ? 'Cập nhật' : 'Lưu mô hình'}
+              <div className="flex gap-2 pt-4">
+                <Button onClick={handleSaveModel} size="sm" className="h-9">
+                  <Check className="w-4 h-4 mr-2" />
+                  {editingModel ? 'Cập nhật' : 'Lưu'}
                 </Button>
-                <Button
-                  variant="outline"
-                  size="lg"
-                  onClick={handleCancelModelForm}
-                  className="h-12 px-6 text-base"
-                >
+                <Button variant="outline" size="sm" onClick={handleCancelModelForm} className="h-9">
                   Hủy
                 </Button>
               </div>
@@ -396,39 +391,42 @@ export function AISettingsTab() {
           </div>
         ) : selectedProvider ? (
           /* Provider Details */
-          <div className="p-10 max-w-4xl mx-auto">
+          <div className="p-6 max-w-3xl mx-auto">
             {/* Provider Header */}
-            <div className="flex items-start gap-5 mb-10 pb-8 border-b border-border">
-              <div className="flex items-center justify-center w-16 h-16 rounded-xl bg-primary/10">
-                <Sparkles className="w-8 h-8 text-primary" />
+            <div className="flex items-start gap-4 mb-6 pb-5 border-b border-border">
+              <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-primary/10">
+                <Sparkles className="w-6 h-6 text-primary" />
               </div>
               <div className="flex-1">
-                <div className="flex items-start justify-between mb-2">
-                  <h2 className="text-3xl font-bold">{selectedProvider.name}</h2>
+                <div className="flex items-start justify-between mb-1">
+                  <h2 className="text-xl font-semibold">{selectedProvider.name}</h2>
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => handleEditProvider(selectedProvider)}
-                    className="h-9"
+                    className="h-8"
                   >
-                    Chỉnh sửa
+                    <Pencil className="w-3.5 h-3.5 mr-1.5" />
+                    Sửa
                   </Button>
                 </div>
-                <p className="text-muted-foreground font-mono mb-3">{selectedProvider.base_url}</p>
-                
+                <p className="text-xs text-muted-foreground font-mono mb-2">
+                  {selectedProvider.base_url}
+                </p>
+
                 {/* API Key Status */}
                 {(!selectedProvider.api_key || selectedProvider.api_key.trim() === '') ? (
-                  <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md bg-amber-100 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-800">
-                    <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-500" />
-                    <span className="text-sm font-medium text-amber-700 dark:text-amber-400">
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-amber-100 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-800">
+                    <AlertCircle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-500" />
+                    <span className="text-xs font-medium text-amber-700 dark:text-amber-400">
                       Chưa có API key
                     </span>
                   </div>
                 ) : (
-                  <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md bg-green-100 dark:bg-green-950/30 border border-green-300 dark:border-green-800">
-                    <Check className="w-4 h-4 text-green-600 dark:text-green-500" />
-                    <span className="text-sm font-medium text-green-700 dark:text-green-400">
-                      API key đã cấu hình
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-green-100 dark:bg-green-950/30 border border-green-300 dark:border-green-800">
+                    <Check className="w-3.5 h-3.5 text-green-600 dark:text-green-500" />
+                    <span className="text-xs font-medium text-green-700 dark:text-green-400">
+                      Đã cấu hình
                     </span>
                   </div>
                 )}
@@ -437,60 +435,54 @@ export function AISettingsTab() {
 
             {/* Models Section */}
             <div>
-              <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center justify-between mb-4">
                 <div>
-                  <h3 className="text-2xl font-semibold mb-2">Mô hình</h3>
-                  <p className="text-muted-foreground">
-                    Quản lý các mô hình AI từ {selectedProvider.name}
+                  <h3 className="text-base font-semibold mb-0.5">Mô hình</h3>
+                  <p className="text-xs text-muted-foreground">
+                    {selectedProvider.models.length} mô hình
                   </p>
                 </div>
-                <Button
-                  onClick={() => setShowAddModel(true)}
-                  size="lg"
-                  className="h-11"
-                >
-                  <Plus className="w-5 h-5 mr-2" />
-                  Thêm mô hình
+                <Button onClick={() => setShowAddModel(true)} size="sm" className="h-9">
+                  <Plus className="w-4 h-4 mr-1.5" />
+                  Thêm
                 </Button>
               </div>
 
               {/* Models List */}
               {selectedProvider.models.length === 0 ? (
-                <div className="text-center py-16 px-8 rounded-xl border-2 border-dashed border-border">
-                  <div className="inline-flex items-center justify-center w-14 h-14 rounded-xl bg-muted mb-4">
-                    <Bot className="w-7 h-7 text-muted-foreground" />
+                <div className="text-center py-12 px-6 rounded-lg border-2 border-dashed border-border">
+                  <div className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-muted mb-3">
+                    <Bot className="w-5 h-5 text-muted-foreground" />
                   </div>
-                  <p className="text-muted-foreground text-lg">Chưa có mô hình nào</p>
+                  <p className="text-sm text-muted-foreground">Chưa có mô hình</p>
                 </div>
               ) : (
-                <div className="grid gap-3">
+                <div className="space-y-2">
                   {selectedProvider.models.map((model) => (
                     <div
                       key={model.id}
-                      className="flex items-center justify-between p-5 rounded-xl border border-border hover:border-primary/50 hover:bg-muted/50 transition-all"
+                      className="flex items-center justify-between p-3 rounded-lg border border-border hover:border-primary/50 hover:bg-muted/50 transition-all"
                     >
                       <div>
-                        <p className="font-semibold text-base">{model.name}</p>
-                        <p className="text-sm text-muted-foreground font-mono mt-0.5">{model.id}</p>
+                        <p className="font-medium text-sm">{model.name}</p>
+                        <p className="text-xs text-muted-foreground font-mono">{model.id}</p>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1">
                         <Button
                           variant="ghost"
                           size="sm"
                           onClick={() => handleEditModel(model)}
-                          className="hover:bg-muted h-10 w-10 p-0"
-                          title="Chỉnh sửa"
+                          className="hover:bg-muted h-8 w-8 p-0"
                         >
-                          <Pencil className="w-4 h-4" />
+                          <Pencil className="w-3.5 h-3.5" />
                         </Button>
                         <Button
                           variant="ghost"
                           size="sm"
                           onClick={() => handleDeleteModel(selectedProvider.id, model.id)}
-                          className="text-destructive hover:text-destructive hover:bg-destructive/10 h-10 w-10 p-0"
-                          title="Xóa"
+                          className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8 p-0"
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <Trash2 className="w-3.5 h-3.5" />
                         </Button>
                       </div>
                     </div>
@@ -503,10 +495,10 @@ export function AISettingsTab() {
           /* Empty State */
           <div className="flex items-center justify-center h-full">
             <div className="text-center">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-muted mb-4">
-                <Bot className="w-8 h-8 text-muted-foreground" />
+              <div className="inline-flex items-center justify-center w-12 h-12 rounded-lg bg-muted mb-3">
+                <Bot className="w-6 h-6 text-muted-foreground" />
               </div>
-              <p className="text-muted-foreground">Chọn nhà cung cấp để xem chi tiết</p>
+              <p className="text-sm text-muted-foreground">Chọn provider</p>
             </div>
           </div>
         )}
