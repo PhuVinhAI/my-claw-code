@@ -4,7 +4,7 @@ import { useSettingsStore } from '../../../store/useSettingsStore';
 import { Provider, Model } from '../../../core/entities';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
-import { Plus, Trash2, X, Check, Bot, Sparkles, AlertCircle, Pencil } from 'lucide-react';
+import { Plus, Trash2, X, Check, Bot, Sparkles, AlertCircle, Pencil, Eye, EyeOff } from 'lucide-react';
 import { ConfirmDeleteProviderDialog } from './ConfirmDeleteProviderDialog';
 
 export function AISettingsTab() {
@@ -30,6 +30,9 @@ export function AISettingsTab() {
 
   // Model form state (for both add and edit)
   const [modelForm, setModelForm] = useState<Partial<Model>>({ id: '', name: '' });
+  
+  // Show/hide API key
+  const [showApiKey, setShowApiKey] = useState(false);
 
   if (!settings) {
     return (
@@ -74,6 +77,7 @@ export function AISettingsTab() {
     setShowProviderForm(false);
     setEditingProvider(null);
     setProviderForm({ id: '', name: '', api_key: '', base_url: '', models: [] });
+    setShowApiKey(false);
   };
 
   const handleSaveModel = async () => {
@@ -285,13 +289,23 @@ export function AISettingsTab() {
 
               <div>
                 <label className="block text-base font-medium mb-3">API Key</label>
-                <Input
-                  type="password"
-                  value={providerForm.api_key}
-                  onChange={(e) => setProviderForm({ ...providerForm, api_key: e.target.value })}
-                  placeholder="sk-..."
-                  className="h-12 text-base font-mono"
-                />
+                <div className="relative">
+                  <Input
+                    type={showApiKey ? 'text' : 'password'}
+                    value={providerForm.api_key}
+                    onChange={(e) => setProviderForm({ ...providerForm, api_key: e.target.value })}
+                    placeholder="sk-..."
+                    className="h-12 text-base font-mono pr-12"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowApiKey(!showApiKey)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                    title={showApiKey ? 'Ẩn API key' : 'Hiện API key'}
+                  >
+                    {showApiKey ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
+                </div>
               </div>
 
               <div>
