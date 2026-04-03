@@ -64,8 +64,10 @@ export function ModelSelector() {
     <CustomDropdown
       trigger={
         <>
-          <Bot className="h-4 w-4" />
-          <span className="truncate max-w-[120px]">{getSelectedModelName()}</span>
+          <Bot className="h-4 w-4 shrink-0" />
+          <span className="truncate min-w-0 flex-1 text-left" title={getSelectedModelName()}>
+            {getSelectedModelName()}
+          </span>
         </>
       }
       options={options}

@@ -94,7 +94,7 @@ export function CustomDropdown({
       {open && (
         <div
           className={cn(
-            "absolute bottom-full left-0 mb-2 min-w-[200px] rounded-xl border border-border bg-popover p-2 animate-in fade-in slide-in-from-bottom-2 duration-150 z-50",
+            "absolute bottom-full left-0 mb-2 w-max max-w-[280px] rounded-xl border border-border bg-popover p-2 animate-in fade-in slide-in-from-bottom-2 duration-150 z-50",
             dropdownClassName
           )}
         >
@@ -118,6 +118,7 @@ export function CustomDropdown({
                           : "bg-primary text-primary-foreground font-semibold"
                         : "text-foreground hover:bg-muted"
                     )}
+                    title={option.label}
                   >
                     {multiSelect && (
                       <div
@@ -146,7 +147,7 @@ export function CustomDropdown({
                       </div>
                     )}
                     {option.icon && <div className="shrink-0">{option.icon}</div>}
-                    <span>{option.label}</span>
+                    <span className="truncate min-w-0 flex-1 text-left">{option.label}</span>
                   </button>
                 ))}
               </div>
