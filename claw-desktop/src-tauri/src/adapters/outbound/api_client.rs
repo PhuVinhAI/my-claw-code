@@ -34,6 +34,11 @@ impl TauriApiClient {
             cancel_flag,
         })
     }
+    
+    /// Update tool definitions (called when work mode changes)
+    pub fn set_tool_definitions(&mut self, tool_definitions: Vec<api::ToolDefinition>) {
+        self.tool_definitions = tool_definitions;
+    }
 }
 
 impl ApiClient for TauriApiClient {

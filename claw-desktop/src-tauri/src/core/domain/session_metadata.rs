@@ -9,6 +9,10 @@ pub struct SessionMetadata {
     pub updated_at: i64,
     pub message_count: usize,
     pub preview: String, // First 100 chars of first user message
+    #[serde(default)]
+    pub work_mode: Option<String>, // "normal" or "workspace"
+    #[serde(default)]
+    pub workspace_path: Option<String>, // Path if workspace mode
 }
 
 impl SessionMetadata {
@@ -23,7 +27,15 @@ impl SessionMetadata {
             updated_at: now,
             message_count: 0,
             preview,
+            work_mode: None,
+            workspace_path: None,
         }
+    }
+    
+    pub fn with_work_context(mut self, work_mode: String, workspace_path: Option<String>) -> Self {
+        self.work_mode = Some(work_mode);
+        self.workspace_path = workspace_path;
+        self
     }
 
     pub fn update(&mut self, message_count: usize, first_user_message: Option<&str>) {

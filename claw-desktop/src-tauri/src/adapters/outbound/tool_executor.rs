@@ -1,11 +1,13 @@
 // Tool Executor Adapter for Tauri
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Mutex;
 use runtime::{ToolExecutor, ToolError};
 use tools::GlobalToolRegistry;
 use crossbeam_channel::{Receiver, Sender, bounded};
 
 use crate::core::use_cases::ports::IEventPublisher;
+use crate::core::domain::types::WorkMode;
 use super::pty_executor::PtyExecutor;
 
 pub struct TauriToolExecutor {
@@ -14,6 +16,7 @@ pub struct TauriToolExecutor {
     cancel_tx: Sender<()>,
     cancel_rx: Receiver<()>,
     pty_executor: PtyExecutor,
+    work_mode: Arc<Mutex<WorkMode>>,
 }
 
 impl TauriToolExecutor {
@@ -21,6 +24,7 @@ impl TauriToolExecutor {
         event_publisher: Arc<dyn IEventPublisher>,
         cancel_flag: Arc<AtomicBool>,
         stdin_rx: crossbeam_channel::Receiver<(String, String)>,
+        work_mode: Arc<Mutex<WorkMode>>,
     ) -> Self {
         let (cancel_tx, cancel_rx) = bounded(1);
         let pty_executor = PtyExecutor::new(
@@ -34,11 +38,38 @@ impl TauriToolExecutor {
             cancel_tx,
             cancel_rx,
             pty_executor,
+            work_mode,
         }
     }
 
     pub fn get_tool_definitions(&self) -> Vec<api::ToolDefinition> {
-        self.registry.definitions(None)
+        let mode = self.work_mode.lock().unwrap();
+        
+        match *mode {
+            WorkMode::Workspace => {
+                // All tools allowed
+                self.registry.definitions(None)
+            }
+            WorkMode::Normal => {
+                // Only read-only tools allowed
+                let allowed_tools: std::collections::BTreeSet<String> = [
+                    "read_file",
+                    "grep_search",
+                    "glob_search",
+                    "file_search",
+                    "list_directory",
+                    "read_code",
+                    "WebSearch",
+                    "WebFetch",
+                    "ToolSearch",
+                ]
+                .iter()
+                .map(|s| s.to_string())
+                .collect();
+                
+                self.registry.definitions(Some(&allowed_tools))
+            }
+        }
     }
     
     pub fn get_cancel_sender(&self) -> Sender<()> {

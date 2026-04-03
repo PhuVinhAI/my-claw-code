@@ -13,8 +13,8 @@ export class TauriChatGateway implements IChatGateway {
     await invoke('answer_permission', { requestId, allow });
   }
 
-  async loadSession(sessionId: string): Promise<void> {
-    await invoke('load_session', { sessionId });
+  async loadSession(sessionId: string, workMode: string, workspacePath: string | null): Promise<void> {
+    await invoke('load_session', { sessionId, workMode, workspacePath });
   }
 
   async saveSession(sessionId: string): Promise<void> {
@@ -69,12 +69,12 @@ export class TauriChatGateway implements IChatGateway {
     return await invoke('list_sessions');
   }
 
-  async deleteSession(sessionId: string): Promise<void> {
-    await invoke('delete_session', { sessionId });
+  async deleteSession(sessionId: string, workMode: string, workspacePath: string | null): Promise<void> {
+    await invoke('delete_session', { sessionId, workMode, workspacePath });
   }
 
-  async renameSession(sessionId: string, title: string): Promise<void> {
-    await invoke('rename_session', { sessionId, title });
+  async renameSession(sessionId: string, title: string, workMode: string, workspacePath: string | null): Promise<void> {
+    await invoke('rename_session', { sessionId, title, workMode, workspacePath });
   }
 
   async newSession(): Promise<string> {
@@ -83,5 +83,17 @@ export class TauriChatGateway implements IChatGateway {
 
   async getCurrentSessionId(): Promise<string | null> {
     return await invoke('get_current_session_id');
+  }
+
+  async getWorkMode(): Promise<import('../../core/entities').WorkMode> {
+    return await invoke('get_work_mode');
+  }
+
+  async setWorkMode(mode: import('../../core/entities').WorkMode, workspacePath?: string): Promise<void> {
+    await invoke('set_work_mode', { mode, workspacePath: workspacePath || null });
+  }
+
+  async getWorkspacePath(): Promise<string | null> {
+    return await invoke('get_workspace_path');
   }
 }

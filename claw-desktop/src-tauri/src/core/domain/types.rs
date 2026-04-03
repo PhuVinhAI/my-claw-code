@@ -29,3 +29,11 @@ pub struct PermissionRequestEvent {
     pub current_mode: String,
     pub required_mode: String,
 }
+
+/// Work mode - Chế độ làm việc
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum WorkMode {
+    Normal,    // Chế độ thông thường - read-only tools
+    Workspace, // Chế độ làm việc - full tool access
+}

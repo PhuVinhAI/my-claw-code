@@ -19,10 +19,14 @@ pub enum ActorCommand {
     Cancel,
     LoadSession {
         session_id: String,
+        work_mode: String,
+        workspace_path: Option<String>,
         response_tx: oneshot::Sender<Result<(), String>>,
     },
     SaveSession {
         session_id: String,
+        work_mode: String,
+        workspace_path: Option<String>,
         response_tx: oneshot::Sender<Result<(), String>>,
     },
     GetSession {
@@ -33,11 +37,15 @@ pub enum ActorCommand {
     },
     DeleteSession {
         session_id: String,
+        work_mode: String,
+        workspace_path: Option<String>,
         response_tx: oneshot::Sender<Result<(), String>>,
     },
     RenameSession {
         session_id: String,
         title: String,
+        work_mode: String,
+        workspace_path: Option<String>,
         response_tx: oneshot::Sender<Result<(), String>>,
     },
     NewSession {
@@ -53,24 +61,38 @@ pub enum ActorCommand {
         workdir: String,
         response_tx: oneshot::Sender<Result<(), String>>,
     },
+    ReloadToolDefinitions {
+        response_tx: oneshot::Sender<Result<(), String>>,
+    },
+    SetWorkMode {
+        work_mode: String,
+        response_tx: oneshot::Sender<Result<(), String>>,
+    },
 }
 
 /// ChatSessionActor - Chạy trên tokio::task độc lập
-pub struct ChatSessionActor<C: ApiClient, T: ToolExecutor, P: PermissionPrompter> {
-    runtime: ConversationRuntime<C, T>,
+/// Desktop-specific: Dùng concrete types thay vì generics để dễ access methods
+pub struct ChatSessionActor {
+    runtime: ConversationRuntime<
+        crate::adapters::outbound::api_client::TauriApiClient,
+        crate::adapters::outbound::tool_executor::TauriToolExecutor,
+    >,
     inbox: mpsc::Receiver<ActorCommand>,
     event_publisher: Arc<dyn IEventPublisher>,
-    prompter: P,
+    prompter: crate::adapters::outbound::tauri_prompter::TauriPermissionAdapter,
     session_repository: Arc<dyn crate::core::use_cases::ports::ISessionRepository>,
     current_session_id: Option<String>,
 }
 
-impl<C: ApiClient, T: ToolExecutor, P: PermissionPrompter> ChatSessionActor<C, T, P> {
+impl ChatSessionActor {
     pub fn new(
-        runtime: ConversationRuntime<C, T>,
+        runtime: ConversationRuntime<
+            crate::adapters::outbound::api_client::TauriApiClient,
+            crate::adapters::outbound::tool_executor::TauriToolExecutor,
+        >,
         inbox: mpsc::Receiver<ActorCommand>,
         event_publisher: Arc<dyn IEventPublisher>,
-        prompter: P,
+        prompter: crate::adapters::outbound::tauri_prompter::TauriPermissionAdapter,
         session_repository: Arc<dyn crate::core::use_cases::ports::ISessionRepository>,
     ) -> Self {
         Self {
@@ -96,16 +118,20 @@ impl<C: ApiClient, T: ToolExecutor, P: PermissionPrompter> ChatSessionActor<C, T
                 }
                 ActorCommand::LoadSession {
                     session_id,
+                    work_mode,
+                    workspace_path,
                     response_tx,
                 } => {
-                    let result = self.handle_load_session(session_id);
+                    let result = self.handle_load_session(session_id, work_mode, workspace_path);
                     let _ = response_tx.send(result);
                 }
                 ActorCommand::SaveSession {
                     session_id,
+                    work_mode,
+                    workspace_path,
                     response_tx,
                 } => {
-                    let result = self.handle_save_session(session_id);
+                    let result = self.handle_save_session(session_id, work_mode, workspace_path);
                     let _ = response_tx.send(result);
                 }
                 ActorCommand::GetSession { response_tx } => {
@@ -117,17 +143,21 @@ impl<C: ApiClient, T: ToolExecutor, P: PermissionPrompter> ChatSessionActor<C, T
                 }
                 ActorCommand::DeleteSession {
                     session_id,
+                    work_mode,
+                    workspace_path,
                     response_tx,
                 } => {
-                    let result = self.handle_delete_session(session_id);
+                    let result = self.handle_delete_session(session_id, work_mode, workspace_path);
                     let _ = response_tx.send(result);
                 }
                 ActorCommand::RenameSession {
                     session_id,
                     title,
+                    work_mode,
+                    workspace_path,
                     response_tx,
                 } => {
-                    let result = self.handle_rename_session(session_id, title);
+                    let result = self.handle_rename_session(session_id, title, work_mode, workspace_path);
                     let _ = response_tx.send(result);
                 }
                 ActorCommand::NewSession { response_tx } => {
@@ -143,6 +173,14 @@ impl<C: ApiClient, T: ToolExecutor, P: PermissionPrompter> ChatSessionActor<C, T
                 }
                 ActorCommand::ChangeWorkingDir { workdir, response_tx } => {
                     let result = self.handle_change_working_dir(workdir);
+                    let _ = response_tx.send(result);
+                }
+                ActorCommand::ReloadToolDefinitions { response_tx } => {
+                    let result = self.handle_reload_tool_definitions();
+                    let _ = response_tx.send(result);
+                }
+                ActorCommand::SetWorkMode { work_mode, response_tx } => {
+                    let result = self.handle_set_work_mode(work_mode);
                     let _ = response_tx.send(result);
                 }
             }
@@ -195,9 +233,9 @@ impl<C: ApiClient, T: ToolExecutor, P: PermissionPrompter> ChatSessionActor<C, T
         eprintln!("Cancel not yet implemented");
     }
 
-    fn handle_load_session(&mut self, session_id: String) -> Result<(), String> {
-        // Load session from repository
-        let session = self.session_repository.load(&session_id)?;
+    fn handle_load_session(&mut self, session_id: String, work_mode: String, workspace_path: Option<String>) -> Result<(), String> {
+        // Load session from repository with work context
+        let session = self.session_repository.load(&session_id, &work_mode, workspace_path.as_deref())?;
         
         // Replace runtime session
         self.runtime.replace_session(session);
@@ -208,9 +246,9 @@ impl<C: ApiClient, T: ToolExecutor, P: PermissionPrompter> ChatSessionActor<C, T
         Ok(())
     }
 
-    fn handle_save_session(&mut self, session_id: String) -> Result<(), String> {
+    fn handle_save_session(&mut self, session_id: String, work_mode: String, workspace_path: Option<String>) -> Result<(), String> {
         let session = self.runtime.session();
-        self.session_repository.save(&session_id, session)?;
+        self.session_repository.save_with_work_context(&session_id, session, work_mode, workspace_path)?;
         self.current_session_id = Some(session_id);
         Ok(())
     }
@@ -221,8 +259,8 @@ impl<C: ApiClient, T: ToolExecutor, P: PermissionPrompter> ChatSessionActor<C, T
         self.session_repository.list_with_metadata()
     }
 
-    fn handle_delete_session(&mut self, session_id: String) -> Result<(), String> {
-        self.session_repository.delete(&session_id)?;
+    fn handle_delete_session(&mut self, session_id: String, work_mode: String, workspace_path: Option<String>) -> Result<(), String> {
+        self.session_repository.delete(&session_id, &work_mode, workspace_path.as_deref())?;
         // Clear current session if deleted
         if self.current_session_id.as_ref() == Some(&session_id) {
             self.current_session_id = None;
@@ -230,8 +268,8 @@ impl<C: ApiClient, T: ToolExecutor, P: PermissionPrompter> ChatSessionActor<C, T
         Ok(())
     }
 
-    fn handle_rename_session(&self, session_id: String, title: String) -> Result<(), String> {
-        self.session_repository.rename(&session_id, &title)
+    fn handle_rename_session(&self, session_id: String, title: String, work_mode: String, workspace_path: Option<String>) -> Result<(), String> {
+        self.session_repository.rename(&session_id, &title, &work_mode, workspace_path.as_deref())
     }
 
     fn handle_new_session(&mut self) -> Result<String, String> {
@@ -284,6 +322,28 @@ impl<C: ApiClient, T: ToolExecutor, P: PermissionPrompter> ChatSessionActor<C, T
         let new_session = runtime::Session::new();
         self.runtime.replace_session(new_session);
         
+        Ok(())
+    }
+    
+    fn handle_reload_tool_definitions(&mut self) -> Result<(), String> {
+        eprintln!("[ACTOR] Reloading tool definitions based on work mode");
+        
+        // Get updated tool definitions from tool executor
+        let tool_executor = self.runtime.tool_executor_mut();
+        let new_definitions = tool_executor.get_tool_definitions();
+        
+        eprintln!("[ACTOR] Loaded {} tool definitions", new_definitions.len());
+        
+        // Update API client with new definitions
+        let api_client = self.runtime.api_client_mut();
+        api_client.set_tool_definitions(new_definitions);
+        
+        Ok(())
+    }
+    
+    fn handle_set_work_mode(&mut self, work_mode: String) -> Result<(), String> {
+        // Update repository's work mode
+        self.session_repository.set_work_mode(work_mode)?;
         Ok(())
     }
 }

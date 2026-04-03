@@ -1,5 +1,5 @@
 // IChatGateway - Port (Interface)
-import { StreamEvent, PermissionRequest, Session, SessionMetadata } from '../entities';
+import { StreamEvent, PermissionRequest, Session, SessionMetadata, WorkMode } from '../entities';
 
 export type UnsubscribeFn = () => void;
 
@@ -7,7 +7,7 @@ export interface IChatGateway {
   // Commands
   sendPrompt(text: string): Promise<void>;
   answerPermission(requestId: string, allow: boolean): Promise<void>;
-  loadSession(sessionId: string): Promise<void>;
+  loadSession(sessionId: string, workMode: string, workspacePath: string | null): Promise<void>;
   saveSession(sessionId: string): Promise<void>;
   getSession(): Promise<Session>;
   cancelPrompt(): Promise<void>;
@@ -16,10 +16,15 @@ export interface IChatGateway {
 
   // Session CRUD
   listSessions(): Promise<SessionMetadata[]>;
-  deleteSession(sessionId: string): Promise<void>;
-  renameSession(sessionId: string, title: string): Promise<void>;
+  deleteSession(sessionId: string, workMode: string, workspacePath: string | null): Promise<void>;
+  renameSession(sessionId: string, title: string, workMode: string, workspacePath: string | null): Promise<void>;
   newSession(): Promise<string>;
   getCurrentSessionId(): Promise<string | null>;
+
+  // Work Mode
+  getWorkMode(): Promise<WorkMode>;
+  setWorkMode(mode: WorkMode, workspacePath?: string): Promise<void>;
+  getWorkspacePath(): Promise<string | null>;
 
   // Events
   onStreamEvent(callback: (event: StreamEvent) => void): UnsubscribeFn;

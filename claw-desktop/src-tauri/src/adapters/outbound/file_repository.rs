@@ -13,6 +13,7 @@ use crate::core::use_cases::ports::ISessionRepository;
 pub struct FileSessionRepository {
     base_path: PathBuf,
     current_working_dir: RwLock<String>, // Interior mutability for thread-safe updates
+    current_work_mode: RwLock<String>, // "normal" or "workspace"
 }
 
 impl FileSessionRepository {
@@ -30,6 +31,7 @@ impl FileSessionRepository {
         Ok(Self { 
             base_path,
             current_working_dir: RwLock::new(current_working_dir),
+            current_work_mode: RwLock::new("normal".to_string()),
         })
     }
 
@@ -46,6 +48,39 @@ impl FileSessionRepository {
         let hash = Self::workdir_hash(&workdir);
         self.base_path.join(hash)
     }
+    
+    /// Get sessions folder based on work mode
+    fn sessions_folder_for_mode(&self, work_mode: &str, workspace_path: Option<&str>) -> PathBuf {
+        match work_mode {
+            "workspace" => {
+                // Workspace mode: sessions per workspace
+                if let Some(path) = workspace_path {
+                    let hash = Self::workdir_hash(path);
+                    self.base_path.join(hash)
+                } else {
+                    // Fallback to current workdir
+                    self.sessions_folder()
+                }
+            }
+            _ => {
+                // Normal mode: shared folder at home (không theo CWD)
+                self.base_path.join("normal")
+            }
+        }
+    }
+    
+    /// Get current active folder (used by list/load/delete operations)
+    fn current_active_folder(&self) -> PathBuf {
+        let work_mode = self.current_work_mode.read().unwrap();
+        let workspace_path = if *work_mode == "workspace" {
+            let workdir = self.current_working_dir.read().unwrap();
+            Some(workdir.clone())
+        } else {
+            None
+        };
+        
+        self.sessions_folder_for_mode(&work_mode, workspace_path.as_deref())
+    }
 
     /// Update working directory (called when user changes workspace)
     pub fn set_working_dir(&self, workdir: String) -> Result<(), String> {
@@ -61,13 +96,22 @@ impl FileSessionRepository {
         eprintln!("[REPO] Working directory updated to: {} (hash: {})", workdir, hash);
         Ok(())
     }
+    
+    /// Update work mode (called when user switches mode)
+    pub fn set_work_mode(&self, work_mode: String) -> Result<(), String> {
+        let mut current = self.current_work_mode.write().unwrap();
+        *current = work_mode.clone();
+        
+        eprintln!("[REPO] Work mode updated to: {}", work_mode);
+        Ok(())
+    }
 
     fn session_path(&self, session_id: &str) -> PathBuf {
-        self.sessions_folder().join(format!("{}.json", session_id))
+        self.current_active_folder().join(format!("{}.json", session_id))
     }
 
     fn metadata_path(&self, session_id: &str) -> PathBuf {
-        self.sessions_folder().join(format!("{}.meta.json", session_id))
+        self.current_active_folder().join(format!("{}.meta.json", session_id))
     }
 
     fn extract_first_user_message(session: &Session) -> Option<String> {
@@ -89,30 +133,51 @@ impl FileSessionRepository {
 
 impl ISessionRepository for FileSessionRepository {
     fn save(&self, session_id: &str, session: &Session) -> Result<(), String> {
-        let path = self.session_path(session_id);
+        self.save_with_work_context(session_id, session, "normal".to_string(), None)
+    }
+    
+    fn save_with_work_context(&self, session_id: &str, session: &Session, work_mode: String, workspace_path: Option<String>) -> Result<(), String> {
+        // Get folder based on work mode
+        let folder = self.sessions_folder_for_mode(&work_mode, workspace_path.as_deref());
+        
+        // Create folder if not exists
+        fs::create_dir_all(&folder)
+            .map_err(|e| format!("Failed to create sessions folder: {}", e))?;
+        
+        let path = folder.join(format!("{}.json", session_id));
         session
             .save_to_path(&path)
             .map_err(|e| format!("Failed to save session: {}", e))?;
 
-        // Auto-update metadata
+        // Auto-update metadata with work context
         let first_user_msg = Self::extract_first_user_message(session);
         let mut metadata = self
             .load_metadata(session_id)
             .unwrap_or_else(|_| SessionMetadata::new(session_id.to_string(), first_user_msg.as_deref()));
 
         metadata.update(session.messages.len(), first_user_msg.as_deref());
-        self.save_metadata(&metadata)?;
+        metadata.work_mode = Some(work_mode);
+        metadata.workspace_path = workspace_path;
+        
+        // Save metadata to same folder
+        let metadata_path = folder.join(format!("{}.meta.json", session_id));
+        let json = serde_json::to_string_pretty(&metadata)
+            .map_err(|e| format!("Failed to serialize metadata: {}", e))?;
+        fs::write(&metadata_path, json)
+            .map_err(|e| format!("Failed to write metadata: {}", e))?;
 
         Ok(())
     }
 
-    fn load(&self, session_id: &str) -> Result<Session, String> {
-        let path = self.session_path(session_id);
+    fn load(&self, session_id: &str, work_mode: &str, workspace_path: Option<&str>) -> Result<Session, String> {
+        // Direct access với work context
+        let folder = self.sessions_folder_for_mode(work_mode, workspace_path);
+        let path = folder.join(format!("{}.json", session_id));
         Session::load_from_path(&path).map_err(|e| format!("Failed to load session: {}", e))
     }
 
     fn list(&self) -> Result<Vec<String>, String> {
-        let folder = self.sessions_folder();
+        let folder = self.current_active_folder();
         
         // Create folder if not exists
         if !folder.exists() {
@@ -141,19 +206,42 @@ impl ISessionRepository for FileSessionRepository {
     }
 
     fn list_with_metadata(&self) -> Result<Vec<SessionMetadata>, String> {
-        let session_ids = self.list()?;
         let mut metadata_list = Vec::new();
-
-        for id in session_ids {
-            match self.load_metadata(&id) {
-                Ok(meta) => metadata_list.push(meta),
-                Err(_) => {
-                    // Create metadata if missing
-                    let session = self.load(&id).ok();
-                    let first_msg = session.as_ref().and_then(Self::extract_first_user_message);
-                    let meta = SessionMetadata::new(id.clone(), first_msg.as_deref());
-                    let _ = self.save_metadata(&meta);
-                    metadata_list.push(meta);
+        
+        // CHỈ scan folder của mode hiện tại (không scan tất cả folders)
+        let folder_path = self.current_active_folder();
+        
+        // Create folder if not exists
+        if !folder_path.exists() {
+            fs::create_dir_all(&folder_path)
+                .map_err(|e| format!("Failed to create sessions folder: {}", e))?;
+            return Ok(Vec::new());
+        }
+        
+        // Scan sessions in current active folder only
+        let session_entries = fs::read_dir(&folder_path)
+            .map_err(|e| format!("Failed to read sessions folder: {}", e))?;
+        
+        for session_entry in session_entries {
+            let session_entry = session_entry.map_err(|e| format!("Failed to read session entry: {}", e))?;
+            let path = session_entry.path();
+            
+            // Only process .meta.json files
+            if path.extension().and_then(|s| s.to_str()) == Some("json") {
+                if let Some(filename) = path.file_name().and_then(|s| s.to_str()) {
+                    if filename.ends_with(".meta.json") {
+                        let session_id = filename.trim_end_matches(".meta.json");
+                        
+                        // Load metadata
+                        let metadata_content = fs::read_to_string(&path)
+                            .map_err(|e| format!("Failed to read metadata: {}", e))?;
+                        match serde_json::from_str::<SessionMetadata>(&metadata_content) {
+                            Ok(meta) => metadata_list.push(meta),
+                            Err(e) => {
+                                eprintln!("Failed to parse metadata for {}: {}", session_id, e);
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -164,9 +252,11 @@ impl ISessionRepository for FileSessionRepository {
         Ok(metadata_list)
     }
 
-    fn delete(&self, session_id: &str) -> Result<(), String> {
-        let session_path = self.session_path(session_id);
-        let metadata_path = self.metadata_path(session_id);
+    fn delete(&self, session_id: &str, work_mode: &str, workspace_path: Option<&str>) -> Result<(), String> {
+        // Direct access với work context
+        let folder = self.sessions_folder_for_mode(work_mode, workspace_path);
+        let session_path = folder.join(format!("{}.json", session_id));
+        let metadata_path = folder.join(format!("{}.meta.json", session_id));
 
         if session_path.exists() {
             fs::remove_file(&session_path)
@@ -181,10 +271,24 @@ impl ISessionRepository for FileSessionRepository {
         Ok(())
     }
 
-    fn rename(&self, session_id: &str, new_title: &str) -> Result<(), String> {
-        let mut metadata = self.load_metadata(session_id)?;
+    fn rename(&self, session_id: &str, new_title: &str, work_mode: &str, workspace_path: Option<&str>) -> Result<(), String> {
+        // Direct access với work context
+        let folder = self.sessions_folder_for_mode(work_mode, workspace_path);
+        let metadata_path = folder.join(format!("{}.meta.json", session_id));
+        
+        let contents = fs::read_to_string(&metadata_path)
+            .map_err(|e| format!("Failed to read metadata: {}", e))?;
+        let mut metadata: SessionMetadata = serde_json::from_str(&contents)
+            .map_err(|e| format!("Failed to deserialize metadata: {}", e))?;
+        
         metadata.title = new_title.to_string();
-        self.save_metadata(&metadata)
+        
+        let json = serde_json::to_string_pretty(&metadata)
+            .map_err(|e| format!("Failed to serialize metadata: {}", e))?;
+        fs::write(&metadata_path, json)
+            .map_err(|e| format!("Failed to write metadata: {}", e))?;
+        
+        Ok(())
     }
 
     fn save_metadata(&self, metadata: &SessionMetadata) -> Result<(), String> {
@@ -204,5 +308,9 @@ impl ISessionRepository for FileSessionRepository {
 
     fn set_working_dir(&self, workdir: String) -> Result<(), String> {
         self.set_working_dir(workdir)
+    }
+    
+    fn set_work_mode(&self, work_mode: String) -> Result<(), String> {
+        self.set_work_mode(work_mode)
     }
 }

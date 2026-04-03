@@ -40,13 +40,20 @@ pub async fn answer_permission(
 
 /// Load session command
 #[tauri::command]
-pub async fn load_session(session_id: String, state: State<'_, AppState>) -> Result<(), String> {
+pub async fn load_session(
+    session_id: String,
+    work_mode: String,
+    workspace_path: Option<String>,
+    state: State<'_, AppState>
+) -> Result<(), String> {
     let (tx, rx) = oneshot::channel();
 
     state
         .actor_tx
         .send(ActorCommand::LoadSession {
             session_id,
+            work_mode,
+            workspace_path,
             response_tx: tx,
         })
         .await
@@ -59,12 +66,24 @@ pub async fn load_session(session_id: String, state: State<'_, AppState>) -> Res
 /// Save session command
 #[tauri::command]
 pub async fn save_session(session_id: String, state: State<'_, AppState>) -> Result<(), String> {
+    // Get current work mode and workspace path
+    let work_mode = {
+        let mode = state.work_mode.lock().unwrap();
+        format!("{:?}", *mode).to_lowercase()
+    };
+    let workspace_path = {
+        let path = state.workspace_path.lock().unwrap();
+        path.clone()
+    };
+    
     let (tx, rx) = oneshot::channel();
 
     state
         .actor_tx
         .send(ActorCommand::SaveSession {
             session_id,
+            work_mode,
+            workspace_path,
             response_tx: tx,
         })
         .await
@@ -124,6 +143,8 @@ pub async fn list_sessions(
 #[tauri::command]
 pub async fn delete_session(
     session_id: String,
+    work_mode: String,
+    workspace_path: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
     let (tx, rx) = oneshot::channel();
@@ -132,6 +153,8 @@ pub async fn delete_session(
         .actor_tx
         .send(ActorCommand::DeleteSession {
             session_id,
+            work_mode,
+            workspace_path,
             response_tx: tx,
         })
         .await
@@ -146,6 +169,8 @@ pub async fn delete_session(
 pub async fn rename_session(
     session_id: String,
     title: String,
+    work_mode: String,
+    workspace_path: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
     let (tx, rx) = oneshot::channel();
@@ -155,6 +180,8 @@ pub async fn rename_session(
         .send(ActorCommand::RenameSession {
             session_id,
             title,
+            work_mode,
+            workspace_path,
             response_tx: tx,
         })
         .await
@@ -298,4 +325,100 @@ pub async fn send_tool_input(
         .send((tool_use_id, input))
         .map_err(|e| format!("Failed to send tool input: {}", e))?;
     Ok(())
+}
+
+/// Get current work mode
+#[tauri::command]
+pub fn get_work_mode(state: State<'_, AppState>) -> Result<crate::core::domain::types::WorkMode, String> {
+    let mode = state.work_mode.lock().unwrap();
+    Ok(*mode)
+}
+
+/// Set work mode and optionally workspace path
+#[tauri::command]
+pub async fn set_work_mode(
+    mode: crate::core::domain::types::WorkMode,
+    workspace_path: Option<String>,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    use crate::core::domain::types::WorkMode;
+    
+    let work_mode_str = match mode {
+        WorkMode::Normal => "normal",
+        WorkMode::Workspace => "workspace",
+    }.to_string();
+    
+    // Validate workspace path if switching to Workspace mode
+    if mode == WorkMode::Workspace {
+        if let Some(ref path) = workspace_path {
+            use std::path::Path;
+            let ws_path = Path::new(path);
+            if !ws_path.exists() || !ws_path.is_dir() {
+                return Err("Đường dẫn workspace không hợp lệ".to_string());
+            }
+            
+            // Set working directory
+            set_working_directory(path.clone(), state.clone()).await?;
+        } else {
+            return Err("Chế độ Làm việc yêu cầu workspace path".to_string());
+        }
+    } else {
+        // Normal mode: Clear workspace path
+        let mut current_path = state.workspace_path.lock().unwrap();
+        *current_path = None;
+    }
+    
+    // Update mode in AppState
+    {
+        let mut current_mode = state.work_mode.lock().unwrap();
+        *current_mode = mode;
+    }
+    
+    // Update workspace path (only for Workspace mode)
+    if mode == WorkMode::Workspace {
+        let mut current_path = state.workspace_path.lock().unwrap();
+        *current_path = workspace_path;
+    }
+    
+    eprintln!("[WORK_MODE] Changed to: {:?}", mode);
+    
+    // Notify repository about work mode change
+    let (tx, rx) = oneshot::channel();
+    state
+        .actor_tx
+        .send(ActorCommand::SetWorkMode {
+            work_mode: work_mode_str,
+            response_tx: tx,
+        })
+        .await
+        .map_err(|e| format!("Failed to notify actor: {}", e))?;
+    rx.await
+        .map_err(|e| format!("Failed to receive response: {}", e))??;
+    
+    // Reload tool definitions to reflect new mode
+    reload_tool_definitions(state).await?;
+    
+    Ok(())
+}
+
+/// Get current workspace path
+#[tauri::command]
+pub fn get_workspace_path(state: State<'_, AppState>) -> Result<Option<String>, String> {
+    let path = state.workspace_path.lock().unwrap();
+    Ok(path.clone())
+}
+
+/// Reload tool definitions (called after work mode change)
+#[tauri::command]
+pub async fn reload_tool_definitions(state: State<'_, AppState>) -> Result<(), String> {
+    let (tx, rx) = oneshot::channel();
+
+    state
+        .actor_tx
+        .send(ActorCommand::ReloadToolDefinitions { response_tx: tx })
+        .await
+        .map_err(|e| format!("Failed to send reload tool definitions: {}", e))?;
+
+    rx.await
+        .map_err(|e| format!("Failed to receive response: {}", e))?
 }

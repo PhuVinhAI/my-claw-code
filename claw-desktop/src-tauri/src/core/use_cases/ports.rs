@@ -13,12 +13,14 @@ pub trait IEventPublisher: Send + Sync {
 /// Adapter sẽ implement trait này để persist sessions
 pub trait ISessionRepository: Send + Sync {
     fn save(&self, session_id: &str, session: &runtime::Session) -> Result<(), String>;
-    fn load(&self, session_id: &str) -> Result<runtime::Session, String>;
+    fn save_with_work_context(&self, session_id: &str, session: &runtime::Session, work_mode: String, workspace_path: Option<String>) -> Result<(), String>;
+    fn load(&self, session_id: &str, work_mode: &str, workspace_path: Option<&str>) -> Result<runtime::Session, String>;
     fn list(&self) -> Result<Vec<String>, String>;
     fn list_with_metadata(&self) -> Result<Vec<SessionMetadata>, String>;
-    fn delete(&self, session_id: &str) -> Result<(), String>;
-    fn rename(&self, session_id: &str, new_title: &str) -> Result<(), String>;
+    fn delete(&self, session_id: &str, work_mode: &str, workspace_path: Option<&str>) -> Result<(), String>;
+    fn rename(&self, session_id: &str, new_title: &str, work_mode: &str, workspace_path: Option<&str>) -> Result<(), String>;
     fn save_metadata(&self, metadata: &SessionMetadata) -> Result<(), String>;
     fn load_metadata(&self, session_id: &str) -> Result<SessionMetadata, String>;
     fn set_working_dir(&self, workdir: String) -> Result<(), String>;
+    fn set_work_mode(&self, work_mode: String) -> Result<(), String>;
 }

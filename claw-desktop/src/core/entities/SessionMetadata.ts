@@ -6,4 +6,6 @@ export interface SessionMetadata {
   updated_at: number;
   message_count: number;
   preview: string;
+  work_mode?: string; // "normal" or "workspace"
+  workspace_path?: string;
 }

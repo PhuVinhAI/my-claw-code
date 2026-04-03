@@ -1,7 +1,7 @@
 // Zustand Store với FSM
 import { create } from 'zustand';
 import { IChatGateway } from '../core/gateways';
-import { Message, StreamEvent, SessionMetadata } from '../core/entities';
+import { Message, StreamEvent, SessionMetadata, WorkMode } from '../core/entities';
 import { ChatMachineState, ChatEvent, chatReducer } from './chat.machine';
 import { TauriChatGateway } from '../adapters/tauri';
 
@@ -17,6 +17,10 @@ interface ChatStore {
   sessions: SessionMetadata[];
   currentSessionId: string | null;
   isLoadingSessions: boolean;
+
+  // Work Mode
+  workMode: WorkMode;
+  workspacePath: string | null;
 
   // Actions
   dispatch: (event: ChatEvent) => void;
@@ -34,6 +38,10 @@ interface ChatStore {
   renameSession: (sessionId: string, title: string) => Promise<void>;
   autoSaveCurrentSession: () => Promise<void>;
 
+  // Work Mode Actions
+  fetchWorkMode: () => Promise<void>;
+  setWorkMode: (mode: WorkMode, workspacePath?: string) => Promise<void>;
+
   // Internal
   appendTextDelta: (delta: string) => void;
   flushAssistantMessage: () => void;
@@ -48,6 +56,8 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   sessions: [],
   currentSessionId: null,
   isLoadingSessions: false,
+  workMode: 'normal',
+  workspacePath: null,
 
   dispatch: (event) => {
     set((prev) => ({
@@ -149,6 +159,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     const { gateway } = get();
     set({ isLoadingSessions: true });
     try {
+      // Backend đã filter sessions theo mode hiện tại
       const sessions = await gateway.listSessions();
       set({ sessions, isLoadingSessions: false });
     } catch (error) {
@@ -158,7 +169,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   },
 
   switchSession: async (sessionId: string) => {
-    const { gateway, autoSaveCurrentSession, currentSessionId } = get();
+    const { gateway, autoSaveCurrentSession, currentSessionId, sessions } = get();
     
     // Don't switch if already on this session
     if (currentSessionId === sessionId) return;
@@ -167,8 +178,13 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       // Auto-save current session before switching
       await autoSaveCurrentSession();
 
-      // Load new session from backend
-      await gateway.loadSession(sessionId);
+      // Find session metadata to get work context
+      const sessionMeta = sessions.find(s => s.id === sessionId);
+      const workMode = sessionMeta?.work_mode || 'normal';
+      const workspacePath = sessionMeta?.workspace_path || null;
+
+      // Load new session from backend with work context
+      await gateway.loadSession(sessionId, workMode, workspacePath);
       
       // Get the loaded session
       const session = await gateway.getSession();
@@ -232,9 +248,14 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   },
 
   deleteSession: async (sessionId: string) => {
-    const { gateway, currentSessionId, loadSessions, createNewSession } = get();
+    const { gateway, currentSessionId, loadSessions, createNewSession, sessions } = get();
     try {
-      await gateway.deleteSession(sessionId);
+      // Find session metadata to get work context
+      const sessionMeta = sessions.find(s => s.id === sessionId);
+      const workMode = sessionMeta?.work_mode || 'normal';
+      const workspacePath = sessionMeta?.workspace_path || null;
+
+      await gateway.deleteSession(sessionId, workMode, workspacePath);
 
       // If deleted current session, create new one
       if (currentSessionId === sessionId) {
@@ -248,9 +269,14 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   },
 
   renameSession: async (sessionId: string, title: string) => {
-    const { gateway, loadSessions } = get();
+    const { gateway, loadSessions, sessions } = get();
     try {
-      await gateway.renameSession(sessionId, title);
+      // Find session metadata to get work context
+      const sessionMeta = sessions.find(s => s.id === sessionId);
+      const workMode = sessionMeta?.work_mode || 'normal';
+      const workspacePath = sessionMeta?.workspace_path || null;
+
+      await gateway.renameSession(sessionId, title, workMode, workspacePath);
       await loadSessions();
     } catch (error) {
       console.error('Failed to rename session:', error);
@@ -267,6 +293,35 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       console.error('Failed to auto-save session:', error);
     }
   },
+
+  fetchWorkMode: async () => {
+    const { gateway } = get();
+    try {
+      const mode = await gateway.getWorkMode();
+      const path = await gateway.getWorkspacePath();
+      set({ workMode: mode, workspacePath: path });
+    } catch (e) {
+      console.error("Failed to load work mode:", e);
+    }
+  },
+
+  setWorkMode: async (mode: WorkMode, workspacePath?: string) => {
+    const { gateway, createNewSession, loadSessions } = get();
+    try {
+      await gateway.setWorkMode(mode, workspacePath);
+      const path = await gateway.getWorkspacePath();
+      set({ workMode: mode, workspacePath: path });
+      
+      // Reload sessions to show only sessions for this mode
+      await loadSessions();
+      
+      // Create new session when switching modes
+      await createNewSession();
+    } catch (e) {
+      console.error("Failed to set work mode:", e);
+      alert(`Không thể chuyển chế độ: ${e}`);
+    }
+  },
 }));
 
 // Initialize listeners
@@ -275,6 +330,7 @@ export function initializeChatStore() {
   const { gateway, dispatch, appendTextDelta, flushAssistantMessage, autoSaveCurrentSession, loadSessions } = store;
 
   store.fetchModel();
+  store.fetchWorkMode(); // Fetch work mode on init
   loadSessions(); // Load sessions on init
 
   gateway.onStreamEvent((event: StreamEvent) => {

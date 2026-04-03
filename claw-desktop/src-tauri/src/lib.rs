@@ -38,7 +38,11 @@ pub fn run() {
             get_working_directory,
             select_and_set_workspace,
             reload_system_prompt,
-            send_tool_input
+            send_tool_input,
+            get_work_mode,
+            set_work_mode,
+            get_workspace_path,
+            reload_tool_definitions
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

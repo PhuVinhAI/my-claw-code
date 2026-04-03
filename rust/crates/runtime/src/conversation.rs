@@ -426,6 +426,16 @@ where
     pub fn update_system_prompt(&mut self, new_system_prompt: Vec<String>) {
         self.system_prompt = new_system_prompt;
     }
+    
+    /// Get mutable reference to API client (for updating tool definitions)
+    pub fn api_client_mut(&mut self) -> &mut C {
+        &mut self.api_client
+    }
+    
+    /// Get mutable reference to tool executor (for getting updated definitions)
+    pub fn tool_executor_mut(&mut self) -> &mut T {
+        &mut self.tool_executor
+    }
 
     #[must_use]
     pub fn into_session(self) -> Session {
