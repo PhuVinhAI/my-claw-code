@@ -2,7 +2,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { useChatStore } from '../../store';
 import { Textarea } from '../../components/ui/textarea';
-import { Send, Square, Bot, FolderOpen, ChevronDown, Sparkles } from 'lucide-react';
+import { Send, Square, Bot, FolderOpen, ChevronDown, Sparkles, FolderSync, History } from 'lucide-react';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuItem, DropdownMenuGroup } from '../../components/ui/dropdown-menu';
 import { cn } from '../../lib/utils';
 import { WorkMode, WorkModeLabels } from '../../core/entities/WorkMode';
 import { invoke } from '@tauri-apps/api/core';
@@ -13,7 +14,7 @@ export function ChatInput() {
   const [toolsOpen, setToolsOpen] = useState(false); // Tools dropdown
   const modeRef = useRef<HTMLDivElement>(null);
   const toolsRef = useRef<HTMLDivElement>(null);
-  const { state, messages, sendPrompt, stopGeneration, model, workMode, workspacePath, setWorkMode, selectedTools, setSelectedTools } = useChatStore();
+  const { state, messages, sendPrompt, stopGeneration, model, workMode, workspacePath, setWorkMode, selectedTools, setSelectedTools, recentWorkspaces } = useChatStore();
   const isGenerating = state.status !== 'IDLE';
   const isEmpty = messages.length === 0;
 
@@ -60,17 +61,34 @@ export function ChatInput() {
     if (newMode === workMode) return;
 
     if (newMode === 'workspace') {
-      try {
-        const selectedPath = await invoke<string | null>('select_and_set_workspace');
-        if (selectedPath) {
-          await setWorkMode('workspace', selectedPath);
+      if (recentWorkspaces && recentWorkspaces.length > 0) {
+        // Tự động mở path mở gần nhất thay vì hỏi
+        await setWorkMode('workspace', recentWorkspaces[0]);
+      } else {
+        try {
+          const selectedPath = await invoke<string | null>('select_and_set_workspace');
+          if (selectedPath) {
+            await setWorkMode('workspace', selectedPath);
+          }
+        } catch (e) {
+          console.error('Failed to select workspace:', e);
+          alert(`Không thể chọn workspace: ${e}`);
         }
-      } catch (e) {
-        console.error('Failed to select workspace:', e);
-        alert(`Không thể chọn workspace: ${e}`);
       }
     } else {
       await setWorkMode('normal');
+    }
+  };
+
+  const handleSelectNewFolder = async () => {
+    try {
+      const selectedPath = await invoke<string | null>('select_and_set_workspace');
+      if (selectedPath) {
+        await setWorkMode('workspace', selectedPath);
+      }
+    } catch (e) {
+      console.error('Failed to select workspace:', e);
+      alert(`Không thể chọn workspace: ${e}`);
     }
   };
 
@@ -88,11 +106,57 @@ export function ChatInput() {
       
       {/* Workspace bar */}
       {workMode === 'workspace' && (
-        <div className="flex items-center gap-2 px-5 pt-4 text-sm font-medium text-muted-foreground border-b border-border/50 pb-2 mx-2">
-          <FolderOpen className="h-4 w-4 shrink-0 text-primary" />
-          <span className="truncate" title={workspacePath || ''}>
-            {workspacePath || 'Chưa chọn workspace'}
-          </span>
+        <div className="flex items-center justify-between px-5 pt-4 text-sm font-medium text-muted-foreground border-b border-border/50 pb-2 mx-2">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <FolderOpen className="h-4 w-4 shrink-0 text-primary" />
+            <span className="truncate" title={workspacePath || ''}>
+              {workspacePath || 'Chưa chọn workspace'}
+            </span>
+          </div>
+          <div className="flex items-center gap-1 shrink-0 ml-2">
+            <button
+              onClick={handleSelectNewFolder}
+              className="p-1.5 hover:bg-muted rounded-md text-muted-foreground hover:text-foreground transition-colors"
+              title="Chọn thư mục khác"
+            >
+              <FolderSync className="w-4 h-4" />
+            </button>
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                className="p-1.5 hover:bg-muted rounded-md text-muted-foreground hover:text-foreground transition-colors"
+                title="Thư mục đã mở gần đây"
+              >
+                <History className="w-4 h-4" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-64">
+                <DropdownMenuGroup>
+                  <DropdownMenuLabel>Mở gần đây</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {(!recentWorkspaces || recentWorkspaces.length === 0) && (
+                    <DropdownMenuItem disabled>Không có dữ liệu</DropdownMenuItem>
+                  )}
+                  {recentWorkspaces?.map(path => (
+                    <DropdownMenuItem
+                      key={path}
+                      onClick={() => setWorkMode('workspace', path)}
+                      className="cursor-pointer"
+                      title={path}
+                    >
+                      <FolderOpen className="w-4 h-4 mr-2 shrink-0 text-muted-foreground" />
+                      <div className="flex flex-col min-w-0">
+                        <span className="truncate font-medium text-foreground">
+                          {path.split(/[/\\]/).pop() || path}
+                        </span>
+                        <span className="truncate text-xs text-muted-foreground opacity-80">
+                          {path}
+                        </span>
+                      </div>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
       )}
 

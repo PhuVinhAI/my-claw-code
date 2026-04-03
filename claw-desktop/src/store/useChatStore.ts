@@ -23,6 +23,7 @@ interface ChatStore {
   workMode: WorkMode;
   workspacePath: string | null;
   selectedTools: string[]; // Normal mode: user-selected tools
+  recentWorkspaces: string[];
 
   // Actions
   dispatch: (event: ChatEvent) => void;
@@ -44,6 +45,7 @@ interface ChatStore {
   fetchWorkMode: () => Promise<void>;
   setWorkMode: (mode: WorkMode, workspacePath?: string) => Promise<void>;
   setSelectedTools: (tools: string[]) => Promise<void>; // Set selected tools for Normal mode
+  addRecentWorkspace: (path: string) => void;
 
   // Internal
   appendTextDelta: (delta: string) => void;
@@ -62,6 +64,16 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   workMode: 'normal',
   workspacePath: null,
   selectedTools: [], // Mặc định: không có tools nào được chọn
+  recentWorkspaces: JSON.parse(localStorage.getItem('claw_recent_workspaces') || '[]'),
+
+  addRecentWorkspace: (path: string) => {
+    set((prev) => {
+      const filtered = prev.recentWorkspaces.filter(p => p !== path);
+      const updated = [path, ...filtered].slice(0, 5); // Giữ tối đa 5 lịch sử
+      localStorage.setItem('claw_recent_workspaces', JSON.stringify(updated));
+      return { recentWorkspaces: updated };
+    });
+  },
 
   dispatch: (event) => {
     set((prev) => ({
@@ -373,10 +385,15 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   },
 
   setWorkMode: async (mode: WorkMode, workspacePath?: string) => {
-    const { gateway, loadSessions } = get();
+    const { gateway, loadSessions, addRecentWorkspace } = get();
     try {
       await gateway.setWorkMode(mode, workspacePath);
       const path = await gateway.getWorkspacePath();
+      
+      if (mode === 'workspace' && path) {
+        addRecentWorkspace(path);
+      }
+
       set({ 
         workMode: mode, 
         workspacePath: path,
