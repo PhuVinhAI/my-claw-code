@@ -1,8 +1,8 @@
 // SessionList — Sidebar with search, skeleton loading, lazy scroll
-import { useState, useRef, useCallback, useMemo } from 'react';
+import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import { useChatStore } from '../../store/useChatStore';
 import { SessionItem } from './SessionItem';
-import { Plus, Search } from 'lucide-react';
+import { Plus, Search, Settings, Sun, Moon } from 'lucide-react';
 
 const PAGE_SIZE = 20;
 
@@ -22,7 +22,31 @@ export function SessionList() {
   const { sessions, currentSessionId, isLoadingSessions, createNewSession } = useChatStore();
   const [search, setSearch] = useState('');
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const [isDark, setIsDark] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
+
+  // Initialize and handle theme
+  useEffect(() => {
+    const isDarkSet = document.documentElement.classList.contains('dark') || localStorage.getItem('theme') === 'dark';
+    setIsDark(isDarkSet);
+    if (isDarkSet) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, []);
+
+  const toggleTheme = () => {
+    const newDark = !isDark;
+    setIsDark(newDark);
+    if (newDark) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    }
+  };
 
   // Filter sessions by search
   const filtered = useMemo(() => {
@@ -52,23 +76,22 @@ export function SessionList() {
   };
 
   return (
-    <div className="flex flex-col h-full bg-background">
-      {/* Header */}
-      <div className="flex items-center justify-between h-14 px-5 shrink-0">
-        <span className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-          Hội thoại
-        </span>
-        <button
-          onClick={createNewSession}
-          className="flex items-center justify-center h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-all duration-150"
-          title="Hội thoại mới"
-        >
-          <Plus className="w-5 h-5" />
-        </button>
-      </div>
+    <div className="flex flex-col h-full bg-background relative">
+      {/* 1. HEADER */}
+      <div className="shrink-0 flex flex-col gap-4 px-4 pt-5 pb-4 border-b border-border/60">
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-bold text-foreground uppercase tracking-wider">
+            Lịch sử hội thoại
+          </span>
+          <button
+            onClick={createNewSession}
+            className="flex items-center justify-center h-8 w-8 rounded-lg bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground transition-all duration-150"
+            title="Hội thoại mới"
+          >
+            <Plus className="w-5 h-5" />
+          </button>
+        </div>
 
-      {/* Search */}
-      <div className="px-4 pb-4 shrink-0">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
           <input
@@ -76,32 +99,32 @@ export function SessionList() {
             value={search}
             onChange={(e) => handleSearchChange(e.target.value)}
             placeholder="Tìm hội thoại..."
-            className="w-full h-10 pl-9 pr-4 text-sm bg-muted/50 border border-border rounded-lg placeholder:text-muted-foreground text-foreground outline-none focus:border-primary transition-colors"
+            className="w-full h-10 pl-9 pr-4 text-sm bg-muted/30 border border-border rounded-lg placeholder:text-muted-foreground text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all"
           />
         </div>
       </div>
 
-      {/* Sessions */}
+      {/* 2. BODY (SESSIONS LIST) */}
       <div
         ref={listRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto px-3 pb-6"
+        className="flex-1 overflow-y-auto px-3 py-3"
       >
         {isLoadingSessions ? (
           // Skeleton loading
-          <div className="space-y-0.5">
+          <div className="space-y-1">
             {Array.from({ length: 6 }).map((_, i) => (
               <SessionSkeleton key={i} />
             ))}
           </div>
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
-            <p className="text-xs text-muted-foreground/40">
+            <p className="text-sm text-muted-foreground">
               {search.trim() ? 'Không tìm thấy hội thoại nào' : 'Chưa có hội thoại nào'}
             </p>
           </div>
         ) : (
-          <div className="space-y-0.5">
+          <div className="space-y-1">
             {visible.map((session) => (
               <SessionItem
                 key={session.id}
@@ -111,14 +134,32 @@ export function SessionList() {
             ))}
             {/* Load more indicator */}
             {hasMore && (
-              <div className="flex justify-center py-3">
-                <span className="text-[10px] text-muted-foreground/30">
+              <div className="flex justify-center py-4">
+                <span className="text-xs font-medium text-muted-foreground">
                   {filtered.length - visibleCount} hội thoại nữa...
                 </span>
               </div>
             )}
           </div>
         )}
+      </div>
+
+      {/* 3. FOOTER */}
+      <div className="shrink-0 flex items-center justify-between p-4 border-t border-border/60 bg-background/80 backdrop-blur-sm">
+        <button
+          className="flex items-center gap-2.5 text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors group"
+          title="Cài đặt"
+        >
+          <Settings className="w-5 h-5 transition-transform group-hover:rotate-45" />
+          <span>Cài đặt</span>
+        </button>
+        <button
+          onClick={toggleTheme}
+          className="flex items-center justify-center h-9 w-9 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-all duration-150"
+          title="Đổi giao diện (Sáng/Tối)"
+        >
+          {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+        </button>
       </div>
     </div>
   );

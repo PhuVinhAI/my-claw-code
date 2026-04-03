@@ -29,38 +29,35 @@ export function ConfirmDeleteDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent showCloseButton={false} className="sm:max-w-[420px] p-0 gap-0 overflow-hidden">
+      <DialogContent showCloseButton={false} className="sm:max-w-[400px] p-0 gap-0 overflow-hidden border-none shadow-none ring-1 ring-border">
         {/* Body */}
-        <div className="px-7 pt-8 pb-6">
-          <DialogHeader className="items-center text-center gap-4">
-            <div className="flex items-center justify-center h-14 w-14 rounded-2xl bg-red-500/10">
-              <Trash2 className="w-6 h-6 text-red-500" />
-            </div>
-            <div className="space-y-2">
-              <DialogTitle className="text-lg">Xóa hội thoại?</DialogTitle>
-              <DialogDescription className="text-sm leading-relaxed">
-                Hội thoại{' '}
-                <span className="font-medium text-foreground">"{sessionTitle}"</span>{' '}
-                sẽ bị xóa vĩnh viễn. Hành động này không thể hoàn tác.
-              </DialogDescription>
-            </div>
+        <div className="px-8 pt-10 pb-8 text-center">
+          <div className="flex items-center justify-center h-16 w-16 rounded-2xl bg-destructive/10 mx-auto mb-6">
+            <Trash2 className="w-8 h-8 text-destructive" />
+          </div>
+          <DialogHeader className="gap-3">
+            <DialogTitle className="text-xl font-bold">Xác nhận xóa</DialogTitle>
+            <DialogDescription className="text-sm leading-relaxed text-muted-foreground px-2">
+              Bạn có chắc chắn muốn xóa hội thoại <span className="font-semibold text-foreground italic">"{sessionTitle}"</span>? 
+              Dữ liệu sẽ bị xóa vĩnh viễn và không thể khôi phục.
+            </DialogDescription>
           </DialogHeader>
         </div>
 
         {/* Actions */}
-        <div className="flex border-t border-border/40">
+        <div className="grid grid-cols-2 border-t border-border/60">
           <DialogClose
             render={
-              <button className="flex-1 h-12 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors border-r border-border/40" />
+              <button className="h-14 text-sm font-bold text-muted-foreground hover:bg-muted/50 transition-colors border-r border-border/60" />
             }
           >
             Hủy bỏ
           </DialogClose>
           <button
             onClick={handleConfirm}
-            className="flex-1 h-12 text-sm font-medium text-red-500 hover:bg-red-500/5 transition-colors"
+            className="h-14 text-sm font-bold text-destructive hover:bg-destructive/5 transition-colors"
           >
-            Xóa
+            Xác nhận xóa
           </button>
         </div>
       </DialogContent>
