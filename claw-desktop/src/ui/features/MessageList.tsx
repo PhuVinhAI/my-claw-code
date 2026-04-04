@@ -69,6 +69,7 @@ export function MessageList() {
   const autoScrollEnabled = useRef(true); // Track if auto-scroll should happen
   const isScrollingToBottom = useRef(false); // Track if we're in the middle of scrolling to bottom
   const lastSessionId = useRef<string | null>(currentSessionId);
+  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null); // Debounce scroll during streaming
 
   const { measureText } = useTextMeasurement({
     font: '16px Inter',
@@ -209,21 +210,38 @@ export function MessageList() {
     const el = scrollParentRef.current;
     if (!el) return;
     
-    // Small delay to let virtualizer update first
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        isProgrammaticScroll.current = true;
-        
-        el.scrollTo({
-          top: el.scrollHeight,
-          behavior: 'smooth',
-        });
-
-        setTimeout(() => {
-          isProgrammaticScroll.current = false;
-        }, 100);
+    // Clear any pending scroll
+    if (scrollTimeoutRef.current) {
+      clearTimeout(scrollTimeoutRef.current);
+    }
+    
+    // Debounce scroll during streaming to avoid jitter
+    const isStreaming = state.status === 'GENERATING' && currentAssistantText;
+    const delay = isStreaming ? 100 : 0; // Debounce 100ms when streaming
+    
+    scrollTimeoutRef.current = setTimeout(() => {
+      // Check if we're already near bottom - skip scroll if so
+      const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+      if (distFromBottom < 10) return; // Already at bottom
+      
+      isProgrammaticScroll.current = true;
+      
+      // Use instant scroll during streaming to avoid animation conflicts
+      el.scrollTo({
+        top: el.scrollHeight,
+        behavior: isStreaming ? 'instant' : 'smooth',
       });
-    });
+
+      setTimeout(() => {
+        isProgrammaticScroll.current = false;
+      }, 50);
+    }, delay);
+    
+    return () => {
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+    };
   }, [messages.length, currentAssistantText, state.status]);
 
   // Handler for scroll button click

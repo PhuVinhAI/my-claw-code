@@ -286,12 +286,20 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   },
 
   switchSession: async (sessionId: string) => {
-    const { gateway, autoSaveCurrentSession, currentSessionId, sessions } = get();
+    const { gateway, autoSaveCurrentSession, currentSessionId, sessions, state, stopGeneration } = get();
     
     // Don't switch if already on this session
     if (currentSessionId === sessionId) return;
     
     try {
+      // Stop AI if currently generating or executing tools
+      if (state.status === 'GENERATING' || state.status === 'TOOL_EXECUTING') {
+        console.log('[STORE] Stopping AI before switching session...');
+        await stopGeneration();
+        // Wait a bit for stop to complete
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+
       // Auto-save current session before switching
       await autoSaveCurrentSession();
 
@@ -387,8 +395,16 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   },
 
   createNewSession: async () => {
-    const { gateway, autoSaveCurrentSession, loadSessions } = get();
+    const { gateway, autoSaveCurrentSession, loadSessions, state, stopGeneration } = get();
     try {
+      // Stop AI if currently generating or executing tools
+      if (state.status === 'GENERATING' || state.status === 'TOOL_EXECUTING') {
+        console.log('[STORE] Stopping AI before creating new session...');
+        await stopGeneration();
+        // Wait a bit for stop to complete
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+
       // Auto-save current session
       await autoSaveCurrentSession();
 
@@ -478,8 +494,16 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   },
 
   setWorkMode: async (mode: WorkMode, workspacePath?: string) => {
-    const { gateway, loadSessions, addRecentWorkspace } = get();
+    const { gateway, loadSessions, addRecentWorkspace, state, stopGeneration } = get();
     try {
+      // Stop AI if currently generating or executing tools
+      if (state.status === 'GENERATING' || state.status === 'TOOL_EXECUTING') {
+        console.log('[STORE] Stopping AI before changing work mode...');
+        await stopGeneration();
+        // Wait a bit for stop to complete
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+
       await gateway.setWorkMode(mode, workspacePath);
       const path = await gateway.getWorkspacePath();
       
