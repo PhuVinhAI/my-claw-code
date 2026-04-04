@@ -36,8 +36,10 @@ export function SessionList({ onOpenSettings }: SessionListProps) {
     setIsDark(isDarkSet);
     if (isDarkSet) {
       document.documentElement.classList.add('dark');
+      document.documentElement.classList.remove('light');
     } else {
       document.documentElement.classList.remove('dark');
+      document.documentElement.classList.add('light');
     }
   }, []);
 
@@ -46,9 +48,11 @@ export function SessionList({ onOpenSettings }: SessionListProps) {
     setIsDark(newDark);
     if (newDark) {
       document.documentElement.classList.add('dark');
+      document.documentElement.classList.remove('light');
       localStorage.setItem('theme', 'dark');
     } else {
       document.documentElement.classList.remove('dark');
+      document.documentElement.classList.add('light');
       localStorage.setItem('theme', 'light');
     }
   };
