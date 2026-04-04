@@ -1,7 +1,8 @@
 // ChatInput Component
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useChatStore } from '../../store';
+import { useSettingsStore } from '../../store/useSettingsStore';
 import { Textarea } from '../../components/ui/textarea';
 import { Send, Square, FolderOpen, ChevronDown, Sparkles, FolderSync, History } from 'lucide-react';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuItem, DropdownMenuGroup } from '../../components/ui/dropdown-menu';
@@ -9,6 +10,7 @@ import { cn } from '../../lib/utils';
 import { WorkMode } from '../../core/entities/WorkMode';
 import { invoke } from '@tauri-apps/api/core';
 import { ModelSelector } from './ModelSelector';
+import { TokenCounter } from './TokenCounter';
 
 export function ChatInput() {
   const { t } = useTranslation();
@@ -17,9 +19,31 @@ export function ChatInput() {
   const [toolsOpen, setToolsOpen] = useState(false);
   const modeRef = useRef<HTMLDivElement>(null);
   const toolsRef = useRef<HTMLDivElement>(null);
-  const { state, messages, sendPrompt, stopGeneration, workMode, workspacePath, setWorkMode, selectedTools, setSelectedTools, recentWorkspaces } = useChatStore();
+  const { state, messages, sendPrompt, stopGeneration, workMode, workspacePath, setWorkMode, selectedTools, setSelectedTools, recentWorkspaces, currentTokenUsage, lastUserText } = useChatStore();
+  const { settings } = useSettingsStore();
   const isGenerating = state.status !== 'IDLE';
   const isEmpty = messages.length === 0;
+
+  // Restore text from lastUserText when it changes (empty turn recovery)
+  useEffect(() => {
+    if (lastUserText && input === '') {
+      console.log('[ChatInput] Restoring text from lastUserText:', lastUserText);
+      setInput(lastUserText);
+      // Clear lastUserText after restore
+      useChatStore.setState({ lastUserText: null });
+    }
+  }, [lastUserText]); // Only depend on lastUserText, not input
+
+  // Get max_context from selected model
+  const maxContext = useMemo(() => {
+    if (!settings?.selected_model) return undefined;
+    
+    const provider = settings.providers.find(p => p.id === settings.selected_model?.provider_id);
+    if (!provider) return undefined;
+    
+    const model = provider.models.find(m => m.id === settings.selected_model?.model_id);
+    return model?.max_context;
+  }, [settings]);
 
   const availableTools = [
     { id: 'WebSearch', label: t('tools.webSearch') },
@@ -60,7 +84,12 @@ export function ChatInput() {
           await new Promise(resolve => setTimeout(resolve, 100));
           
           // Send new message
-          await sendPrompt(currentInput);
+          const result = await sendPrompt(currentInput);
+          
+          // If error, restore text to input
+          if (result && typeof result === 'object' && 'error' in result) {
+            setInput(result.originalText);
+          }
         } catch (e) {
           console.error('[ChatInput] Error in stop-and-send:', e);
         }
@@ -72,7 +101,19 @@ export function ChatInput() {
     // Normal send
     const currentInput = input;
     setInput('');
-    await sendPrompt(currentInput);
+    
+    try {
+      const result = await sendPrompt(currentInput);
+      
+      // If error, restore text to input
+      if (result && typeof result === 'object' && 'error' in result) {
+        setInput(result.originalText);
+      }
+    } catch (e) {
+      console.error('[ChatInput] Error sending:', e);
+      // Restore text on unexpected error
+      setInput(currentInput);
+    }
   };
 
   const handleStop = () => {
@@ -298,6 +339,14 @@ export function ChatInput() {
 
           {/* Model Selector */}
           <ModelSelector />
+
+          {/* Token Counter */}
+          {currentTokenUsage && (
+            <>
+              <div className="h-3 sm:h-4 w-px bg-border" />
+              <TokenCounter usage={currentTokenUsage} maxContext={maxContext} />
+            </>
+          )}
         </div>
 
         {/* Send / Stop */}

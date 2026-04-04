@@ -1,7 +1,7 @@
 // Zustand Store với FSM
 import { create } from 'zustand';
 import { IChatGateway } from '../core/gateways';
-import { Message, StreamEvent, SessionMetadata, WorkMode } from '../core/entities';
+import { Message, StreamEvent, SessionMetadata, WorkMode, TokenUsage } from '../core/entities';
 import { ChatMachineState, ChatEvent, chatReducer } from './chat.machine';
 import { TauriChatGateway } from '../adapters/tauri';
 import { parseThinkingTags } from '../lib/parseThinking';
@@ -13,6 +13,9 @@ interface ChatStore {
   currentAssistantText: string;
   gateway: IChatGateway;
   detachedTools: Set<string>; // Track detached tool IDs
+  currentTokenUsage: TokenUsage | null; // Current turn token usage
+  errorMessage: string | null; // Error message to display to user
+  lastUserText: string | null; // Last user message text (for restore on error)
 
   // Session Management
   sessions: SessionMetadata[];
@@ -27,7 +30,7 @@ interface ChatStore {
 
   // Actions
   dispatch: (event: ChatEvent) => void;
-  sendPrompt: (text: string) => Promise<void>;
+  sendPrompt: (text: string) => Promise<{ error: string; originalText: string } | void>;
   answerPermission: (allow: boolean) => Promise<void>;
   stopGeneration: () => Promise<void>;
   sendToolInput: (toolUseId: string, input: string) => Promise<void>; // Send stdin to tool
@@ -59,6 +62,9 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   currentAssistantText: '',
   gateway: new TauriChatGateway(),
   detachedTools: new Set(),
+  currentTokenUsage: null,
+  errorMessage: null,
+  lastUserText: null,
   sessions: [],
   currentSessionId: null,
   isLoadingSessions: false,
@@ -112,9 +118,45 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       console.log('[STORE] Calling gateway.sendPrompt...');
       await gateway.sendPrompt(text);
       console.log('[STORE] gateway.sendPrompt completed');
+      // Clear lastUserText on successful send
+      set({ lastUserText: null });
     } catch (error) {
       console.error('[STORE] Error sending prompt:', error);
-      dispatch({ type: 'ERROR', message: String(error) });
+      
+      // Save text for restore ONLY on error
+      set({ lastUserText: text });
+      
+      // Remove the user message that failed
+      set((prev) => ({
+        messages: prev.messages.slice(0, -1),
+      }));
+      
+      // Parse error message for user-friendly display
+      const errorStr = String(error);
+      let errorKey = 'errors.generic';
+      
+      if (errorStr.includes('429') || errorStr.includes('Rate limit')) {
+        errorKey = 'errors.rateLimit';
+      } else if (errorStr.includes('401') || errorStr.includes('Unauthorized')) {
+        errorKey = 'errors.unauthorized';
+      } else if (errorStr.includes('timeout')) {
+        errorKey = 'errors.timeout';
+      } else if (errorStr.includes('network') || errorStr.includes('fetch')) {
+        errorKey = 'errors.network';
+      }
+      
+      dispatch({ type: 'ERROR', message: errorKey });
+      
+      // Set error message for UI display
+      set({ errorMessage: errorKey });
+      
+      // Auto-clear error after 5 seconds
+      setTimeout(() => {
+        set({ errorMessage: null });
+      }, 5000);
+      
+      // Return the text to input for retry
+      return { error: errorKey, originalText: text };
     }
   },
 
@@ -320,6 +362,8 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         messages: mergedMessages,
         currentSessionId: sessionId,
         currentAssistantText: '',
+        currentTokenUsage: null, // Reset token usage when switching session
+        lastUserText: null, // Clear last user text
         state: { status: 'IDLE' },
       });
     } catch (error) {
@@ -342,6 +386,8 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         messages: [],
         currentSessionId: newSessionId,
         currentAssistantText: '',
+        currentTokenUsage: null, // Reset token usage
+        lastUserText: null, // Clear last user text
         state: { status: 'IDLE' },
       });
 
@@ -434,6 +480,8 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         currentSessionId: null,
         messages: [],
         currentAssistantText: '',
+        currentTokenUsage: null, // Reset token usage when changing work mode
+        lastUserText: null, // Clear last user text
         state: { status: 'IDLE' },
       });
       
@@ -573,6 +621,10 @@ export function initializeChatStore() {
         });
         dispatch({ type: 'STREAM_TOOL_RESULT' });
         break;
+      case 'usage':
+        // Update current token usage
+        useChatStore.setState({ currentTokenUsage: event.usage });
+        break;
       case 'tool_output_chunk':
         // Append chunk to existing tool_result or create new one
         useChatStore.setState((prev) => {
@@ -636,35 +688,91 @@ export function initializeChatStore() {
           flushAssistantMessage();
           dispatch({ type: 'MESSAGE_STOP' });
         }
-        // Auto-save after message completes
-        autoSaveCurrentSession().then(async () => {
-          // Reload session from backend to get full message with modelName
-          try {
-            const session = await gateway.getSession();
-            const lastMessage = session.messages[session.messages.length - 1];
-            
-            if (lastMessage && lastMessage.role === 'assistant') {
-              // Update last assistant message with full data from backend
-              useChatStore.setState((prev) => {
-                const messages = [...prev.messages];
-                // Find last assistant message and update it
-                for (let i = messages.length - 1; i >= 0; i--) {
-                  if (messages[i].role === 'assistant') {
-                    // Backend uses snake_case (model_name), frontend uses camelCase (modelName)
-                    messages[i] = { ...messages[i], modelName: (lastMessage as any).model_name || lastMessage.modelName };
-                    break;
-                  }
-                }
-                return { messages };
-              });
+        // Clear token usage when turn completes
+        useChatStore.setState({ currentTokenUsage: null });
+        
+        // Check if this was an empty turn (AI stopped without producing content)
+        // Count messages AFTER flush to see if assistant message was added
+        const storeState = useChatStore.getState();
+        const lastMessage = storeState.messages[storeState.messages.length - 1];
+        const hasAssistantResponse = lastMessage && lastMessage.role === 'assistant';
+        
+        if (!hasAssistantResponse && storeState.currentSessionId) {
+          // Empty turn - remove last user message from UI only (don't save)
+          console.log('[STORE] Empty turn detected (no assistant response), removing last user message from UI');
+          
+          // Extract text from last user message for restore
+          let textToRestore: string | null = null;
+          for (let i = storeState.messages.length - 1; i >= 0; i--) {
+            if (storeState.messages[i].role === 'user') {
+              const textBlock = storeState.messages[i].blocks.find(b => b.type === 'text');
+              if (textBlock && textBlock.type === 'text') {
+                textToRestore = textBlock.text || null;
+              }
+              break;
             }
-          } catch (e) {
-            console.error('[STORE] Failed to reload session after message_stop:', e);
           }
           
-          // Reload sessions list to show updated session
+          // Remove last user message from UI
+          useChatStore.setState((prev) => {
+            // Find last user message index
+            let lastUserIndex = -1;
+            for (let i = prev.messages.length - 1; i >= 0; i--) {
+              if (prev.messages[i].role === 'user') {
+                lastUserIndex = i;
+                break;
+              }
+            }
+            
+            // Remove only the last user message
+            const newMessages = lastUserIndex !== -1 
+              ? [...prev.messages.slice(0, lastUserIndex), ...prev.messages.slice(lastUserIndex + 1)]
+              : prev.messages;
+            
+            return {
+              messages: newMessages,
+              lastUserText: textToRestore, // Keep text for ChatInput to restore
+            };
+          });
+          
+          // DON'T save session - the backend session doesn't have this user message yet
+          // (it only gets added after a successful turn)
+          console.log('[STORE] Skipping session save for empty turn');
+          
+          // Reload sessions list to refresh UI
           loadSessions();
-        });
+        } else {
+          // Normal turn with response - auto-save and clear lastUserText
+          useChatStore.setState({ lastUserText: null });
+          autoSaveCurrentSession().then(async () => {
+            // Reload session from backend to get full message with modelName
+            try {
+              const session = await gateway.getSession();
+              const lastMessage = session.messages[session.messages.length - 1];
+              
+              if (lastMessage && lastMessage.role === 'assistant') {
+                // Update last assistant message with full data from backend
+                useChatStore.setState((prev) => {
+                  const messages = [...prev.messages];
+                  // Find last assistant message and update it
+                  for (let i = messages.length - 1; i >= 0; i--) {
+                    if (messages[i].role === 'assistant') {
+                      // Backend uses snake_case (model_name), frontend uses camelCase (modelName)
+                      messages[i] = { ...messages[i], modelName: (lastMessage as any).model_name || lastMessage.modelName };
+                      break;
+                    }
+                  }
+                  return { messages };
+                });
+              }
+            } catch (e) {
+              console.error('[STORE] Failed to reload session after message_stop:', e);
+            }
+            
+            // Reload sessions list to show updated session
+            loadSessions();
+          });
+        }
         break;
       case 'system_message':
         // System message chỉ inject vào session (không render trong UI)
@@ -672,6 +780,39 @@ export function initializeChatStore() {
         console.log('[SYSTEM]', event.message);
         break;
       case 'error':
+        // On error, remove last user message and restore to input
+        useChatStore.setState((prev: ChatStore) => {
+          // Find last user message (iterate backwards)
+          let lastUserIndex = -1;
+          for (let i = prev.messages.length - 1; i >= 0; i--) {
+            if (prev.messages[i].role === 'user') {
+              lastUserIndex = i;
+              break;
+            }
+          }
+          
+          if (lastUserIndex !== -1) {
+            // Remove last user message
+            const newMessages = [...prev.messages];
+            newMessages.splice(lastUserIndex, 1);
+            
+            console.log('[STORE] Error: Removed user message, text will be restored to input by error handler');
+            
+            // Extract text for restore
+            const userMessage = prev.messages[lastUserIndex];
+            const textBlock = userMessage.blocks.find(b => b.type === 'text');
+            const textToRestore = (textBlock && textBlock.type === 'text') ? textBlock.text || null : null;
+            
+            // DON'T delete session file - backend hasn't saved this failed turn yet
+            // Just remove from UI and restore text to input
+            return { 
+              messages: newMessages,
+              lastUserText: textToRestore
+            };
+          }
+          return prev;
+        });
+        
         dispatch({ type: 'ERROR', message: event.message });
         break;
     }

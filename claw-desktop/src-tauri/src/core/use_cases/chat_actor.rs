@@ -8,6 +8,7 @@ use runtime::{
 };
 
 use crate::core::use_cases::ports::IEventPublisher;
+use crate::core::domain::types::StreamEvent;
 
 /// Actor Command - Messages gửi đến Actor
 #[derive(Debug)]
@@ -126,7 +127,12 @@ impl ChatSessionActor {
                     let result = self.handle_prompt(text).await;
                     match &result {
                         Ok(summary) => eprintln!("[ACTOR] Prompt completed successfully, iterations: {}", summary.iterations),
-                        Err(e) => eprintln!("[ACTOR] Prompt failed: {}", e),
+                        Err(e) => {
+                            eprintln!("[ACTOR] Prompt failed: {}", e);
+                            // Emit error event to frontend
+                            let error_msg = format!("{}", e);
+                            self.event_publisher.publish_stream_event(StreamEvent::Error { message: error_msg });
+                        }
                     }
                     let _ = response_tx.send(result);
                 }
@@ -247,7 +253,27 @@ impl ChatSessionActor {
                     }
                 },
             )
-        })?;
+        });
+
+        // If error occurred, remove last user message from session
+        if summary.is_err() {
+            eprintln!("[ACTOR] Error occurred, removing last user message from session");
+            let session = self.runtime.session();
+            let mut messages = session.messages.clone();
+            
+            // Find and remove last user message
+            if let Some(last_idx) = messages.iter().rposition(|m| matches!(m.role, runtime::MessageRole::User)) {
+                messages.remove(last_idx);
+                eprintln!("[ACTOR] Removed user message at index {}", last_idx);
+            }
+            
+            // Replace session with updated messages
+            let mut new_session = session.clone();
+            new_session.messages = messages;
+            self.runtime.replace_session(new_session);
+        }
+
+        let summary = summary?;
 
         // Emit usage
         self.event_publisher.publish_stream_event(

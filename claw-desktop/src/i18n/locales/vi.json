@@ -232,5 +232,12 @@
     "confirm": "Xác nhận",
     "save": "Lưu",
     "delete": "Xóa"
+  },
+  "errors": {
+    "generic": "Đã xảy ra lỗi khi gửi tin nhắn",
+    "rateLimit": "Vượt quá giới hạn tốc độ API. Vui lòng thử lại sau vài giây.",
+    "unauthorized": "API key không hợp lệ. Vui lòng kiểm tra cài đặt.",
+    "timeout": "Kết nối timeout. Vui lòng thử lại.",
+    "network": "Lỗi kết nối mạng. Vui lòng kiểm tra internet."
   }
 }

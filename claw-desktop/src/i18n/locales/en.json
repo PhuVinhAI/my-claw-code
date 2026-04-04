@@ -232,5 +232,12 @@
     "confirm": "Confirm",
     "save": "Save",
     "delete": "Delete"
+  },
+  "errors": {
+    "generic": "An error occurred while sending message",
+    "rateLimit": "API rate limit exceeded. Please try again in a few seconds.",
+    "unauthorized": "Invalid API key. Please check settings.",
+    "timeout": "Connection timeout. Please try again.",
+    "network": "Network connection error. Please check your internet."
   }
 }

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { initializeChatStore, useChatStore } from './store';
-import { MessageList, ChatInput, PermissionModal, SessionList } from './ui/features';
+import { MessageList, ChatInput, PermissionModal, SessionList, ErrorBanner } from './ui/features';
 import { OnboardingScreen } from './ui/pages/OnboardingScreen';
 import { SettingsScreen } from './ui/pages/SettingsScreen';
 import { PanelLeftClose, PanelLeft } from 'lucide-react';
@@ -99,6 +99,7 @@ function App() {
       </div>
 
       <PermissionModal />
+      <ErrorBanner />
     </div>
   );
 }

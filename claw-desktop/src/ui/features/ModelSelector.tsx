@@ -22,7 +22,17 @@ export function ModelSelector() {
 
   const handleValueChange = async (value: string | string[]) => {
     if (typeof value !== 'string') return;
-    const [providerId, modelId] = value.split(':');
+    
+    // Split only at FIRST colon to separate provider:modelId
+    // This preserves model IDs like "qwen/qwen3.6-plus:free"
+    const colonIndex = value.indexOf(':');
+    if (colonIndex === -1) return;
+    
+    const providerId = value.substring(0, colonIndex);
+    const modelId = value.substring(colonIndex + 1); // Keep everything after first colon
+    
+    console.log('[ModelSelector] Setting model:', { providerId, modelId });
+    
     try {
       await setSelectedModel(providerId, modelId);
       setSelectedValue(value);
@@ -37,7 +47,21 @@ export function ModelSelector() {
     const provider = settings.providers.find(p => p.id === settings.selected_model?.provider_id);
     const model = provider?.models.find(m => m.id === settings.selected_model?.model_id);
     
-    return model?.name || 'Chọn mô hình';
+    if (!model) return 'Chọn mô hình';
+    
+    // Remove provider prefix from model name (e.g., "Qwen: Qwen3.6 Plus" -> "Qwen3.6 Plus")
+    let displayName = model.name;
+    const colonIndex = displayName.indexOf(':');
+    if (colonIndex !== -1) {
+      displayName = displayName.substring(colonIndex + 1).trim();
+    }
+    
+    // Truncate if too long (max 20 chars for compact display)
+    if (displayName.length > 20) {
+      displayName = displayName.substring(0, 17) + '...';
+    }
+    
+    return displayName;
   };
 
   const options: DropdownOption[] = settings.providers
