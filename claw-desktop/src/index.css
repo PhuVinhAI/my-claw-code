@@ -142,34 +142,41 @@
 /* Custom scrollbar — thin, subtle */
 .chat-scroll-container,
 .chat-scroll-container *,
-[class*="overflow-y-auto"] {
+[class*="overflow-y-auto"],
+.chat-input-scroll {
   scrollbar-width: thin;
   scrollbar-color: transparent transparent;
 }
 .chat-scroll-container:hover,
-[class*="overflow-y-auto"]:hover {
+[class*="overflow-y-auto"]:hover,
+.chat-input-scroll:hover {
   scrollbar-color: oklch(0.5 0 0 / 15%) transparent;
 }
 
 /* Webkit scrollbar */
 .chat-scroll-container::-webkit-scrollbar,
-[class*="overflow-y-auto"]::-webkit-scrollbar {
+[class*="overflow-y-auto"]::-webkit-scrollbar,
+.chat-input-scroll::-webkit-scrollbar {
   width: 6px;
 }
 .chat-scroll-container::-webkit-scrollbar-track,
-[class*="overflow-y-auto"]::-webkit-scrollbar-track {
+[class*="overflow-y-auto"]::-webkit-scrollbar-track,
+.chat-input-scroll::-webkit-scrollbar-track {
   background: transparent;
 }
 .chat-scroll-container::-webkit-scrollbar-thumb,
-[class*="overflow-y-auto"]::-webkit-scrollbar-thumb {
+[class*="overflow-y-auto"]::-webkit-scrollbar-thumb,
+.chat-input-scroll::-webkit-scrollbar-thumb {
   background: transparent;
   border-radius: 999px;
 }
 .chat-scroll-container:hover::-webkit-scrollbar-thumb,
-[class*="overflow-y-auto"]:hover::-webkit-scrollbar-thumb {
+[class*="overflow-y-auto"]:hover::-webkit-scrollbar-thumb,
+.chat-input-scroll:hover::-webkit-scrollbar-thumb {
   background: oklch(0.5 0 0 / 15%);
 }
 .chat-scroll-container::-webkit-scrollbar-thumb:hover,
-[class*="overflow-y-auto"]::-webkit-scrollbar-thumb:hover {
+[class*="overflow-y-auto"]::-webkit-scrollbar-thumb:hover,
+.chat-input-scroll::-webkit-scrollbar-thumb:hover {
   background: oklch(0.5 0 0 / 25%);
 }
