@@ -18,7 +18,6 @@ pub struct TauriToolExecutor {
     pty_executor: Arc<PtyExecutor>, // Make Arc to share with commands
     work_mode: Arc<Mutex<WorkMode>>,
     selected_tools: Arc<Mutex<Vec<String>>>, // Normal mode: user-selected tools
-    workspace_path: std::path::PathBuf, // CRITICAL: Workspace path for tool execution
 }
 
 impl TauriToolExecutor {
@@ -44,7 +43,6 @@ impl TauriToolExecutor {
             pty_executor,
             work_mode,
             selected_tools: Arc::new(Mutex::new(Vec::new())), // Mặc định: không có tools
-            workspace_path,
         }
     }
     
@@ -180,6 +178,7 @@ impl TauriToolExecutor {
         let timeout_secs = bash_input.timeout.map(|ms| (ms / 1000) as u64);
 
         // Execute in PTY (blocking call, but runs in separate thread via execute_with_context)
+        // PTY will use current process CWD (set by set_work_mode command)
         let output = self.pty_executor.execute_in_pty(&bash_input.command, tool_use_id, timeout_secs)
             .map_err(|e| {
                 // Check if timeout

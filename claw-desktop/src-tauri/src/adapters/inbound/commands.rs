@@ -439,7 +439,7 @@ pub async fn set_work_mode(
     // Update workspace path (only for Workspace mode)
     if mode == WorkMode::Workspace {
         let mut current_path = state.workspace_path.lock().unwrap();
-        *current_path = workspace_path;
+        *current_path = workspace_path.clone();
     }
     
     eprintln!("[WORK_MODE] Changed to: {:?}", mode);

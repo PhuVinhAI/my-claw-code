@@ -257,7 +257,7 @@ export function XTermBlock({
             <>
               <span className="text-muted-foreground/30 hidden lg:inline">|</span>
               <span className="text-[10px] sm:text-xs text-muted-foreground/60 truncate max-w-[150px] sm:max-w-xs hidden lg:inline">
-                {t('terminal.description')}: {inputParams.description}
+                {inputParams.description}
               </span>
             </>
           )}

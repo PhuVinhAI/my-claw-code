@@ -156,8 +156,11 @@ impl PtyExecutor {
             cmd.env(key, value);
         }
         
-        // CRITICAL: Set working directory to workspace path
-        cmd.cwd(&self.workspace_path);
+        // CRITICAL: Set working directory to current process CWD
+        // CWD is set by set_work_mode command when user selects workspace folder
+        let cwd = std::env::current_dir()
+            .unwrap_or_else(|_| self.workspace_path.clone());
+        cmd.cwd(&cwd);
 
         let mut child = pair.slave
             .spawn_command(cmd)
@@ -178,6 +181,11 @@ impl PtyExecutor {
         // Shared output buffer
         let output_buffer = Arc::new(Mutex::new(String::new()));
         let output_buffer_reader = output_buffer.clone();
+        
+        // Output size limit: 10MB (prevent memory issues with huge outputs like `tree /F`)
+        const MAX_OUTPUT_SIZE: usize = 10 * 1024 * 1024; // 10MB
+        let output_truncated = Arc::new(AtomicBool::new(false));
+        let output_truncated_reader = output_truncated.clone();
 
         // Spawn reader thread - stream raw bytes to frontend
         let reader_handle = std::thread::spawn(move || {
@@ -220,8 +228,34 @@ impl PtyExecutor {
                         // Convert to string - preserve all bytes including \r\n
                         let text = String::from_utf8_lossy(chunk).to_string();
                         
-                        // Always accumulate to buffer
-                        {
+                        // Check output size limit
+                        let current_size = {
+                            let output = output_buffer_reader.lock().unwrap();
+                            output.len()
+                        };
+                        
+                        if current_size >= MAX_OUTPUT_SIZE && !output_truncated_reader.load(Ordering::Relaxed) {
+                            // Output too large - emit truncation warning and stop accumulating
+                            output_truncated_reader.store(true, Ordering::Relaxed);
+                            
+                            let warning = format!("\n\n[OUTPUT TRUNCATED - Exceeded {}MB limit. Use filters or pagination for large outputs]\n", MAX_OUTPUT_SIZE / (1024 * 1024));
+                            
+                            {
+                                let mut output = output_buffer_reader.lock().unwrap();
+                                output.push_str(&warning);
+                            }
+                            
+                            event_publisher.publish_stream_event(StreamEvent::ToolOutputChunk {
+                                tool_use_id: tool_use_id_owned.clone(),
+                                chunk: warning,
+                            });
+                            
+                            // Continue reading to drain pipe but don't accumulate
+                            continue;
+                        }
+                        
+                        // Accumulate to buffer (if not truncated)
+                        if !output_truncated_reader.load(Ordering::Relaxed) {
                             let mut output = output_buffer_reader.lock().unwrap();
                             output.push_str(&text);
                         }
