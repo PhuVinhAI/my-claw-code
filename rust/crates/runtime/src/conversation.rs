@@ -99,6 +99,37 @@ pub struct TurnSummary {
     pub usage: TokenUsage,
 }
 
+/// Helper function to create tool_result message with cancelled/timed_out detection
+fn create_tool_result_message(
+    tool_use_id: impl Into<String>,
+    tool_name: impl Into<String>,
+    output: impl Into<String>,
+    is_error: bool,
+) -> ConversationMessage {
+    let output_str = output.into();
+    
+    // Detect cancelled and timed out from output
+    let is_cancelled = output_str.contains("cancelled by user") || output_str.contains("Tool execution cancelled");
+    let is_timed_out = output_str.contains("TIMEOUT") || output_str.contains("timed out");
+    
+    // Create message with tool_result block
+    let msg = ConversationMessage {
+        role: crate::session::MessageRole::Tool,
+        blocks: vec![ContentBlock::ToolResult {
+            tool_use_id: tool_use_id.into(),
+            tool_name: tool_name.into(),
+            output: output_str,
+            is_error,
+            is_cancelled,
+            is_timed_out,
+        }],
+        usage: None,
+        model_name: None,
+    };
+    
+    msg
+}
+
 pub struct ConversationRuntime<C, T> {
     session: Session,
     api_client: C,
@@ -223,7 +254,7 @@ where
                         let pre_hook_result = self.hook_runner.run_pre_tool_use(&tool_name, &input);
                         if pre_hook_result.is_denied() {
                             let deny_message = format!("PreToolUse hook denied tool `{tool_name}`");
-                            ConversationMessage::tool_result(
+                            create_tool_result_message(
                                 tool_use_id,
                                 tool_name,
                                 format_hook_message(&pre_hook_result, &deny_message),
@@ -249,7 +280,7 @@ where
                                 post_hook_result.is_denied(),
                             );
 
-                            ConversationMessage::tool_result(
+                            create_tool_result_message(
                                 tool_use_id,
                                 tool_name,
                                 output,
@@ -258,7 +289,7 @@ where
                         }
                     }
                     PermissionOutcome::Deny { reason } => {
-                        ConversationMessage::tool_result(tool_use_id, tool_name, reason, true)
+                        create_tool_result_message(tool_use_id, tool_name, reason, true)
                     }
                 };
                 self.session.messages.push(result_message.clone());
@@ -347,7 +378,7 @@ where
                         let pre_hook_result = self.hook_runner.run_pre_tool_use(&tool_name, &input);
                         if pre_hook_result.is_denied() {
                             let deny_message = format!("PreToolUse hook denied tool `{tool_name}`");
-                            ConversationMessage::tool_result(
+                            create_tool_result_message(
                                 tool_use_id,
                                 tool_name,
                                 format_hook_message(&pre_hook_result, &deny_message),
@@ -373,7 +404,7 @@ where
                                 post_hook_result.is_denied(),
                             );
 
-                            ConversationMessage::tool_result(
+                            create_tool_result_message(
                                 tool_use_id,
                                 tool_name,
                                 output,
@@ -382,7 +413,7 @@ where
                         }
                     }
                     PermissionOutcome::Deny { reason } => {
-                        ConversationMessage::tool_result(tool_use_id, tool_name, reason, true)
+                        create_tool_result_message(tool_use_id, tool_name, reason, true)
                     }
                 };
                 self.session.messages.push(result_message.clone());
@@ -976,3 +1007,4 @@ mod tests {
         script.to_string()
     }
 }
+

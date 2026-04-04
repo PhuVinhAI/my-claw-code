@@ -230,21 +230,17 @@ impl ChatSessionActor {
                             tool_name: _,
                             output,
                             is_error,
+                            is_cancelled,
+                            is_timed_out,
                         } = block
                         {
-                            // Detect if tool was cancelled (check output message)
-                            let is_cancelled = output.contains("cancelled by user") || output.contains("Tool execution cancelled");
-                            
-                            // Detect if tool timed out
-                            let is_timed_out = output.contains("TIMEOUT") || output.contains("timed out");
-                            
                             event_publisher.publish_stream_event(
                                 crate::core::domain::types::StreamEvent::ToolResult {
                                     tool_use_id: tool_use_id.clone(),
                                     output: output.clone(),
                                     is_error: *is_error,
-                                    is_cancelled,
-                                    is_timed_out,
+                                    is_cancelled: *is_cancelled,
+                                    is_timed_out: *is_timed_out,
                                 },
                             );
                         }
