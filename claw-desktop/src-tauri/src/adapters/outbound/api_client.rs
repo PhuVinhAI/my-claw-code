@@ -187,5 +187,10 @@ impl ApiClient for TauriApiClient {
             })
         })
     }
+    
+    fn model_name(&self) -> Option<String> {
+        eprintln!("[API_CLIENT] model_name() called, returning: {}", self.model);
+        Some(self.model.clone())
+    }
 }
 

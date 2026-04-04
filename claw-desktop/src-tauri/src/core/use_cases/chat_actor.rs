@@ -462,6 +462,7 @@ impl ChatSessionActor {
                 role: runtime::MessageRole::System,
                 blocks: vec![runtime::ContentBlock::Text { text: notification.clone() }],
                 usage: None,
+                model_name: None,
             };
             
             // Add to session messages

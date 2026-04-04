@@ -26,6 +26,7 @@ export interface Message {
   role: MessageRole;
   blocks: ContentBlock[];
   usage?: TokenUsage;
+  modelName?: string; // Model used to generate this message (e.g., "Claude Sonnet 4.5")
 }
 
 export interface Session {

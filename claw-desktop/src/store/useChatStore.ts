@@ -258,6 +258,8 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       const session = await gateway.getSession();
 
       console.log('[SWITCH SESSION] Loaded messages:', session.messages);
+      console.log('[SWITCH SESSION] First assistant message modelName:', 
+        session.messages.find(m => m.role === 'assistant')?.modelName);
 
       // Merge tool messages into assistant messages
       const mergedMessages: Message[] = [];
@@ -296,7 +298,9 @@ export const useChatStore = create<ChatStore>((set, get) => ({
             }
           }
           
-          mergedMessages.push({ ...msg, blocks: parsedBlocks });
+          // Map model_name (snake_case from backend) to modelName (camelCase for frontend)
+          const modelName = (msg as any).model_name || msg.modelName;
+          mergedMessages.push({ ...msg, blocks: parsedBlocks, modelName });
         } else {
           mergedMessages.push({ ...msg });
         }
@@ -611,7 +615,31 @@ export function initializeChatStore() {
           dispatch({ type: 'MESSAGE_STOP' });
         }
         // Auto-save after message completes
-        autoSaveCurrentSession().then(() => {
+        autoSaveCurrentSession().then(async () => {
+          // Reload session from backend to get full message with modelName
+          try {
+            const session = await gateway.getSession();
+            const lastMessage = session.messages[session.messages.length - 1];
+            
+            if (lastMessage && lastMessage.role === 'assistant') {
+              // Update last assistant message with full data from backend
+              useChatStore.setState((prev) => {
+                const messages = [...prev.messages];
+                // Find last assistant message and update it
+                for (let i = messages.length - 1; i >= 0; i--) {
+                  if (messages[i].role === 'assistant') {
+                    // Backend uses snake_case (model_name), frontend uses camelCase (modelName)
+                    messages[i] = { ...messages[i], modelName: (lastMessage as any).model_name || lastMessage.modelName };
+                    break;
+                  }
+                }
+                return { messages };
+              });
+            }
+          } catch (e) {
+            console.error('[STORE] Failed to reload session after message_stop:', e);
+          }
+          
           // Reload sessions list to show updated session
           loadSessions();
         });

@@ -30,6 +30,11 @@ pub enum AssistantEvent {
 
 pub trait ApiClient {
     fn stream(&mut self, request: ApiRequest) -> Result<Vec<AssistantEvent>, RuntimeError>;
+    
+    /// Get the model name used by this client (e.g., "claude-sonnet-4.5")
+    fn model_name(&self) -> Option<String> {
+        None
+    }
 }
 
 pub trait ToolExecutor {
@@ -182,7 +187,8 @@ where
                 messages: self.session.messages.clone(),
             };
             let events = self.api_client.stream(request)?;
-            let (assistant_message, usage) = build_assistant_message(events)?;
+            let model_name = self.api_client.model_name();
+            let (assistant_message, usage) = build_assistant_message(events, model_name)?;
             if let Some(usage) = usage {
                 self.usage_tracker.record(usage);
             }
@@ -305,7 +311,8 @@ where
                 messages: self.session.messages.clone(),
             };
             let events = self.api_client.stream(request)?;
-            let (assistant_message, usage) = build_assistant_message(events)?;
+            let model_name = self.api_client.model_name();
+            let (assistant_message, usage) = build_assistant_message(events, model_name)?;
             if let Some(usage) = usage {
                 self.usage_tracker.record(usage);
             }
@@ -458,7 +465,9 @@ where
 
 pub fn build_assistant_message(
     events: Vec<AssistantEvent>,
+    model_name: Option<String>,
 ) -> Result<(ConversationMessage, Option<TokenUsage>), RuntimeError> {
+    eprintln!("[BUILD_ASSISTANT_MESSAGE] model_name: {:?}", model_name);
     let mut text = String::new();
     let mut blocks = Vec::new();
     let mut finished = false;
@@ -490,7 +499,7 @@ pub fn build_assistant_message(
     }
 
     Ok((
-        ConversationMessage::assistant_with_usage(blocks, usage),
+        ConversationMessage::assistant_with_model(blocks, usage, model_name),
         usage,
     ))
 }

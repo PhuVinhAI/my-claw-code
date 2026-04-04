@@ -116,8 +116,15 @@ pub async fn get_session(state: State<'_, AppState>) -> Result<runtime::Session,
         .await
         .map_err(|e| format!("Failed to send get session: {}", e))?;
 
-    rx.await
-        .map_err(|e| format!("Failed to receive response: {}", e))
+    let session = rx.await
+        .map_err(|e| format!("Failed to receive response: {}", e))?;
+    
+    // Debug: log first assistant message's model_name
+    if let Some(msg) = session.messages.iter().find(|m| m.role == runtime::MessageRole::Assistant) {
+        eprintln!("[GET_SESSION] First assistant message model_name: {:?}", msg.model_name);
+    }
+    
+    Ok(session)
 }
 
 /// Dừng quá trình tạo phản hồi của AI

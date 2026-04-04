@@ -9,6 +9,7 @@ import { parseThinkingTags, cleanSystemReminders } from '../../lib/parseThinking
 import { MarkdownContent } from '../../components/MarkdownContent';
 import { useTextMeasurement } from '../../lib/useTextMeasurement';
 import { ChevronDown, ChevronUp } from 'lucide-react';
+import { MessageFooter } from './MessageFooter';
 
 const COLLAPSE_THRESHOLD = 300;
 
@@ -243,6 +244,35 @@ export function MessageList() {
                         return null;
                       })}
                     </div>
+                    
+                    {/* Footer for AI messages - only show on last message in sequence */}
+                    {message.role === 'assistant' && (() => {
+                      // Check if this is the last assistant message before next user message
+                      const isLastInSequence = virtualItem.index === messages.length - 1 || 
+                        messages[virtualItem.index + 1]?.role === 'user';
+                      
+                      if (!isLastInSequence) return null;
+                      
+                      // Collect all text from consecutive assistant messages (going backwards)
+                      const assistantTexts: string[] = [];
+                      for (let i = virtualItem.index; i >= 0; i--) {
+                        const msg = messages[i];
+                        if (msg.role !== 'assistant') break;
+                        
+                        const textBlocks = msg.blocks
+                          .filter(b => b.type === 'text')
+                          .map(b => b.text || '')
+                          .reverse();
+                        assistantTexts.unshift(...textBlocks);
+                      }
+                      
+                      return (
+                        <MessageFooter
+                          content={assistantTexts.join('\n\n')}
+                          modelName={message.modelName}
+                        />
+                      );
+                    })()}
                   </div>
                 </div>
               </div>
