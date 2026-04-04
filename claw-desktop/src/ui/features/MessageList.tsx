@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useChatStore } from '../../store';
 import { cn } from '../../lib/utils';
-import { renderToolBlock, ThinkingBlock } from '../blocks';
+import { renderToolBlock, ThinkingBlock, CompactBlock } from '../blocks';
 import { parseThinkingTags, cleanSystemReminders } from '../../lib/parseThinking';
 import { MarkdownContent } from '../../components/MarkdownContent';
 import { useTextMeasurement } from '../../lib/useTextMeasurement';
@@ -315,21 +315,15 @@ export function MessageList() {
                         }
                         if (block.type === 'compact') {
                           return (
-                            <div key={blockIdx}>
-                              {(() => {
-                                const { CompactBlock } = require('../blocks');
-                                return (
-                                  <CompactBlock
-                                    status={block.status || 'started'}
-                                    estimatedTokens={block.estimatedTokens}
-                                    maxTokens={block.maxTokens}
-                                    removedCount={block.removedCount}
-                                    summary={block.summary}
-                                    newEstimatedTokens={block.newEstimatedTokens}
-                                  />
-                                );
-                              })()}
-                            </div>
+                            <CompactBlock
+                              key={blockIdx}
+                              status={block.status || 'started'}
+                              estimatedTokens={block.estimatedTokens}
+                              maxTokens={block.maxTokens}
+                              removedCount={block.removedCount}
+                              summary={block.summary}
+                              newEstimatedTokens={block.newEstimatedTokens}
+                            />
                           );
                         }
                         if (block.type === 'tool_use') {

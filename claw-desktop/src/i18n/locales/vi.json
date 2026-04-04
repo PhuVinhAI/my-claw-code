@@ -265,6 +265,7 @@
     "saved": "Tiết kiệm",
     "newTokenCount": "Số token mới",
     "viewSummary": "Xem tóm tắt",
+    "hideSummary": "Ẩn tóm tắt",
     "settings": {
       "title": "Auto-Compact",
       "description": "Tự động nén hội thoại khi token gần đạt giới hạn",

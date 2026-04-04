@@ -265,6 +265,7 @@
     "saved": "Saved",
     "newTokenCount": "New token count",
     "viewSummary": "View summary",
+    "hideSummary": "Hide summary",
     "settings": {
       "title": "Auto-Compact",
       "description": "Automatically compact conversation when tokens approach limit",

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Loader2, Sparkles, CheckCircle2 } from 'lucide-react';
+import { Loader2, Sparkles, CheckCircle2, ChevronDown, ChevronRight } from 'lucide-react';
 
 interface CompactBlockProps {
   status: 'started' | 'completed';
@@ -21,6 +21,7 @@ export function CompactBlock({
 }: CompactBlockProps) {
   const { t } = useTranslation();
   const [progress, setProgress] = useState(0);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   // Animation cho progress bar khi started
   useEffect(() => {
@@ -41,24 +42,24 @@ export function CompactBlock({
     const percentage = maxTokens ? Math.round((estimatedTokens! / maxTokens) * 100) : 0;
     
     return (
-      <div className="my-4 rounded-lg border border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50 p-4 shadow-sm">
-        <div className="flex items-center gap-3">
-          <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
-          <div className="flex-1">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-blue-900">
-                {t('compact.compacting')}
-              </span>
-              <span className="text-xs text-blue-700">
-                {estimatedTokens?.toLocaleString()} / {maxTokens?.toLocaleString()} tokens ({percentage}%)
-              </span>
-            </div>
-            <div className="h-2 w-full overflow-hidden rounded-full bg-blue-200">
-              <div
-                className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 transition-all duration-300 ease-out"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
+      <div className="my-1.5 sm:my-2 bg-muted/10 rounded-lg border border-border/30 overflow-hidden">
+        <div className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2.5 sm:py-3 bg-muted/20 border-b border-border/30">
+          <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 animate-spin text-blue-400 shrink-0" />
+          <Sparkles className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-blue-400 shrink-0" />
+          <span className="font-semibold text-xs sm:text-sm text-foreground/90">
+            {t('compact.compacting')}
+          </span>
+          <span className="text-muted-foreground/30 leading-4">|</span>
+          <span className="font-mono text-[10px] sm:text-xs text-muted-foreground/70">
+            {estimatedTokens?.toLocaleString()} / {maxTokens?.toLocaleString()} ({percentage}%)
+          </span>
+        </div>
+        <div className="px-3 sm:px-4 py-2 sm:py-2.5 bg-muted/5">
+          <div className="h-1.5 sm:h-2 w-full overflow-hidden rounded-full bg-muted/30">
+            <div
+              className="h-full bg-blue-400 transition-all duration-300 ease-out"
+              style={{ width: `${progress}%` }}
+            />
           </div>
         </div>
       </div>
@@ -74,49 +75,64 @@ export function CompactBlock({
     : 0;
 
   return (
-    <div className="my-4 rounded-lg border border-green-200 bg-gradient-to-r from-green-50 to-emerald-50 p-4 shadow-sm">
-      <div className="flex items-start gap-3">
-        <CheckCircle2 className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-2">
-            <Sparkles className="h-4 w-4 text-green-600" />
-            <span className="text-sm font-medium text-green-900">
-              {t('compact.completed')}
-            </span>
-          </div>
-          
-          <div className="grid grid-cols-2 gap-3 mb-3 text-xs">
-            <div className="rounded bg-white/60 p-2">
-              <div className="text-gray-600">{t('compact.removed')}</div>
-              <div className="font-semibold text-green-700">{removedCount} {t('compact.messages')}</div>
-            </div>
-            <div className="rounded bg-white/60 p-2">
-              <div className="text-gray-600">{t('compact.saved')}</div>
-              <div className="font-semibold text-green-700">
-                {savedTokens.toLocaleString()} tokens ({savedPercentage}%)
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between text-xs text-gray-700">
-            <span>{t('compact.newTokenCount')}</span>
-            <span className="font-mono font-medium">
-              {newEstimatedTokens?.toLocaleString()} / {maxTokens?.toLocaleString()}
-            </span>
-          </div>
-
-          {summary && (
-            <details className="mt-3 text-xs">
-              <summary className="cursor-pointer text-green-700 hover:text-green-800 font-medium">
-                {t('compact.viewSummary')}
-              </summary>
-              <div className="mt-2 rounded bg-white/80 p-3 text-gray-700 whitespace-pre-wrap font-mono text-[11px] leading-relaxed">
-                {summary}
-              </div>
-            </details>
-          )}
-        </div>
+    <div className="my-1.5 sm:my-2 bg-muted/10 rounded-lg border border-border/30 overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2.5 sm:py-3 bg-muted/20 border-b border-border/30">
+        <CheckCircle2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-emerald-400 shrink-0" />
+        <Sparkles className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-emerald-400 shrink-0" />
+        <span className="font-semibold text-xs sm:text-sm text-foreground/90">
+          {t('compact.completed')}
+        </span>
+        <span className="text-muted-foreground/30 leading-4">|</span>
+        <span className="text-[10px] sm:text-xs text-muted-foreground/70">
+          {t('compact.removed')}: {removedCount}
+        </span>
+        <span className="text-muted-foreground/30 leading-4 hidden sm:inline">|</span>
+        <span className="font-mono text-[10px] sm:text-xs text-muted-foreground/70 hidden sm:inline">
+          -{savedTokens.toLocaleString()} ({savedPercentage}%)
+        </span>
+        <span className="text-muted-foreground/30 leading-4 hidden sm:inline">|</span>
+        <span className="font-mono text-[10px] sm:text-xs text-foreground/80 hidden sm:inline">
+          {newEstimatedTokens?.toLocaleString()} / {maxTokens?.toLocaleString()}
+        </span>
       </div>
+
+      {/* Mobile stats (visible on small screens) */}
+      <div className="sm:hidden px-3 py-2 bg-muted/5 border-b border-border/20 flex items-center justify-between text-[10px]">
+        <span className="text-muted-foreground/70">
+          {t('compact.saved')}: <span className="font-mono text-foreground/80">-{savedTokens.toLocaleString()} ({savedPercentage}%)</span>
+        </span>
+        <span className="font-mono text-muted-foreground/70">
+          {newEstimatedTokens?.toLocaleString()} / {maxTokens?.toLocaleString()}
+        </span>
+      </div>
+
+      {/* Summary (collapsible) */}
+      {summary && (
+        <>
+          <button
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="w-full flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 bg-muted/5 hover:bg-muted/10 transition-colors text-left border-b border-border/20"
+          >
+            {isExpanded ? (
+              <ChevronDown className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground/70" />
+            ) : (
+              <ChevronRight className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground/70" />
+            )}
+            <span className="text-[10px] sm:text-xs text-muted-foreground/80 font-medium">
+              {isExpanded ? t('compact.hideSummary') : t('compact.viewSummary')}
+            </span>
+          </button>
+
+          {isExpanded && (
+            <div className="px-3 sm:px-4 py-2.5 sm:py-3 bg-muted/5">
+              <pre className="text-[10px] sm:text-xs text-foreground/80 font-mono whitespace-pre-wrap bg-muted/20 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded overflow-auto max-h-64 leading-relaxed">
+                {summary}
+              </pre>
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }
