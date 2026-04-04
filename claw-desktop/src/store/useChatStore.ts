@@ -357,12 +357,26 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
       console.log('[SWITCH SESSION] Merged messages:', mergedMessages);
 
+      // Extract token usage from last assistant message
+      let lastTokenUsage: TokenUsage | null = null;
+      for (let i = mergedMessages.length - 1; i >= 0; i--) {
+        if (mergedMessages[i].role === 'assistant') {
+          const usage = (mergedMessages[i] as any).usage;
+          if (usage) {
+            lastTokenUsage = usage;
+          }
+          break;
+        }
+      }
+
+      console.log('[SWITCH SESSION] Last token usage:', lastTokenUsage);
+
       // Convert session messages to UI format and update state
       set({
         messages: mergedMessages,
         currentSessionId: sessionId,
         currentAssistantText: '',
-        currentTokenUsage: null, // Reset token usage when switching session
+        currentTokenUsage: lastTokenUsage, // Set token usage from last assistant message
         lastUserText: null, // Clear last user text
         state: { status: 'IDLE' },
       });
