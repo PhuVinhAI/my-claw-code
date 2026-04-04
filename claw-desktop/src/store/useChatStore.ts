@@ -64,7 +64,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   isLoadingSessions: false,
   workMode: 'normal',
   workspacePath: null,
-  selectedTools: [], // Mặc định: không có tools nào được chọn
+  selectedTools: JSON.parse(localStorage.getItem('claw_selected_tools') || '[]'), // Load từ localStorage
   recentWorkspaces: JSON.parse(localStorage.getItem('claw_recent_workspaces') || '[]'),
 
   addRecentWorkspace: (path: string) => {
@@ -441,6 +441,8 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     try {
       await gateway.setSelectedTools(tools);
       set({ selectedTools: tools });
+      // Persist to localStorage
+      localStorage.setItem('claw_selected_tools', JSON.stringify(tools));
       console.log('[STORE] Selected tools updated:', tools);
     } catch (e) {
       console.error("Failed to set selected tools:", e);
