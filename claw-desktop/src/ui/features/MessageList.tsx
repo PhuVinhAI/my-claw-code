@@ -8,10 +8,13 @@ import { renderToolBlock, ThinkingBlock } from '../blocks';
 import { parseThinkingTags, cleanSystemReminders } from '../../lib/parseThinking';
 import { MarkdownContent } from '../../components/MarkdownContent';
 import { useTextMeasurement } from '../../lib/useTextMeasurement';
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronDown, ChevronUp, ArrowDown } from 'lucide-react';
 import { MessageFooter } from './MessageFooter';
+import { Button } from '../../components/ui/button';
 
 const COLLAPSE_THRESHOLD = 300;
+const SCROLL_THRESHOLD = 150; // Khoảng cách từ bottom để coi là "ở dưới cùng"
+const SHOW_BUTTON_THRESHOLD = 300; // Khoảng cách cuộn lên để hiện nút
 
 function UserMessage({ text }: { text: string }) {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -62,6 +65,9 @@ export function MessageList() {
   const isProgrammaticScroll = useRef(false);
   const lastMessageCount = useRef(messages.length);
   const [containerWidth, setContainerWidth] = useState(0);
+  const [showScrollButton, setShowScrollButton] = useState(false);
+  const autoScrollEnabled = useRef(true); // Track if auto-scroll should happen
+  const isScrollingToBottom = useRef(false); // Track if we're in the middle of scrolling to bottom
 
   const { measureText } = useTextMeasurement({
     font: '16px Inter',
@@ -127,8 +133,22 @@ export function MessageList() {
       if (isProgrammaticScroll.current) return;
 
       const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
-      if (distFromBottom > 80) {
+      
+      // Check if we've reached the bottom after scrolling
+      if (distFromBottom <= SCROLL_THRESHOLD) {
+        // User is at bottom - enable auto-scroll and clear scrolling flag
+        autoScrollEnabled.current = true;
+        userScrolledUp.current = false;
+        isScrollingToBottom.current = false;
+      } else {
+        // User scrolled up - disable auto-scroll
+        autoScrollEnabled.current = false;
         userScrolledUp.current = true;
+      }
+
+      // Only show button if not currently scrolling to bottom
+      if (!isScrollingToBottom.current) {
+        setShowScrollButton(distFromBottom > SHOW_BUTTON_THRESHOLD);
       }
     };
 
@@ -137,29 +157,44 @@ export function MessageList() {
   }, []);
 
   useEffect(() => {
-    // Reset userScrolledUp when NEW USER message is added (user sent a message)
+    // Force scroll to bottom when user sends a new message
     if (messages.length > lastMessageCount.current) {
       const lastMessage = messages[messages.length - 1];
       if (lastMessage?.role === 'user') {
-        // User just sent a message - force scroll to bottom
+        // User just sent a message - force enable auto-scroll and scroll immediately
+        autoScrollEnabled.current = true;
         userScrolledUp.current = false;
+        setShowScrollButton(false);
+        
+        // Immediate scroll
+        const el = scrollParentRef.current;
+        if (el) {
+          isProgrammaticScroll.current = true;
+          el.scrollTo({
+            top: el.scrollHeight,
+            behavior: 'smooth',
+          });
+          setTimeout(() => {
+            isProgrammaticScroll.current = false;
+          }, 100);
+        }
       }
     }
     lastMessageCount.current = messages.length;
   }, [messages.length]);
 
   useEffect(() => {
-    if (userScrolledUp.current) return;
+    // Only auto-scroll if enabled (user is at bottom or just sent a message)
+    if (!autoScrollEnabled.current) return;
 
     const el = scrollParentRef.current;
     if (!el) return;
 
     isProgrammaticScroll.current = true;
 
-    const isNewMessage = messages.length > lastMessageCount.current;
     el.scrollTo({
       top: el.scrollHeight,
-      behavior: isNewMessage ? 'instant' : 'smooth',
+      behavior: 'smooth',
     });
 
     requestAnimationFrame(() => {
@@ -169,8 +204,33 @@ export function MessageList() {
     });
   }, [messages.length, currentAssistantText, state.status]);
 
+  // Handler for scroll button click
+  const scrollToBottom = useCallback(() => {
+    const el = scrollParentRef.current;
+    if (!el) return;
+
+    autoScrollEnabled.current = true;
+    userScrolledUp.current = false;
+    
+    // Set flag to prevent button from showing during scroll
+    isScrollingToBottom.current = true;
+    setShowScrollButton(false);
+
+    isProgrammaticScroll.current = true;
+    el.scrollTo({
+      top: el.scrollHeight,
+      behavior: 'smooth',
+    });
+
+    // Reset flags after scroll animation completes
+    setTimeout(() => {
+      isProgrammaticScroll.current = false;
+      // isScrollingToBottom will be cleared by scroll event when reaching bottom
+    }, 500);
+  }, []);
+
   return (
-    <div ref={scrollParentRef} className="flex-1 p-4 sm:p-5 lg:p-6 pb-3 sm:pb-4 overflow-y-auto">
+    <div ref={scrollParentRef} className="flex-1 p-4 sm:p-5 lg:p-6 pb-3 sm:pb-4 overflow-y-auto relative">
       <div className="max-w-2xl lg:max-w-3xl mx-auto">
         <div
           style={{
@@ -340,6 +400,22 @@ export function MessageList() {
           </div>
         )}
       </div>
+
+      {/* Floating Scroll to Bottom Button - positioned relative to scroll container */}
+      {showScrollButton && (
+        <div className="sticky bottom-2 left-0 right-0 flex justify-center pointer-events-none z-50">
+          <div className="pointer-events-auto animate-in fade-in slide-in-from-bottom-2 duration-200">
+            <Button
+              onClick={scrollToBottom}
+              size="icon"
+              className="h-9 w-9 rounded-full shadow-lg hover:shadow-xl transition-all bg-card text-foreground hover:bg-card/80 border border-border"
+              aria-label="Scroll to bottom"
+            >
+              <ArrowDown className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
