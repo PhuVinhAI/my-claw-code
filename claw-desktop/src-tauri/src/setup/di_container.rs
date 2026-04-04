@@ -198,6 +198,7 @@ async fn initialize_app_async(app_handle: AppHandle) -> Result<AppState, String>
         prompter, 
         repository,
         settings_manager.clone(), // Pass settings_manager to actor
+        cancel_flag.clone(), // Pass shared cancel_flag to actor
     );
 
     // 15. Spawn Actor task

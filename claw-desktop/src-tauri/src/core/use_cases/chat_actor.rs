@@ -94,6 +94,7 @@ pub struct ChatSessionActor {
     session_repository: Arc<dyn crate::core::use_cases::ports::ISessionRepository>,
     current_session_id: Option<String>,
     settings_manager: Arc<crate::core::domain::settings::SettingsManager>,
+    cancel_flag: Arc<std::sync::atomic::AtomicBool>, // Shared cancel flag
 }
 
 impl ChatSessionActor {
@@ -107,6 +108,7 @@ impl ChatSessionActor {
         prompter: crate::adapters::outbound::tauri_prompter::TauriPermissionAdapter,
         session_repository: Arc<dyn crate::core::use_cases::ports::ISessionRepository>,
         settings_manager: Arc<crate::core::domain::settings::SettingsManager>,
+        cancel_flag: Arc<std::sync::atomic::AtomicBool>,
     ) -> Self {
         Self {
             runtime,
@@ -116,6 +118,7 @@ impl ChatSessionActor {
             session_repository,
             current_session_id: None,
             settings_manager,
+            cancel_flag,
         }
     }
 
@@ -224,6 +227,10 @@ impl ChatSessionActor {
     }
 
     async fn handle_prompt(&mut self, text: String) -> Result<TurnSummary, RuntimeError> {
+        // Reset cancel flag at the START of new prompt (prevent race condition)
+        self.cancel_flag.store(false, std::sync::atomic::Ordering::Relaxed);
+        eprintln!("[ACTOR] Starting new prompt, cancel_flag reset to false");
+        
         let event_publisher = self.event_publisher.clone();
         
         // Load settings để lấy threshold config
@@ -317,6 +324,19 @@ impl ChatSessionActor {
                 },
             )
         });
+
+        // Check if cancelled during execution
+        if self.cancel_flag.load(std::sync::atomic::Ordering::Relaxed) {
+            eprintln!("[ACTOR] Prompt was cancelled during execution");
+            
+            // Emit MessageStop to notify frontend
+            event_publisher.publish_stream_event(
+                crate::core::domain::types::StreamEvent::MessageStop,
+            );
+            
+            // Return cancelled error
+            return Err(RuntimeError::new("Operation cancelled by user"));
+        }
 
         // If error occurred, remove last user message from session
         if summary.is_err() {
@@ -520,8 +540,17 @@ impl ChatSessionActor {
     }
 
     fn handle_cancel(&mut self) {
-        // TODO: Implement cancellation
-        eprintln!("Cancel not yet implemented");
+        eprintln!("[ACTOR] Cancelling current operation");
+        
+        // Cancel flag đã được set bởi cancel_prompt command
+        // Runtime sẽ check flag này và stop
+        
+        // Emit MessageStop để frontend biết đã cancel
+        self.event_publisher.publish_stream_event(
+            crate::core::domain::types::StreamEvent::MessageStop,
+        );
+        
+        eprintln!("[ACTOR] Cancel command processed");
     }
 
     fn handle_load_session(&mut self, session_id: String, work_mode: String, workspace_path: Option<String>) -> Result<(), String> {
@@ -756,7 +785,7 @@ impl ChatSessionActor {
         // Get current tool definitions
         let tool_definitions = self.runtime.api_client().get_tool_definitions();
         let event_publisher = self.event_publisher.clone();
-        let cancel_flag = Arc::new(std::sync::atomic::AtomicBool::new(false)); // TODO: Share with existing cancel_flag
+        let cancel_flag = self.cancel_flag.clone(); // Use shared cancel flag
         
         // Create new API client
         let new_client = crate::adapters::outbound::api_client::TauriApiClient::new(

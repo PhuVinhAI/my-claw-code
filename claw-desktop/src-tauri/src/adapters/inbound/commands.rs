@@ -11,8 +11,8 @@ use crate::setup::app_state::AppState;
 pub async fn send_prompt(text: String, state: State<'_, AppState>) -> Result<(), String> {
     eprintln!("[COMMAND] send_prompt called with text: {}...", &text.chars().take(50).collect::<String>());
     
-    // Reset cờ hủy trước khi chạy prompt mới
-    state.cancel_flag.store(false, Ordering::Relaxed);
+    // DON'T reset cancel_flag here - Actor will reset it when starting new prompt
+    // This prevents race condition where cancel_flag is reset before Actor checks it
     
     // Spawn task để không block UI
     let actor_tx = state.actor_tx.clone();
@@ -147,6 +147,16 @@ pub fn cancel_prompt(state: State<'_, AppState>) -> Result<(), String> {
             eprintln!("[COMMAND] Failed to cancel tool {}: {}", tool_id, e);
         }
     }
+    
+    // Send Cancel command to Actor (non-blocking)
+    let actor_tx = state.actor_tx.clone();
+    tauri::async_runtime::spawn(async move {
+        if let Err(e) = actor_tx.send(ActorCommand::Cancel).await {
+            eprintln!("[COMMAND] Failed to send Cancel to actor: {}", e);
+        } else {
+            eprintln!("[COMMAND] Cancel command sent to actor");
+        }
+    });
     
     eprintln!("[COMMAND] All cancel signals sent");
     Ok(())

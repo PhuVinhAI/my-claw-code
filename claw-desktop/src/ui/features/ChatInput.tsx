@@ -81,7 +81,7 @@ export function ChatInput() {
           }
           
           // Small delay to let state settle
-          await new Promise(resolve => setTimeout(resolve, 100));
+          await new Promise(resolve => setTimeout(resolve, 300));
           
           // Send new message
           const result = await sendPrompt(currentInput);

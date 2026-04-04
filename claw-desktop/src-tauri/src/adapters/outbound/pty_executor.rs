@@ -48,32 +48,38 @@ impl PtyExecutor {
 
     /// Cancel a specific tool execution by tool_use_id
     pub fn cancel_tool(&self, tool_use_id: &str) -> Result<(), String> {
-        // Try running processes first
-        {
+        // ALWAYS lock in same order to prevent deadlock: running_processes THEN detached_processes
+        
+        // Check running processes first (without holding lock)
+        let found_in_running = {
             let processes = self.running_processes.lock().unwrap();
             if let Some(process) = processes.get(tool_use_id) {
                 process.cancel_flag.store(true, Ordering::Relaxed);
-                eprintln!("[PTY] Cancelled running tool: {}", tool_use_id);
-                return Ok(());
+                true
+            } else {
+                false
             }
+        }; // Lock released here
+        
+        if found_in_running {
+            eprintln!("[PTY] Cancelled running tool: {}", tool_use_id);
+            return Ok(());
         }
         
-        // Try detached processes
-        {
-            let mut detached = self.detached_processes.lock().unwrap();
-            if let Some(mut process) = detached.remove(tool_use_id) {
-                // Set cancel flag first
-                process.cancel_flag.store(true, Ordering::Relaxed);
-                
-                // Kill the child process
-                if let Err(e) = process.child.kill() {
-                    eprintln!("[PTY] Failed to kill detached process: {}", e);
-                    return Err(format!("Failed to kill detached process: {}", e));
-                }
-                
-                eprintln!("[PTY] Killed detached tool: {}", tool_use_id);
-                return Ok(());
+        // Try detached processes (separate lock to avoid deadlock)
+        let mut detached = self.detached_processes.lock().unwrap();
+        if let Some(mut process) = detached.remove(tool_use_id) {
+            // Set cancel flag first
+            process.cancel_flag.store(true, Ordering::Relaxed);
+            
+            // Kill the child process
+            if let Err(e) = process.child.kill() {
+                eprintln!("[PTY] Failed to kill detached process: {}", e);
+                return Err(format!("Failed to kill detached process: {}", e));
             }
+            
+            eprintln!("[PTY] Killed detached tool: {}", tool_use_id);
+            return Ok(());
         }
         
         eprintln!("[PTY] Tool not found: {}", tool_use_id);
@@ -317,12 +323,18 @@ impl PtyExecutor {
             if self.cancel_flag.load(Ordering::Relaxed) || tool_process.cancel_flag.load(Ordering::Relaxed) {
                 eprintln!("[PTY] Cancel detected - killing process");
                 
-                // CRITICAL: Kill child process immediately
-                if let Err(e) = child.kill() {
-                    eprintln!("[PTY] Failed to kill process: {}", e);
+                // CRITICAL: Kill child process immediately and CHECK result
+                match child.kill() {
+                    Ok(_) => {
+                        eprintln!("[PTY] Process killed successfully");
+                        break Err("Tool execution cancelled by user".to_string());
+                    }
+                    Err(e) => {
+                        eprintln!("[PTY] Failed to kill process: {}", e);
+                        // Still break - process might be already dead
+                        break Err(format!("Tool execution cancelled (kill failed: {})", e));
+                    }
                 }
-                
-                break Err("Tool execution cancelled by user".to_string());
             }
             
             // Check detach flag - return current output but DON'T kill process  

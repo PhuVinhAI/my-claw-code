@@ -171,17 +171,24 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   stopGeneration: async () => {
     const { gateway, dispatch, flushAssistantMessage, autoSaveCurrentSession } = get();
     
-    console.log('[STORE] stopGeneration called - updating UI first');
+    console.log('[STORE] stopGeneration called - sending cancel to backend');
     
-    // Update UI FIRST (immediate feedback) - use USER_CANCELLED to force IDLE
-    flushAssistantMessage();
-    dispatch({ type: 'USER_CANCELLED' });
-    console.log('[STORE] UI state updated to IDLE');
+    // DON'T update UI first - wait for backend to confirm cancel
+    // Backend will emit MessageStop event when cancel completes
     
-    // Then cancel backend (kill all running tools)
     try {
       await gateway.cancelPrompt();
-      console.log('[STORE] Backend cancelled successfully');
+      console.log('[STORE] Backend cancel completed');
+      
+      // Flush any pending text
+      flushAssistantMessage();
+      
+      // Force UI to IDLE if backend didn't emit MessageStop
+      const currentState = useChatStore.getState().state;
+      if (currentState.status !== 'IDLE') {
+        console.log('[STORE] Forcing UI to IDLE after cancel');
+        dispatch({ type: 'USER_CANCELLED' });
+      }
       
       // Save session in background (non-blocking)
       autoSaveCurrentSession().then(() => {
@@ -191,6 +198,9 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       });
     } catch (e) {
       console.error("[STORE] Failed to cancel backend prompt:", e);
+      // Force UI to IDLE on error
+      flushAssistantMessage();
+      dispatch({ type: 'USER_CANCELLED' });
     }
   },
 
