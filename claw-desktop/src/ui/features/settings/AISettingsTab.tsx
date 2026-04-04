@@ -5,7 +5,7 @@ import { useSettingsStore } from '../../../store/useSettingsStore';
 import { Provider, Model } from '../../../core/entities';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
-import { Plus, Trash2, X, Check, Bot, Sparkles, AlertCircle, Pencil, Eye, EyeOff, Download, Loader2 } from 'lucide-react';
+import { Plus, Trash2, X, Check, Bot, Sparkles, AlertCircle, Pencil, Eye, EyeOff, Download, Loader2, BarChart3 } from 'lucide-react';
 import { ConfirmDeleteProviderDialog } from './ConfirmDeleteProviderDialog';
 import { KiloModelsBrowser, KiloModel } from './KiloModelsBrowser';
 import { fetchKiloModels } from './fetchKiloModels';
@@ -395,6 +395,22 @@ export function AISettingsTab() {
                 </div>
               </div>
 
+              <div>
+                <label className="block text-xs sm:text-sm font-medium mb-1.5 sm:mb-2">
+                  Max Context (tokens) - Tùy chọn
+                </label>
+                <Input
+                  type="number"
+                  value={modelForm.max_context || ''}
+                  onChange={(e) => setModelForm({ ...modelForm, max_context: e.target.value ? parseInt(e.target.value) : undefined })}
+                  placeholder="128000"
+                  className="h-9 sm:h-10 text-sm"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Số lượng tokens tối đa model có thể xử lý
+                </p>
+              </div>
+
               <div className="flex gap-2 pt-2 sm:pt-4">
                 <Button onClick={handleSaveModel} size="sm" className="h-8 sm:h-9 text-sm">
                   <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1.5 sm:mr-2" />
@@ -516,7 +532,15 @@ export function AISettingsTab() {
                     >
                       <div className="flex-1 min-w-0 mr-2">
                         <p className="font-medium text-xs sm:text-sm truncate">{model.name}</p>
-                        <p className="text-xs text-muted-foreground font-mono truncate">{model.id}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-xs text-muted-foreground font-mono truncate">{model.id}</p>
+                          {model.max_context && (
+                            <span className="text-xs text-muted-foreground flex items-center gap-1">
+                              <BarChart3 className="w-3 h-3" />
+                              {(model.max_context / 1000).toFixed(0)}K
+                            </span>
+                          )}
+                        </div>
                       </div>
                       <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
                         <Button

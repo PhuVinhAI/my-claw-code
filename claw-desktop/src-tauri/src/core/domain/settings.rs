@@ -16,6 +16,8 @@ pub struct Provider {
 pub struct Model {
     pub id: String,
     pub name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_context: Option<u32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -92,6 +94,7 @@ impl Settings {
                 Model {
                     id: "kilo-auto/free".to_string(),
                     name: "Kilo Auto (Free)".to_string(),
+                    max_context: None,
                 },
             ],
         };
@@ -290,6 +293,7 @@ mod tests {
         let model = Model {
             id: "gpt-4".to_string(),
             name: "GPT-4".to_string(),
+            max_context: None,
         };
         
         assert!(settings.add_model("openai", model).is_ok());
@@ -309,6 +313,7 @@ mod tests {
         provider.models.push(Model {
             id: "gpt-4".to_string(),
             name: "GPT-4".to_string(),
+            max_context: None,
         });
         settings.add_provider(provider).unwrap();
         

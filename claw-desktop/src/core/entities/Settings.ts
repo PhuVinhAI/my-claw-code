@@ -3,6 +3,7 @@
 export interface Model {
   id: string;
   name: string;
+  max_context?: number;
 }
 
 export interface Provider {

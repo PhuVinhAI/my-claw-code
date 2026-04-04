@@ -45,6 +45,7 @@ export function KiloModelsBrowser({ models, existingModels, onAddModel, isOpen, 
       await onAddModel({
         id: kiloModel.id,
         name: kiloModel.name,
+        max_context: kiloModel.context_length,
       });
     } catch (error) {
       console.error('Failed to add model:', error);
