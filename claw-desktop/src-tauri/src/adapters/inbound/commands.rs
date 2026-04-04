@@ -813,3 +813,29 @@ pub fn open_external_terminal(command: Option<String>) -> Result<(), String> {
     eprintln!("[COMMAND] External terminal opened successfully");
     Ok(())
 }
+
+/// Fetch available models from Kilo Gateway API
+#[tauri::command]
+pub async fn fetch_kilo_models() -> Result<String, String> {
+    eprintln!("[COMMAND] fetch_kilo_models called");
+    
+    // Use reqwest to fetch models (bypass CORS)
+    let client = reqwest::Client::new();
+    let response = client
+        .get("https://api.kilo.ai/api/gateway/models")
+        .send()
+        .await
+        .map_err(|e| format!("Failed to fetch models: {}", e))?;
+    
+    if !response.status().is_success() {
+        return Err(format!("HTTP error: {}", response.status()));
+    }
+    
+    let body = response
+        .text()
+        .await
+        .map_err(|e| format!("Failed to read response: {}", e))?;
+    
+    eprintln!("[COMMAND] Fetched {} bytes from Kilo API", body.len());
+    Ok(body)
+}

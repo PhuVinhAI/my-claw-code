@@ -69,6 +69,27 @@
     "noModels": "Chưa có mô hình",
     "selectProvider": "Chọn nhà cung cấp để xem mô hình"
   },
+  "kiloModelsBrowser": {
+    "title": "Models từ Kilo Gateway",
+    "searchPlaceholder": "Tìm kiếm theo tên, ID, provider...",
+    "filterFree": "Chỉ miễn phí",
+    "allProviders": "Tất cả providers",
+    "sortByName": "Sắp xếp: Tên",
+    "sortByContext": "Sắp xếp: Context",
+    "sortByPrice": "Sắp xếp: Giá",
+    "contextLabel": "Context:",
+    "minPlaceholder": "Min",
+    "maxPlaceholder": "Max",
+    "tokens": "tokens",
+    "clear": "Xóa",
+    "filtering": "Đang lọc:",
+    "free": "Miễn phí",
+    "noModelsFound": "Không tìm thấy model nào",
+    "added": "Đã thêm",
+    "add": "Thêm",
+    "loadFromKilo": "Tải từ Kilo",
+    "loading": "Đang tải..."
+  },
   "onboarding": {
     "welcome": "Chào mừng đến với Claw",
     "subtitle": "Cấu hình nhà cung cấp AI để bắt đầu",

@@ -39,6 +39,8 @@ crossbeam-channel = "0.5"
 portable-pty = "0.8"
 # Dirs for home directory
 dirs = "5"
+# HTTP client for fetching external data
+reqwest = { version = "0.12", features = ["json"] }
 
 # --- Claw Code Core Dependencies ---
 # Link trực tiếp tới các module Rust của project

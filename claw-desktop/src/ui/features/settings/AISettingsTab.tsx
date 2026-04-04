@@ -1,14 +1,18 @@
 // AI Settings Tab - Sidebar + Content layout
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useSettingsStore } from '../../../store/useSettingsStore';
 import { Provider, Model } from '../../../core/entities';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
-import { Plus, Trash2, X, Check, Bot, Sparkles, AlertCircle, Pencil, Eye, EyeOff } from 'lucide-react';
+import { Plus, Trash2, X, Check, Bot, Sparkles, AlertCircle, Pencil, Eye, EyeOff, Download, Loader2 } from 'lucide-react';
 import { ConfirmDeleteProviderDialog } from './ConfirmDeleteProviderDialog';
+import { KiloModelsBrowser, KiloModel } from './KiloModelsBrowser';
+import { fetchKiloModels } from './fetchKiloModels';
 import { cn } from '../../../lib/utils';
 
 export function AISettingsTab() {
+  const { t } = useTranslation();
   const { settings, addProvider, updateProvider, deleteProvider, addModel, updateModel, deleteModel } = useSettingsStore();
   const [selectedProviderId, setSelectedProviderId] = useState<string | null>(
     settings?.providers[0]?.id || null
@@ -19,6 +23,11 @@ export function AISettingsTab() {
   const [editingModel, setEditingModel] = useState<Model | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [providerToDelete, setProviderToDelete] = useState<Provider | null>(null);
+  
+  // Kilo browser state
+  const [kiloBrowserOpen, setKiloBrowserOpen] = useState(false);
+  const [kiloModels, setKiloModels] = useState<KiloModel[]>([]);
+  const [kiloLoading, setKiloLoading] = useState(false);
 
   // Provider form state (for both add and edit)
   const [providerForm, setProviderForm] = useState<Partial<Provider>>({
@@ -141,6 +150,27 @@ export function AISettingsTab() {
       alert(`Lỗi: ${error}`);
     }
   };
+  
+  const handleFetchKiloModels = async () => {
+    if (kiloModels.length > 0) {
+      // Already fetched, just open
+      setKiloBrowserOpen(true);
+      return;
+    }
+    
+    setKiloLoading(true);
+    try {
+      const models = await fetchKiloModels();
+      setKiloModels(models);
+      setKiloBrowserOpen(true);
+    } catch (error) {
+      alert(`Không thể tải models: ${error}`);
+    } finally {
+      setKiloLoading(false);
+    }
+  };
+
+  const isKiloProvider = selectedProvider?.id === 'kilo' || selectedProvider?.base_url?.includes('kilo.ai');
 
   return (
     <div className="flex h-full bg-background">
@@ -429,11 +459,45 @@ export function AISettingsTab() {
                     {selectedProvider.models.length} mô hình
                   </p>
                 </div>
-                <Button onClick={() => setShowAddModel(true)} size="sm" className="h-8 sm:h-9 text-xs sm:text-sm">
-                  <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-1.5" />
-                  Thêm
-                </Button>
+                <div className="flex items-center gap-2">
+                  {isKiloProvider && (
+                    <Button 
+                      onClick={handleFetchKiloModels}
+                      size="sm" 
+                      variant="outline"
+                      disabled={kiloLoading}
+                      className="h-8 sm:h-9 text-xs sm:text-sm"
+                    >
+                      {kiloLoading ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-1.5 animate-spin" />
+                          {t('kiloModelsBrowser.loading')}
+                        </>
+                      ) : (
+                        <>
+                          <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-1.5" />
+                          {t('kiloModelsBrowser.loadFromKilo')}
+                        </>
+                      )}
+                    </Button>
+                  )}
+                  <Button onClick={() => setShowAddModel(true)} size="sm" className="h-8 sm:h-9 text-xs sm:text-sm">
+                    <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-1.5" />
+                    Thêm
+                  </Button>
+                </div>
               </div>
+
+              {/* Kilo Models Browser (inline) - Hiện ở dưới header, trước danh sách models */}
+              {isKiloProvider && (
+                <KiloModelsBrowser
+                  models={kiloModels}
+                  existingModels={selectedProvider.models}
+                  onAddModel={(model) => addModel(selectedProvider.id, model)}
+                  isOpen={kiloBrowserOpen}
+                  onOpenChange={setKiloBrowserOpen}
+                />
+              )}
 
               {/* Models List */}
               {selectedProvider.models.length === 0 ? (

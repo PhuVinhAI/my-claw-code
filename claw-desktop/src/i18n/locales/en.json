@@ -69,6 +69,27 @@
     "noModels": "No models yet",
     "selectProvider": "Select a provider to view models"
   },
+  "kiloModelsBrowser": {
+    "title": "Models from Kilo Gateway",
+    "searchPlaceholder": "Search by name, ID, provider...",
+    "filterFree": "Free only",
+    "allProviders": "All providers",
+    "sortByName": "Sort: Name",
+    "sortByContext": "Sort: Context",
+    "sortByPrice": "Sort: Price",
+    "contextLabel": "Context:",
+    "minPlaceholder": "Min",
+    "maxPlaceholder": "Max",
+    "tokens": "tokens",
+    "clear": "Clear",
+    "filtering": "Filtering:",
+    "free": "Free",
+    "noModelsFound": "No models found",
+    "added": "Added",
+    "add": "Add",
+    "loadFromKilo": "Load from Kilo",
+    "loading": "Loading..."
+  },
   "onboarding": {
     "welcome": "Welcome to Claw",
     "subtitle": "Configure AI provider to get started",

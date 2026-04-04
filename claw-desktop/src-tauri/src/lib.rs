@@ -60,7 +60,8 @@ pub fn run() {
             delete_model,
             set_selected_model,
             get_selected_model_info,
-            reload_api_client
+            reload_api_client,
+            fetch_kilo_models
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
