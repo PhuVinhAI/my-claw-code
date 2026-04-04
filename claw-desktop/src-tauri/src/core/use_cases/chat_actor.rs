@@ -226,6 +226,38 @@ impl ChatSessionActor {
     async fn handle_prompt(&mut self, text: String) -> Result<TurnSummary, RuntimeError> {
         let event_publisher = self.event_publisher.clone();
         
+        // Load settings để lấy threshold config
+        let (threshold_ratio, max_tokens) = match self.settings_manager.load() {
+            Ok(settings) => {
+                let max_tokens = if let Some(selected) = &settings.selected_model {
+                    if let Some(provider) = settings.get_provider(&selected.provider_id) {
+                        if let Some(model) = provider.models.iter().find(|m| m.id == selected.model_id) {
+                            model.max_context.unwrap_or(64_000) as usize
+                        } else {
+                            64_000
+                        }
+                    } else {
+                        64_000
+                    }
+                } else {
+                    64_000
+                };
+                (settings.compact_config.threshold_ratio, max_tokens)
+            }
+            Err(e) => {
+                eprintln!("[ACTOR] Failed to load settings for threshold check: {}", e);
+                (0.80, 64_000) // Fallback
+            }
+        };
+        
+        let threshold = (max_tokens as f64 * threshold_ratio) as usize;
+        let should_stop_for_compact = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let should_stop_clone = should_stop_for_compact.clone();
+        
+        // Track estimated tokens in shared state (updated after each API call)
+        let estimated_tokens_shared = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let estimated_tokens_clone = estimated_tokens_shared.clone();
+        
         // Use extension's run_turn_with_callback for real-time tool event emission
         let summary = tokio::task::block_in_place(|| {
             self.runtime.run_turn_with_callback(
@@ -262,6 +294,26 @@ impl ChatSessionActor {
                             usage: usage.clone(),
                         },
                     );
+                    
+                    // Update estimated tokens (rough estimate from usage)
+                    let current_estimate = (usage.input_tokens + usage.output_tokens) as usize;
+                    estimated_tokens_clone.store(current_estimate, std::sync::atomic::Ordering::Relaxed);
+                },
+                || {
+                    // Check threshold NGAY SAU mỗi API call - return false để break loop
+                    let estimated_tokens = estimated_tokens_shared.load(std::sync::atomic::Ordering::Relaxed);
+                    
+                    if estimated_tokens >= threshold {
+                        eprintln!("[ACTOR] 🛑 Token threshold reached: {} >= {} - stopping AI and triggering compact", 
+                            estimated_tokens, threshold);
+                        should_stop_clone.store(true, std::sync::atomic::Ordering::Relaxed);
+                        
+                        // KHÔNG emit MessageStop ở đây - sẽ emit sau khi compact xong
+                        
+                        return false; // Break loop
+                    }
+                    
+                    true // Continue
                 },
             )
         });
@@ -286,8 +338,63 @@ impl ChatSessionActor {
 
         let summary = summary?;
 
-        // Auto-compact check: Nếu token gần đạt ngưỡng, tự động compact
-        self.check_and_auto_compact();
+        // Nếu đã stop vì vượt threshold → trigger compact NGAY
+        if should_stop_for_compact.load(std::sync::atomic::Ordering::Relaxed) {
+            eprintln!("[ACTOR] Performing compact after early termination");
+            
+            // Emit tool_result events cho các tool bị cancelled (nếu có)
+            // Core runtime đã tạo tool_result messages, giờ cần emit events
+            let session = self.runtime.session();
+            
+            // Tìm các tool_result messages cuối cùng (sau assistant message cuối)
+            let mut last_assistant_idx = None;
+            for (idx, msg) in session.messages.iter().enumerate().rev() {
+                if matches!(msg.role, runtime::MessageRole::Assistant) {
+                    last_assistant_idx = Some(idx);
+                    break;
+                }
+            }
+            
+            if let Some(assistant_idx) = last_assistant_idx {
+                // Emit tool_result events cho các tool_result sau assistant message
+                for msg in &session.messages[assistant_idx + 1..] {
+                    if matches!(msg.role, runtime::MessageRole::Tool) {
+                        for block in &msg.blocks {
+                            if let runtime::ContentBlock::ToolResult {
+                                tool_use_id,
+                                tool_name: _,
+                                output,
+                                is_error,
+                                is_cancelled,
+                                is_timed_out,
+                            } = block
+                            {
+                                event_publisher.publish_stream_event(
+                                    crate::core::domain::types::StreamEvent::ToolResult {
+                                        tool_use_id: tool_use_id.clone(),
+                                        output: output.clone(),
+                                        is_error: *is_error,
+                                        is_cancelled: *is_cancelled,
+                                        is_timed_out: *is_timed_out,
+                                    },
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Emit MessageStop TRƯỚC KHI compact để UI chuyển về IDLE ngay
+            event_publisher.publish_stream_event(
+                crate::core::domain::types::StreamEvent::MessageStop,
+            );
+            
+            // Perform compact
+            self.perform_compact();
+        } else {
+            // Normal auto-compact check (fallback nếu chưa compact)
+            self.check_and_auto_compact();
+        }
 
         Ok(summary)
     }
@@ -328,58 +435,87 @@ impl ChatSessionActor {
         
         if estimated_tokens >= threshold {
             eprintln!("[AUTO-COMPACT] Threshold reached, starting compaction...");
+            self.perform_compact();
+        }
+    }
+    
+    /// Perform compaction (extracted for reuse)
+    fn perform_compact(&mut self) {
+        // Load settings để lấy config
+        let settings = match self.settings_manager.load() {
+            Ok(s) => s,
+            Err(e) => {
+                eprintln!("[COMPACT] Failed to load settings: {}", e);
+                return;
+            }
+        };
+        
+        let max_tokens = if let Some(selected) = &settings.selected_model {
+            if let Some(provider) = settings.get_provider(&selected.provider_id) {
+                if let Some(model) = provider.models.iter().find(|m| m.id == selected.model_id) {
+                    model.max_context.unwrap_or(64_000) as usize
+                } else {
+                    64_000
+                }
+            } else {
+                64_000
+            }
+        } else {
+            64_000
+        };
+        
+        let estimated_tokens = self.runtime.estimated_tokens();
+        
+        // Emit CompactStarted event
+        self.event_publisher.publish_stream_event(
+            crate::core::domain::types::StreamEvent::CompactStarted {
+                estimated_tokens,
+                max_tokens,
+            }
+        );
+        
+        // Perform compaction using core logic với config từ settings
+        let config = runtime::CompactionConfig {
+            preserve_recent_messages: settings.compact_config.preserve_recent_messages,
+            max_estimated_tokens: 10_000,
+        };
+        
+        let result = self.runtime.compact(config);
+        
+        if result.removed_message_count > 0 {
+            // Replace session with compacted version
+            self.runtime.replace_session(result.compacted_session.clone());
             
-            // Emit CompactStarted event
+            let new_estimated_tokens = self.runtime.estimated_tokens();
+            
+            eprintln!("[COMPACT] Compaction completed: removed {} messages, tokens: {} -> {}",
+                result.removed_message_count, estimated_tokens, new_estimated_tokens);
+            
+            // Emit CompactCompleted event
             self.event_publisher.publish_stream_event(
-                crate::core::domain::types::StreamEvent::CompactStarted {
-                    estimated_tokens,
+                crate::core::domain::types::StreamEvent::CompactCompleted {
+                    removed_count: result.removed_message_count,
+                    summary: result.formatted_summary,
+                    new_estimated_tokens,
                     max_tokens,
                 }
             );
             
-            // Perform compaction using core logic với config từ settings
-            let config = runtime::CompactionConfig {
-                preserve_recent_messages: settings.compact_config.preserve_recent_messages,
-                max_estimated_tokens: 10_000,
+            // Emit updated usage after compact (estimate based on new token count)
+            // This allows frontend to update token counter immediately
+            let estimated_usage = runtime::TokenUsage {
+                input_tokens: new_estimated_tokens as u32,
+                output_tokens: 0, // We don't track output separately in estimates
+                cache_creation_input_tokens: 0,
+                cache_read_input_tokens: 0,
             };
-            
-            let result = self.runtime.compact(config);
-            
-            if result.removed_message_count > 0 {
-                // Replace session with compacted version
-                self.runtime.replace_session(result.compacted_session.clone());
-                
-                let new_estimated_tokens = self.runtime.estimated_tokens();
-                
-                eprintln!("[AUTO-COMPACT] Compaction completed: removed {} messages, tokens: {} -> {}",
-                    result.removed_message_count, estimated_tokens, new_estimated_tokens);
-                
-                // Emit CompactCompleted event
-                self.event_publisher.publish_stream_event(
-                    crate::core::domain::types::StreamEvent::CompactCompleted {
-                        removed_count: result.removed_message_count,
-                        summary: result.formatted_summary,
-                        new_estimated_tokens,
-                        max_tokens,
-                    }
-                );
-                
-                // Emit updated usage after compact (estimate based on new token count)
-                // This allows frontend to update token counter immediately
-                let estimated_usage = runtime::TokenUsage {
-                    input_tokens: new_estimated_tokens as u32,
-                    output_tokens: 0, // We don't track output separately in estimates
-                    cache_creation_input_tokens: 0,
-                    cache_read_input_tokens: 0,
-                };
-                self.event_publisher.publish_stream_event(
-                    crate::core::domain::types::StreamEvent::Usage {
-                        usage: estimated_usage,
-                    }
-                );
-            } else {
-                eprintln!("[AUTO-COMPACT] No compaction needed (should_compact returned false)");
-            }
+            self.event_publisher.publish_stream_event(
+                crate::core::domain::types::StreamEvent::Usage {
+                    usage: estimated_usage,
+                }
+            );
+        } else {
+            eprintln!("[COMPACT] No compaction needed (should_compact returned false)");
         }
     }
 

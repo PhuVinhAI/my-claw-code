@@ -312,16 +312,21 @@ where
     /// 
     /// The callback receives a reference to the tool result message immediately after
     /// the tool executes, before the next tool in the sequence runs.
-    pub fn run_turn_with_callback<F, G>(
+    /// 
+    /// The `should_continue` callback is called after each API call to check if the
+    /// conversation loop should continue. Return `false` to break the loop early.
+    pub fn run_turn_with_callback<F, G, H>(
         &mut self,
         user_input: impl Into<String>,
         mut prompter: Option<&mut dyn PermissionPrompter>,
         mut on_tool_result: F,
         mut on_usage: G,
+        mut should_continue: H,
     ) -> Result<TurnSummary, RuntimeError>
     where
         F: FnMut(&ConversationMessage),
         G: FnMut(&crate::TokenUsage),
+        H: FnMut() -> bool,
     {
         self.session
             .messages
@@ -351,6 +356,43 @@ where
                 // Emit usage immediately after each API call in the loop
                 on_usage(&usage);
             }
+            
+            // Check if should continue after API call
+            if !should_continue() {
+                // Early termination requested
+                // Check if assistant message has pending tool uses that won't be executed
+                let pending_tool_uses = assistant_message
+                    .blocks
+                    .iter()
+                    .filter_map(|block| match block {
+                        ContentBlock::ToolUse { id, name, .. } => {
+                            Some((id.clone(), name.clone()))
+                        }
+                        _ => None,
+                    })
+                    .collect::<Vec<_>>();
+                
+                // Push assistant message first
+                self.session.messages.push(assistant_message.clone());
+                assistant_messages.push(assistant_message);
+                
+                // Create cancelled tool results for pending tools
+                if !pending_tool_uses.is_empty() {
+                    for (tool_use_id, tool_name) in pending_tool_uses {
+                        let cancelled_result = create_tool_result_message(
+                            tool_use_id,
+                            tool_name,
+                            "Tool execution cancelled due to context limit - conversation compacted".to_string(),
+                            false, // not an error
+                        );
+                        self.session.messages.push(cancelled_result.clone());
+                        tool_results.push(cancelled_result);
+                    }
+                }
+                
+                break;
+            }
+            
             let pending_tool_uses = assistant_message
                 .blocks
                 .iter()
