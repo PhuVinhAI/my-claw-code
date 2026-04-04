@@ -18,6 +18,7 @@ pub struct TauriToolExecutor {
     pty_executor: Arc<PtyExecutor>, // Make Arc to share with commands
     work_mode: Arc<Mutex<WorkMode>>,
     selected_tools: Arc<Mutex<Vec<String>>>, // Normal mode: user-selected tools
+    workspace_path: std::path::PathBuf, // CRITICAL: Workspace path for tool execution
 }
 
 impl TauriToolExecutor {
@@ -26,12 +27,14 @@ impl TauriToolExecutor {
         cancel_flag: Arc<AtomicBool>,
         stdin_rx: crossbeam_channel::Receiver<(String, String)>,
         work_mode: Arc<Mutex<WorkMode>>,
+        workspace_path: std::path::PathBuf,
     ) -> Self {
         let (cancel_tx, cancel_rx) = bounded(1);
         let pty_executor = Arc::new(PtyExecutor::new(
             event_publisher.clone(),
             cancel_flag.clone(),
             stdin_rx.clone(),
+            workspace_path.clone(),
         ));
         Self {
             registry: GlobalToolRegistry::builtin(),
@@ -41,6 +44,7 @@ impl TauriToolExecutor {
             pty_executor,
             work_mode,
             selected_tools: Arc::new(Mutex::new(Vec::new())), // Mặc định: không có tools
+            workspace_path,
         }
     }
     

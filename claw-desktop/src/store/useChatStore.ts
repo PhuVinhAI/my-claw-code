@@ -555,6 +555,13 @@ export function initializeChatStore() {
 
   store.fetchWorkMode(); // Fetch work mode on init
   loadSessions(); // Load sessions on init
+  
+  // Sync selected tools from localStorage to backend on init
+  const selectedTools = store.selectedTools;
+  if (selectedTools.length > 0) {
+    console.log('[STORE] Syncing selected tools on init:', selectedTools);
+    store.setSelectedTools(selectedTools);
+  }
 
   gateway.onStreamEvent((event: StreamEvent) => {
     console.log('[STORE] Received stream event:', event.type);

@@ -32,6 +32,15 @@ pub struct Settings {
     pub selected_model: Option<SelectedModel>,
     #[serde(default)]
     pub compact_config: CompactConfig,
+    #[serde(default = "default_workspace_path")]
+    pub workspace_path: String, // User's workspace directory for tool execution
+}
+
+fn default_workspace_path() -> String {
+    // Default to user's home directory
+    std::env::var("HOME")
+        .or_else(|_| std::env::var("USERPROFILE")) // Windows fallback
+        .unwrap_or_else(|_| ".".to_string())
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -84,6 +93,7 @@ impl Settings {
             providers: Vec::new(),
             selected_model: None,
             compact_config: CompactConfig::default(),
+            workspace_path: default_workspace_path(),
         }
     }
 
@@ -107,6 +117,7 @@ impl Settings {
                     providers,
                     selected_model: None,
                     compact_config: CompactConfig::default(),
+                    workspace_path: default_workspace_path(),
                 }
             }
             Err(e) => {
@@ -137,6 +148,7 @@ impl Settings {
             providers: vec![kilo_provider],
             selected_model: None,
             compact_config: CompactConfig::default(),
+            workspace_path: default_workspace_path(),
         }
     }
 

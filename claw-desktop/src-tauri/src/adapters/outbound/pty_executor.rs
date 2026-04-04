@@ -3,6 +3,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::collections::HashMap;
 use std::sync::Mutex;
+use std::path::PathBuf;
 use portable_pty::{CommandBuilder, PtySize, native_pty_system, Child};
 use crossbeam_channel::Receiver;
 
@@ -25,6 +26,7 @@ pub struct PtyExecutor {
     stdin_rx: Receiver<(String, String)>, // (tool_use_id, input)
     running_processes: Arc<Mutex<HashMap<String, ToolProcess>>>, // tool_use_id -> process control
     detached_processes: Arc<Mutex<HashMap<String, DetachedProcess>>>, // tool_use_id -> detached child
+    workspace_path: PathBuf, // CRITICAL: Working directory for commands
 }
 
 impl PtyExecutor {
@@ -32,6 +34,7 @@ impl PtyExecutor {
         event_publisher: Arc<dyn IEventPublisher>,
         cancel_flag: Arc<AtomicBool>,
         stdin_rx: Receiver<(String, String)>,
+        workspace_path: PathBuf,
     ) -> Self {
         Self {
             event_publisher,
@@ -39,6 +42,7 @@ impl PtyExecutor {
             stdin_rx,
             running_processes: Arc::new(Mutex::new(HashMap::new())),
             detached_processes: Arc::new(Mutex::new(HashMap::new())),
+            workspace_path,
         }
     }
 
@@ -132,19 +136,28 @@ impl PtyExecutor {
 
         // Spawn command in PTY
         let mut cmd = if cfg!(target_os = "windows") {
-            // Use cmd.exe for better PTY support on Windows
-            CommandBuilder::new("cmd.exe")
+            // Use PowerShell for consistency with bash runtime
+            let mut c = CommandBuilder::new("powershell");
+            c.arg("-NoProfile");
+            c.arg("-NonInteractive");
+            c.arg("-Command");
+            c.arg(command);
+            c
         } else {
-            CommandBuilder::new("sh")
+            let mut c = CommandBuilder::new("sh");
+            c.arg("-lc");
+            c.arg(command);
+            c
         };
 
-        if cfg!(target_os = "windows") {
-            cmd.arg("/C");
-            cmd.arg(command);
-        } else {
-            cmd.arg("-c");
-            cmd.arg(command);
+        // CRITICAL: Inherit environment variables (especially PATH) from parent process
+        // This ensures commands in PATH can be found
+        for (key, value) in std::env::vars() {
+            cmd.env(key, value);
         }
+        
+        // CRITICAL: Set working directory to workspace path
+        cmd.cwd(&self.workspace_path);
 
         let mut child = pair.slave
             .spawn_command(cmd)

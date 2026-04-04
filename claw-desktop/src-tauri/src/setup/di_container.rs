@@ -123,12 +123,17 @@ async fn initialize_app_async(app_handle: AppHandle) -> Result<AppState, String>
     // 6. Create work mode state (shared)
     let work_mode = Arc::new(std::sync::Mutex::new(crate::core::domain::types::WorkMode::Normal));
 
+    // 6.5. Get workspace path from settings
+    let workspace_path = std::path::PathBuf::from(&settings.workspace_path);
+    eprintln!("✓ Workspace path: {}", workspace_path.display());
+
     // 7. Create Tool Executor
     let tool_executor = TauriToolExecutor::new(
         event_publisher.clone(),
         cancel_flag.clone(),
         tool_stdin_rx,
         work_mode.clone(),
+        workspace_path,
     );
 
     // 7.5. Get PTY executor reference for cancellation (before moving tool_executor)
