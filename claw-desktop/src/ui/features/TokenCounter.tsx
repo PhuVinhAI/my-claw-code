@@ -37,8 +37,6 @@ export function TokenCounter({ usage, maxContext }: TokenCounterProps) {
     return { totalTokens: total, percentage: pct, colorClass: color };
   }, [usage, maxContext]);
 
-  if (!usage) return null;
-
   const formatNumber = (num: number) => {
     if (num >= 1000) {
       return `${(num / 1000).toFixed(1)}K`;

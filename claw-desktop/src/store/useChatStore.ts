@@ -702,8 +702,7 @@ export function initializeChatStore() {
           flushAssistantMessage();
           dispatch({ type: 'MESSAGE_STOP' });
         }
-        // Clear token usage when turn completes
-        useChatStore.setState({ currentTokenUsage: null });
+        // Keep token usage (don't clear) - will be updated on next turn
         
         // Check if this was an empty turn (AI stopped without producing content)
         // Count messages AFTER flush to see if assistant message was added
@@ -837,7 +836,7 @@ export function initializeChatStore() {
         });
         break;
       case 'error':
-        // On error, remove last user message and restore to input
+        // On error, only remove last user message if NO assistant response yet
         useChatStore.setState((prev: ChatStore) => {
           // Find last user message (iterate backwards)
           let lastUserIndex = -1;
@@ -849,11 +848,23 @@ export function initializeChatStore() {
           }
           
           if (lastUserIndex !== -1) {
-            // Remove last user message
+            // Check if there's any assistant message AFTER this user message
+            const hasAssistantAfter = prev.messages
+              .slice(lastUserIndex + 1)
+              .some(m => m.role === 'assistant');
+            
+            if (hasAssistantAfter) {
+              // Already has assistant response - DON'T remove user message
+              // This means error occurred during tool loop, not initial API call
+              console.log('[STORE] Error during tool loop - keeping user message (already has assistant response)');
+              return prev;
+            }
+            
+            // No assistant response yet - remove user message and restore to input
             const newMessages = [...prev.messages];
             newMessages.splice(lastUserIndex, 1);
             
-            console.log('[STORE] Error: Removed user message, text will be restored to input by error handler');
+            console.log('[STORE] Error before assistant response - removed user message, text will be restored to input');
             
             // Extract text for restore
             const userMessage = prev.messages[lastUserIndex];
