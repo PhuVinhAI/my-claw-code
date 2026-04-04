@@ -4,12 +4,13 @@ import { Terminal } from 'xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import { ClipboardAddon } from '@xterm/addon-clipboard';
-import { Terminal as TerminalIcon, CheckCircle2, XCircle, Loader2, StopCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import { Terminal as TerminalIcon, CheckCircle2, XCircle, Loader2, StopCircle, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useChatStore } from '../../store/useChatStore';
 import { useTerminalStream } from './useTerminalStream';
 import { Button } from '../../components/ui/button';
 import { open } from '@tauri-apps/plugin-shell';
+import { invoke } from '@tauri-apps/api/core';
 import { useTranslation } from 'react-i18next';
 import 'xterm/css/xterm.css';
 import './xterm-custom.css';
@@ -21,6 +22,7 @@ interface XTermBlockProps {
   isError?: boolean;
   isPending?: boolean;
   isCancelled?: boolean;
+  isTimedOut?: boolean;
   isDetached?: boolean;
   toolUseId?: string;
   output?: string;
@@ -33,6 +35,7 @@ export function XTermBlock({
   isError = false,
   isPending = false,
   isCancelled = false,
+  isTimedOut = false,
   isDetached = false,
   toolUseId,
   output,
@@ -42,6 +45,7 @@ export function XTermBlock({
   const fitAddonRef = useRef<FitAddon | null>(null);
   const cancelToolExecution = useChatStore((state) => state.cancelToolExecution);
   const detachToolExecution = useChatStore((state) => state.detachToolExecution);
+  const isGenerating = useChatStore((state) => state.state.status !== 'IDLE');
   const { t } = useTranslation();
   
   const [isExpanded, setIsExpanded] = useState(false);
@@ -55,10 +59,11 @@ export function XTermBlock({
 
   useTerminalStream(xtermRef.current, toolUseId, !output);
 
-  const StatusIcon = isPending ? Loader2 : isDetached ? Loader2 : (isError || isCancelled) ? XCircle : CheckCircle2;
+  const StatusIcon = isPending ? Loader2 : isDetached ? Loader2 : (isError || isCancelled || isTimedOut) ? XCircle : CheckCircle2;
 
   const handleStop = async () => {
-    if (toolUseId && isPending) {
+    if (toolUseId) {
+      // Can stop both pending and detached tools
       await cancelToolExecution(toolUseId);
     }
   };
@@ -66,6 +71,17 @@ export function XTermBlock({
   const handleDetach = async () => {
     if (toolUseId && isPending) {
       await detachToolExecution(toolUseId);
+    }
+  };
+  
+  const handleOpenInTerminal = async () => {
+    try {
+      await invoke('open_external_terminal');
+      console.log('[XTermBlock] External terminal opened successfully');
+    } catch (e) {
+      console.error('[XTermBlock] Failed to open external terminal:', e);
+      // Show error to user
+      alert(`Không thể mở terminal: ${e}`);
     }
   };
 
@@ -156,16 +172,19 @@ export function XTermBlock({
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  if (isCancelled) {
+  if (isCancelled || isTimedOut) {
+    const statusText = isTimedOut ? t('terminal.timedOut') : t('terminal.stoppedByUser');
+    const statusColor = isTimedOut ? 'text-orange-400' : 'text-red-400';
+    
     return (
       <div className="bg-muted/10 rounded-lg border border-border/30 w-full overflow-hidden">
         <div className="flex items-center justify-between px-3 sm:px-4 py-2 sm:py-2.5 bg-muted/20 border-b border-border/30">
           <div className="flex items-center gap-2 sm:gap-2.5">
-            <XCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-red-400" />
+            <XCircle className={cn("h-3.5 w-3.5 sm:h-4 sm:w-4", statusColor)} />
             <TerminalIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground/70" />
             <span className="text-xs sm:text-sm font-semibold text-foreground/90">{toolName}</span>
           </div>
-          <span className="text-xs sm:text-sm text-red-400">{t('terminal.stoppedByUser')}</span>
+          <span className={cn("text-xs sm:text-sm", statusColor)}>{statusText}</span>
         </div>
         <div className="px-3 sm:px-4 py-2.5 sm:py-3 bg-muted/5 font-mono text-xs sm:text-sm">
           <div className="flex items-center gap-1.5 sm:gap-2">
@@ -196,8 +215,9 @@ export function XTermBlock({
               isPending && 'animate-spin text-blue-400',
               isDetached && 'animate-pulse text-yellow-400',
               isCancelled && 'text-orange-400',
-              isError && !isCancelled && 'text-red-400',
-              !isPending && !isError && !isDetached && !isCancelled && 'text-emerald-400'
+              isTimedOut && 'text-orange-400',
+              isError && !isCancelled && !isTimedOut && 'text-red-400',
+              !isPending && !isError && !isDetached && !isCancelled && !isTimedOut && 'text-emerald-400'
             )}
           />
           <TerminalIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground/70 shrink-0" />
@@ -217,22 +237,38 @@ export function XTermBlock({
             </>
           )}
           
+          {isTimedOut && (
+            <>
+              <span className="text-muted-foreground/30">|</span>
+              <span className="text-[10px] sm:text-xs text-orange-400 font-medium">{t('terminal.timedOut')}</span>
+            </>
+          )}
+          
           {inputParams.timeout && (
             <>
               <span className="text-muted-foreground/30 hidden sm:inline">|</span>
-              <span className="text-[10px] sm:text-xs text-muted-foreground/60 hidden sm:inline">timeout: {inputParams.timeout}s</span>
+              <span className="text-[10px] sm:text-xs text-muted-foreground/60 hidden sm:inline">
+                {t('terminal.timeout')}: {Math.round(inputParams.timeout / 1000)}{t('terminal.seconds')}
+              </span>
             </>
           )}
           
           {inputParams.description && (
             <>
               <span className="text-muted-foreground/30 hidden lg:inline">|</span>
-              <span className="text-[10px] sm:text-xs text-muted-foreground/60 truncate max-w-[150px] sm:max-w-xs hidden lg:inline">{inputParams.description}</span>
+              <span className="text-[10px] sm:text-xs text-muted-foreground/60 truncate max-w-[150px] sm:max-w-xs hidden lg:inline">
+                {t('terminal.description')}: {inputParams.description}
+              </span>
             </>
           )}
         </div>
         
-        {(isPending || isDetached) && toolUseId && (
+        {/* Show buttons if:
+            1. Tool is pending (not detached yet) - show both Detach and Stop
+            2. Tool is detached - show only Stop (can kill detached process)
+            3. Tool is detached AND AI still generating - show Stop
+        */}
+        {toolUseId && (isPending || (isDetached && isGenerating)) && (
           <div className="flex items-center gap-1 sm:gap-2 shrink-0">
             {isPending && !isDetached && (
               <Button
@@ -262,6 +298,13 @@ export function XTermBlock({
         <div className="flex items-center gap-1.5 sm:gap-2">
           <span className="text-emerald-400 select-none shrink-0 text-xs sm:text-sm">{getShellPrompt()}</span>
           <pre className="flex-1 text-foreground/80 text-xs sm:text-sm whitespace-pre-wrap break-all">{command}</pre>
+          <button
+            onClick={handleOpenInTerminal}
+            className="shrink-0 p-1 text-muted-foreground/60 hover:text-muted-foreground hover:bg-muted/20 rounded transition-colors"
+            title={t('terminal.openInTerminal')}
+          >
+            <ExternalLink className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+          </button>
         </div>
       </div>
 

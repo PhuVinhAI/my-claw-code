@@ -172,9 +172,19 @@ impl TauriToolExecutor {
         let bash_input: runtime::BashCommandInput = serde_json::from_value(input.clone())
             .map_err(|e| ToolError::new(format!("Invalid bash input: {}", e)))?;
 
+        // Get timeout from input (in milliseconds, convert to seconds)
+        let timeout_secs = bash_input.timeout.map(|ms| (ms / 1000) as u64);
+
         // Execute in PTY (blocking call, but runs in separate thread via execute_with_context)
-        let output = self.pty_executor.execute_in_pty(&bash_input.command, tool_use_id)
-            .map_err(|e| ToolError::new(e))?;
+        let output = self.pty_executor.execute_in_pty(&bash_input.command, tool_use_id, timeout_secs)
+            .map_err(|e| {
+                // Check if timeout
+                if e == "TIMEOUT" {
+                    ToolError::new("TIMEOUT".to_string())
+                } else {
+                    ToolError::new(e)
+                }
+            })?;
 
         // Return as BashCommandOutput JSON
         let bash_output = runtime::BashCommandOutput {

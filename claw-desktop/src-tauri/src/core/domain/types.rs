@@ -13,7 +13,7 @@ pub use runtime::{
 pub enum StreamEvent {
     TextDelta { delta: String },
     ToolUse { id: String, name: String, input: String },
-    ToolResult { tool_use_id: String, output: String, is_error: bool, is_cancelled: bool },
+    ToolResult { tool_use_id: String, output: String, is_error: bool, is_cancelled: bool, is_timed_out: bool },
     ToolOutputChunk { tool_use_id: String, chunk: String }, // Real-time output streaming
     Usage { usage: TokenUsage },
     MessageStop,

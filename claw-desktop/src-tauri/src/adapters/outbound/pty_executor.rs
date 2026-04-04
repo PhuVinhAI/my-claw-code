@@ -3,7 +3,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::collections::HashMap;
 use std::sync::Mutex;
-use portable_pty::{CommandBuilder, PtySize, native_pty_system};
+use portable_pty::{CommandBuilder, PtySize, native_pty_system, Child};
 use crossbeam_channel::Receiver;
 
 use crate::core::use_cases::ports::IEventPublisher;
@@ -14,11 +14,17 @@ struct ToolProcess {
     detach_flag: Arc<AtomicBool>,
 }
 
+struct DetachedProcess {
+    child: Box<dyn Child + Send + Sync>,
+    cancel_flag: Arc<AtomicBool>,
+}
+
 pub struct PtyExecutor {
     event_publisher: Arc<dyn IEventPublisher>,
     cancel_flag: Arc<AtomicBool>,
     stdin_rx: Receiver<(String, String)>, // (tool_use_id, input)
     running_processes: Arc<Mutex<HashMap<String, ToolProcess>>>, // tool_use_id -> process control
+    detached_processes: Arc<Mutex<HashMap<String, DetachedProcess>>>, // tool_use_id -> detached child
 }
 
 impl PtyExecutor {
@@ -32,22 +38,42 @@ impl PtyExecutor {
             cancel_flag,
             stdin_rx,
             running_processes: Arc::new(Mutex::new(HashMap::new())),
+            detached_processes: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
     /// Cancel a specific tool execution by tool_use_id
     pub fn cancel_tool(&self, tool_use_id: &str) -> Result<(), String> {
-        let processes = self.running_processes.lock().unwrap();
-        if let Some(process) = processes.get(tool_use_id) {
-            process.cancel_flag.store(true, Ordering::Relaxed);
-            eprintln!("[PTY] Cancelled tool execution: {}", tool_use_id);
-            Ok(())
-        } else {
-            // Tool might be detached (not in running_processes anymore)
-            // Can't kill detached processes directly
-            eprintln!("[PTY] Tool not found in running processes (might be detached): {}", tool_use_id);
-            Err(format!("Tool execution not found or already detached: {}", tool_use_id))
+        // Try running processes first
+        {
+            let processes = self.running_processes.lock().unwrap();
+            if let Some(process) = processes.get(tool_use_id) {
+                process.cancel_flag.store(true, Ordering::Relaxed);
+                eprintln!("[PTY] Cancelled running tool: {}", tool_use_id);
+                return Ok(());
+            }
         }
+        
+        // Try detached processes
+        {
+            let mut detached = self.detached_processes.lock().unwrap();
+            if let Some(mut process) = detached.remove(tool_use_id) {
+                // Set cancel flag first
+                process.cancel_flag.store(true, Ordering::Relaxed);
+                
+                // Kill the child process
+                if let Err(e) = process.child.kill() {
+                    eprintln!("[PTY] Failed to kill detached process: {}", e);
+                    return Err(format!("Failed to kill detached process: {}", e));
+                }
+                
+                eprintln!("[PTY] Killed detached tool: {}", tool_use_id);
+                return Ok(());
+            }
+        }
+        
+        eprintln!("[PTY] Tool not found: {}", tool_use_id);
+        Err(format!("Tool execution not found: {}", tool_use_id))
     }
     
     /// Get list of all running tool IDs
@@ -74,6 +100,7 @@ impl PtyExecutor {
         &self,
         command: &str,
         tool_use_id: &str,
+        timeout_secs: Option<u64>, // Timeout in seconds
     ) -> Result<String, String> {
         // Create per-tool control flags
         let tool_process = ToolProcess {
@@ -150,7 +177,30 @@ impl PtyExecutor {
                 }
 
                 match reader.read(&mut buffer) {
-                    Ok(0) => break, // EOF
+                    Ok(0) => {
+                        // EOF - process finished
+                        // Check if this was a detached process
+                        if tool_detach_flag_reader.load(Ordering::Relaxed) {
+                            // Detached process completed - notify frontend
+                            eprintln!("[PTY] Detached process completed: {}", tool_use_id_owned);
+                            
+                            // Get final output
+                            let final_output = {
+                                let output = output_buffer_reader.lock().unwrap();
+                                output.clone()
+                            };
+                            
+                            // Emit completion event with full output
+                            event_publisher.publish_stream_event(StreamEvent::ToolResult {
+                                tool_use_id: tool_use_id_owned.clone(),
+                                output: final_output,
+                                is_error: false,
+                                is_cancelled: false,
+                                is_timed_out: false,
+                            });
+                        }
+                        break;
+                    }
                     Ok(n) => {
                         let chunk = &buffer[..n];
 
@@ -199,8 +249,23 @@ impl PtyExecutor {
             }
         });
 
-        // Wait for process to finish, cancellation, or detachment
+        // Wait for process to finish, cancellation, detachment, or timeout
+        let start_time = std::time::Instant::now();
         let result = loop {
+            // Check timeout
+            if let Some(timeout) = timeout_secs {
+                if start_time.elapsed().as_secs() >= timeout {
+                    eprintln!("[PTY] Timeout reached - killing process");
+                    
+                    // Kill child process
+                    if let Err(e) = child.kill() {
+                        eprintln!("[PTY] Failed to kill process: {}", e);
+                    }
+                    
+                    break Err("TIMEOUT".to_string());
+                }
+            }
+            
             // Check cancel flag
             if self.cancel_flag.load(Ordering::Relaxed) || tool_process.cancel_flag.load(Ordering::Relaxed) {
                 eprintln!("[PTY] Cancel detected - killing process");
@@ -226,21 +291,24 @@ impl PtyExecutor {
                 // Add detach marker
                 let detached_output = format!("{}\n\n[Process detached - continues running in background]", current_output);
                 
-                // Note: We can't move child to detached list because it's borrowed
-                // Instead, just remove from running_processes and let it continue
-                // User can still see output via reader thread
+                // Remove from running_processes
                 {
                     let mut processes = self.running_processes.lock().unwrap();
                     processes.remove(tool_use_id);
                 }
                 
+                // Move child to detached_processes (so we can kill it later)
+                {
+                    let mut detached = self.detached_processes.lock().unwrap();
+                    detached.insert(tool_use_id.to_string(), DetachedProcess {
+                        child,
+                        cancel_flag: tool_process.cancel_flag.clone(),
+                    });
+                }
+                
                 // DON'T drop pair - process continues running
                 // DON'T join reader thread - let it continue streaming
-                // DON'T drop child - let it continue running
-                
-                // Leak the resources intentionally (process continues in background)
                 std::mem::forget(pair);
-                std::mem::forget(child);
                 std::mem::forget(reader_handle);
                 
                 // Return current output to AI

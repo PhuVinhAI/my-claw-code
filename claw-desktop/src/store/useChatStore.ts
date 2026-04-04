@@ -524,6 +524,7 @@ export function initializeChatStore() {
                     output: event.output, // Use final output from backend
                     is_error: event.is_error,
                     is_cancelled: event.is_cancelled,
+                    is_timed_out: event.is_timed_out,
                     isStreaming: false, // Mark as complete
                   };
                 } else {
@@ -539,11 +540,23 @@ export function initializeChatStore() {
                         output: event.output,
                         is_error: event.is_error,
                         is_cancelled: event.is_cancelled,
+                        is_timed_out: event.is_timed_out,
                         isStreaming: false,
                       },
                     ],
                   };
                 }
+                
+                // If this was a detached tool that completed, remove from detached set
+                if (prev.detachedTools.has(event.tool_use_id) && !event.is_error && !event.is_cancelled && !event.is_timed_out) {
+                  const newDetachedTools = new Set(prev.detachedTools);
+                  newDetachedTools.delete(event.tool_use_id);
+                  
+                  console.log('[STORE] Detached tool completed successfully:', event.tool_use_id);
+                  
+                  return { messages, detachedTools: newDetachedTools };
+                }
+                
                 break;
               }
             }

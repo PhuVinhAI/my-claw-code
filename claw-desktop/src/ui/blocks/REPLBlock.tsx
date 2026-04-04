@@ -2,11 +2,15 @@
 import { useState, useEffect, useRef } from 'react';
 import { Terminal } from 'xterm';
 import { FitAddon } from '@xterm/addon-fit';
+import { WebLinksAddon } from '@xterm/addon-web-links';
+import { ClipboardAddon } from '@xterm/addon-clipboard';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { Code, ChevronDown, ChevronRight, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { useChatStore } from '../../store/useChatStore';
 import { useTerminalStream } from './useTerminalStream';
+import { open } from '@tauri-apps/plugin-shell';
 import 'xterm/css/xterm.css';
 import './xterm-custom.css';
 
@@ -87,11 +91,24 @@ export function REPLBlock({
       cols: 80,
       convertEol: true,
       scrollback: 1000,
-      disableStdin: true, // Read-only for REPL output
+      scrollOnUserInput: true,
+      allowTransparency: true,
     });
 
     const fitAddon = new FitAddon();
     term.loadAddon(fitAddon);
+    
+    const clipboardAddon = new ClipboardAddon();
+    term.loadAddon(clipboardAddon);
+    
+    const webLinksAddon = new WebLinksAddon((event, uri) => {
+      event.preventDefault();
+      open(uri).catch(err => {
+        console.error('Failed to open URL:', err);
+      });
+    });
+    term.loadAddon(webLinksAddon);
+    
     term.open(terminalRef.current);
     fitAddon.fit();
 
@@ -102,6 +119,13 @@ export function REPLBlock({
     if (output) {
       term.write(output);
     }
+
+    // Handle user input (for interactive Python prompts)
+    term.onData(async (data) => {
+      if (!toolUseId) return;
+      const { sendToolInput } = useChatStore.getState();
+      await sendToolInput(toolUseId, data);
+    });
 
     return () => {
       term.dispose();

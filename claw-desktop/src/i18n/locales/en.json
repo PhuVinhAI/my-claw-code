@@ -191,11 +191,17 @@
   "terminal": {
     "stoppedByUser": "Stopped by user",
     "cancelled": "Cancelled",
+    "timedOut": "Timed out",
+    "completed": "Completed",
     "stop": "Stop",
     "detach": "Detach",
     "detached": "Running in background",
     "clickToExpand": "Click to view output",
-    "clickToCollapse": "Click to collapse"
+    "clickToCollapse": "Click to collapse",
+    "timeout": "Timeout",
+    "seconds": "seconds",
+    "description": "Description",
+    "openInTerminal": "Open in terminal"
   },
   "common": {
     "loading": "Loading...",

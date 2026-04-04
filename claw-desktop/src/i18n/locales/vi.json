@@ -158,11 +158,17 @@
   "terminal": {
     "stoppedByUser": "Đã dừng bởi người dùng",
     "cancelled": "Đã hủy",
+    "timedOut": "Dừng do hết thời gian",
+    "completed": "Hoàn thành",
     "stop": "Dừng",
     "detach": "Bỏ qua",
     "detached": "Đang chạy nền",
     "clickToExpand": "Nhấn để xem kết quả",
-    "clickToCollapse": "Nhấn để thu gọn"
+    "clickToCollapse": "Nhấn để thu gọn",
+    "timeout": "Thời gian chờ",
+    "seconds": "giây",
+    "description": "Mô tả",
+    "openInTerminal": "Mở trong terminal"
   },
   "delegation": {
     "skill": "Skill",

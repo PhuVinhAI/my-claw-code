@@ -252,8 +252,8 @@ export function MessageList() {
                     
                     {/* Footer for AI messages - only show on last message in sequence */}
                     {message.role === 'assistant' && (() => {
-                      // Only show footer when AI is done (not generating)
-                      if (state.status === 'GENERATING') return null;
+                      // Only show footer when AI is completely done (not generating or executing tools)
+                      if (state.status === 'GENERATING' || state.status === 'TOOL_EXECUTING') return null;
                       
                       // Check if this is the last assistant message before next user message
                       const isLastInSequence = virtualItem.index === messages.length - 1 || 

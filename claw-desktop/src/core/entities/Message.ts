@@ -12,6 +12,7 @@ export interface ContentBlock {
   output?: string;
   is_error?: boolean;
   is_cancelled?: boolean; // True when tool was cancelled by user
+  is_timed_out?: boolean; // True when tool timed out
   isStreaming?: boolean; // True when receiving chunks, false when complete
   thinking?: string; // For thinking blocks (parsed from text)
 }

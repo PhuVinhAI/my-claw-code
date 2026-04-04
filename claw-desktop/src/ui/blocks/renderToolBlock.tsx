@@ -15,27 +15,17 @@ interface RenderToolBlockProps {
   detachedTools?: Set<string>; // Pass from parent component
 }
 
-// Detect if tool was cancelled by user
-export function isCancelled(output?: string): boolean {
-  if (!output) return false;
-  const lowerOutput = output.toLowerCase();
-  return (
-    lowerOutput.includes('cancelled by user') ||
-    lowerOutput.includes('đã dừng bởi người dùng') ||
-    lowerOutput.includes('execution cancelled')
-  );
-}
-
 export function renderToolBlock({ toolUseBlock, toolResultBlock, detachedTools }: RenderToolBlockProps) {
   const toolName = toolUseBlock.name || 'unknown';
   const toolInput = toolUseBlock.input || '';
   const toolOutput = toolResultBlock?.output;
   const isError = toolResultBlock?.is_error || false;
   const isCancelledFromBackend = toolResultBlock?.is_cancelled || false;
+  const isTimedOutFromBackend = toolResultBlock?.is_timed_out || false;
   const isStreaming = toolResultBlock?.isStreaming || false;
   const isPending = !toolResultBlock || isStreaming; // Pending if no result OR still streaming
-  // Use is_cancelled from backend if available, otherwise fallback to output detection
-  const isCancelledState = isCancelledFromBackend || (isError && isCancelled(toolOutput));
+  // Use ONLY is_cancelled from backend (accurate), don't fallback to text detection
+  const isCancelledState = isCancelledFromBackend;
   const toolUseId = toolUseBlock.id;
   
   // Check if tool is detached (from parent)
@@ -97,6 +87,7 @@ export function renderToolBlock({ toolUseBlock, toolResultBlock, detachedTools }
         isError={isError}
         isPending={isPending}
         isCancelled={isCancelledState}
+        isTimedOut={isTimedOutFromBackend}
         isDetached={isDetached}
         toolUseId={toolUseId || undefined}
         output={rawOutput}
