@@ -126,16 +126,20 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   stopGeneration: async () => {
     const { gateway, dispatch, flushAssistantMessage } = get();
     
-    // Immediately update UI state (không đợi backend)
-    flushAssistantMessage();
-    dispatch({ type: 'MESSAGE_STOP' });
+    console.log('[STORE] stopGeneration called - cancelling backend first');
     
-    // Then notify backend to cancel
+    // CRITICAL: Cancel backend FIRST (kill all running tools)
     try {
       await gateway.cancelPrompt();
+      console.log('[STORE] Backend cancelled successfully');
     } catch (e) {
-      console.error("Failed to cancel backend prompt:", e);
+      console.error("[STORE] Failed to cancel backend prompt:", e);
     }
+    
+    // Then update UI state
+    flushAssistantMessage();
+    dispatch({ type: 'MESSAGE_STOP' });
+    console.log('[STORE] UI state updated to IDLE');
   },
 
   sendToolInput: async (toolUseId: string, input: string) => {

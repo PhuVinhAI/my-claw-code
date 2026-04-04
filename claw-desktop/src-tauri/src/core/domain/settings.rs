@@ -38,19 +38,15 @@ impl Settings {
         }
     }
 
-    /// Create default settings with 2 pre-configured providers (without API keys)
+    /// Create default settings with pre-configured providers (without API keys)
+    /// Only Kilo has default model, others require manual model configuration
     pub fn default_settings() -> Self {
         let openrouter_provider = Provider {
             id: "openrouter".to_string(),
             name: "OpenRouter".to_string(),
             api_key: String::new(), // Empty - user needs to fill
             base_url: "https://openrouter.ai/api/v1".to_string(),
-            models: vec![
-                Model {
-                    id: "qwen/qwen3.6-plus:free".to_string(),
-                    name: "Qwen 3.6 Plus (Free)".to_string(),
-                },
-            ],
+            models: vec![], // No default models - user must add manually
         };
 
         let kilo_provider = Provider {
@@ -71,12 +67,7 @@ impl Settings {
             name: "Google Gemini".to_string(),
             api_key: String::new(), // Empty - user needs to fill
             base_url: "https://generativelanguage.googleapis.com/v1beta/openai/".to_string(),
-            models: vec![
-                Model {
-                    id: "gemma-4-31b-it".to_string(),
-                    name: "Gemma 4 31B IT".to_string(),
-                }
-            ],
+            models: vec![], // No default models - user must add manually
         };
 
         let nvidia_provider = Provider {
@@ -84,16 +75,11 @@ impl Settings {
             name: "NVIDIA".to_string(),
             api_key: String::new(), // Empty - user needs to fill
             base_url: "https://integrate.api.nvidia.com/v1".to_string(),
-            models: vec![
-                Model {
-                    id: "stepfun-ai/step-3.5-flash".to_string(),
-                    name: "Step 3.5 Flash".to_string(),
-                }
-            ],
+            models: vec![], // No default models - user must add manually
         };
 
         Self {
-            providers: vec![openrouter_provider, kilo_provider, google_provider, nvidia_provider],
+            providers: vec![kilo_provider, openrouter_provider, google_provider, nvidia_provider],
             selected_model: None,
         }
     }

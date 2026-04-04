@@ -154,6 +154,12 @@
     "maxResults": "tối đa",
     "results_short": "kết quả"
   },
+  "terminal": {
+    "stoppedByUser": "Đã dừng bởi người dùng",
+    "stop": "Dừng",
+    "clickToExpand": "Nhấn để xem kết quả",
+    "clickToCollapse": "Nhấn để thu gọn"
+  },
   "delegation": {
     "skill": "Skill",
     "agent": "Agent",

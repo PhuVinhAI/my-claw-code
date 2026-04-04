@@ -38,3 +38,34 @@
 .xterm-container .xterm-cursor-layer .xterm-cursor {
   background: hsl(var(--primary)) !important;
 }
+
+/* Enable text selection */
+.xterm-container .xterm-screen {
+  user-select: text;
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+}
+
+/* Selection styling */
+.xterm-container .xterm-selection div {
+  background-color: hsl(var(--primary) / 0.3) !important;
+}
+
+/* Link styling - make URLs obvious and clickable */
+.xterm-container a.xterm-link {
+  color: hsl(var(--primary)) !important;
+  text-decoration: underline;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.xterm-container a.xterm-link:hover {
+  opacity: 0.8;
+  text-decoration: underline;
+}
+
+/* Dark mode link styling */
+.dark .xterm-container a.xterm-link {
+  color: hsl(var(--primary) / 0.9) !important;
+}

@@ -122,10 +122,27 @@ pub async fn get_session(state: State<'_, AppState>) -> Result<runtime::Session,
 
 /// Dừng quá trình tạo phản hồi của AI
 #[tauri::command]
-pub fn cancel_prompt(state: State<'_, AppState>) {
+pub fn cancel_prompt(state: State<'_, AppState>) -> Result<(), String> {
+    eprintln!("[COMMAND] cancel_prompt called - cancelling all operations");
+    
+    // Set global cancel flag
     state.cancel_flag.store(true, Ordering::Relaxed);
+    
     // Send cancel event to tool executor
     let _ = state.cancel_tx.send(());
+    
+    // Cancel ALL running PTY processes
+    let running_tools = state.pty_executor.get_running_tools();
+    eprintln!("[COMMAND] Cancelling {} running tools", running_tools.len());
+    
+    for tool_id in running_tools {
+        if let Err(e) = state.pty_executor.cancel_tool(&tool_id) {
+            eprintln!("[COMMAND] Failed to cancel tool {}: {}", tool_id, e);
+        }
+    }
+    
+    eprintln!("[COMMAND] All cancel signals sent");
+    Ok(())
 }
 
 /// List all sessions with metadata

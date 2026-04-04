@@ -1,12 +1,16 @@
 // XTermBlock - Real terminal widget using xterm.js
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Terminal } from 'xterm';
 import { FitAddon } from '@xterm/addon-fit';
-import { Terminal as TerminalIcon, CheckCircle2, XCircle, Loader2, StopCircle } from 'lucide-react';
+import { WebLinksAddon } from '@xterm/addon-web-links';
+import { ClipboardAddon } from '@xterm/addon-clipboard';
+import { Terminal as TerminalIcon, CheckCircle2, XCircle, Loader2, StopCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useChatStore } from '../../store/useChatStore';
 import { useTerminalStream } from './useTerminalStream';
 import { Button } from '../../components/ui/button';
+import { open } from '@tauri-apps/plugin-shell';
+import { useTranslation } from 'react-i18next';
 import 'xterm/css/xterm.css';
 import './xterm-custom.css';
 
@@ -35,6 +39,10 @@ export function XTermBlock({
   const xtermRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
   const cancelToolExecution = useChatStore((state) => state.cancelToolExecution);
+  const { t } = useTranslation();
+  
+  // Collapse state - mặc định collapsed
+  const [isExpanded, setIsExpanded] = useState(false);
 
   // Parse input for additional params
   let inputParams: any = {};
@@ -56,9 +64,9 @@ export function XTermBlock({
     }
   };
 
-  // Initialize xterm.js ONCE
+  // Initialize xterm.js ONCE (only when expanded)
   useEffect(() => {
-    if (!terminalRef.current || xtermRef.current) return;
+    if (!terminalRef.current || xtermRef.current || !isExpanded) return;
 
     // Get theme colors from CSS variables
     const isDark = document.documentElement.classList.contains('dark');
@@ -94,10 +102,27 @@ export function XTermBlock({
       convertEol: true, // Auto convert \n to \r\n
       scrollback: 1000, // Keep history
       scrollOnUserInput: true,
+      // Enable text selection for copy
+      allowTransparency: true,
     });
 
     const fitAddon = new FitAddon();
     term.loadAddon(fitAddon);
+    
+    // Add clipboard addon - enables copy with Ctrl+C when text is selected
+    const clipboardAddon = new ClipboardAddon();
+    term.loadAddon(clipboardAddon);
+    
+    // Add web links addon - makes URLs clickable
+    const webLinksAddon = new WebLinksAddon((event, uri) => {
+      // Open link in external browser using Tauri shell plugin
+      event.preventDefault();
+      open(uri).catch(err => {
+        console.error('Failed to open URL:', err);
+      });
+    });
+    term.loadAddon(webLinksAddon);
+    
     term.open(terminalRef.current);
     fitAddon.fit();
 
@@ -122,7 +147,7 @@ export function XTermBlock({
       xtermRef.current = null;
       fitAddonRef.current = null;
     };
-  }, [toolUseId]);
+  }, [toolUseId, isExpanded]);
 
   // Resize on window resize
   useEffect(() => {
@@ -146,7 +171,7 @@ export function XTermBlock({
             <TerminalIcon className="h-4 w-4 text-muted-foreground/70" />
             <span className="text-sm font-semibold text-foreground/90">{toolName}</span>
           </div>
-          <span className="text-sm text-red-400">Đã dừng bởi người dùng</span>
+          <span className="text-sm text-red-400">{t('terminal.stoppedByUser')}</span>
         </div>
         <div className="px-4 py-3 bg-muted/5 font-mono text-sm">
           <div className="flex items-center gap-2">
@@ -209,7 +234,7 @@ export function XTermBlock({
             className="h-7 px-2 text-xs text-red-400 hover:text-red-300 hover:bg-red-950/30"
           >
             <StopCircle className="h-3.5 w-3.5 mr-1" />
-            Dừng
+            {t('terminal.stop')}
           </Button>
         )}
       </div>
@@ -222,12 +247,36 @@ export function XTermBlock({
         </div>
       </div>
 
-      {/* XTerm Terminal Widget */}
-      <div 
-        ref={terminalRef}
-        className="w-full xterm-container"
-        style={{ height: '400px' }}
-      />
+      {/* XTerm Terminal Widget - Only render when expanded */}
+      {isExpanded && (
+        <>
+          <div 
+            ref={terminalRef}
+            className="w-full xterm-container"
+            style={{ height: '300px', maxHeight: '500px' }}
+          />
+          
+          {/* Collapse button when expanded */}
+          <button
+            onClick={() => setIsExpanded(false)}
+            className="w-full px-4 py-2 text-xs text-muted-foreground/60 hover:text-muted-foreground hover:bg-muted/20 text-center border-t border-border/10 transition-colors cursor-pointer flex items-center justify-center gap-2"
+          >
+            <ChevronUp className="h-3.5 w-3.5" />
+            <span>{t('terminal.clickToCollapse')}</span>
+          </button>
+        </>
+      )}
+      
+      {/* Collapsed state - clickable to expand */}
+      {!isExpanded && (
+        <button
+          onClick={() => setIsExpanded(true)}
+          className="w-full px-4 py-3 text-xs text-muted-foreground/60 hover:text-muted-foreground hover:bg-muted/20 text-center border-t border-border/10 transition-colors cursor-pointer flex items-center justify-center gap-2"
+        >
+          <ChevronDown className="h-3.5 w-3.5" />
+          <span>{t('terminal.clickToExpand')}</span>
+        </button>
+      )}
     </div>
   );
 }

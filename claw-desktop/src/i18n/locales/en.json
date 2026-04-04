@@ -187,6 +187,12 @@
     "vi": "Tiếng Việt",
     "en": "English"
   },
+  "terminal": {
+    "stoppedByUser": "Stopped by user",
+    "stop": "Stop",
+    "clickToExpand": "Click to view output",
+    "clickToCollapse": "Click to collapse"
+  },
   "common": {
     "loading": "Loading...",
     "error": "Error",

@@ -41,6 +41,12 @@ impl PtyExecutor {
             Err(format!("Tool execution not found: {}", tool_use_id))
         }
     }
+    
+    /// Get list of all running tool IDs
+    pub fn get_running_tools(&self) -> Vec<String> {
+        let processes = self.running_processes.lock().unwrap();
+        processes.keys().cloned().collect()
+    }
 
     /// Execute command in PTY with real-time streaming
     pub fn execute_in_pty(
@@ -163,6 +169,13 @@ impl PtyExecutor {
         let result = loop {
             // Check both global and tool-specific cancel flags
             if self.cancel_flag.load(Ordering::Relaxed) || tool_cancel_flag.load(Ordering::Relaxed) {
+                eprintln!("[PTY] Cancel detected - killing process");
+                
+                // CRITICAL: Kill child process immediately
+                if let Err(e) = child.kill() {
+                    eprintln!("[PTY] Failed to kill process: {}", e);
+                }
+                
                 // Will drop pair after loop
                 break Err("Tool execution cancelled by user".to_string());
             }
@@ -185,7 +198,7 @@ impl PtyExecutor {
         };
 
         // Drop PTY pair to close pipes and signal reader thread to stop
-        // This will kill the child process if still running
+        // This will kill the child process if still running (backup)
         drop(pair);
         
         // Wait for reader thread to finish
