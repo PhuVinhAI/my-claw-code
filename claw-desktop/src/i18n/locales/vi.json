@@ -157,6 +157,8 @@
   "terminal": {
     "stoppedByUser": "Đã dừng bởi người dùng",
     "stop": "Dừng",
+    "detach": "Bỏ qua",
+    "detached": "Đang chạy nền",
     "clickToExpand": "Nhấn để xem kết quả",
     "clickToCollapse": "Nhấn để thu gọn"
   },

@@ -47,6 +47,29 @@ impl PtyExecutor {
         let processes = self.running_processes.lock().unwrap();
         processes.keys().cloned().collect()
     }
+    
+    /// Detach a tool execution - return current output but keep process running
+    pub fn detach_tool(&self, tool_use_id: &str) -> Result<String, String> {
+        let processes = self.running_processes.lock().unwrap();
+        if processes.contains_key(tool_use_id) {
+            // Tool exists and is running
+            // We'll emit a special marker to indicate detachment
+            // The actual output collection happens in the reader thread
+            eprintln!("[PTY] Detached tool execution: {}", tool_use_id);
+            
+            // Emit detach event
+            self.event_publisher.publish_stream_event(
+                crate::core::domain::types::StreamEvent::ToolOutputChunk {
+                    tool_use_id: tool_use_id.to_string(),
+                    chunk: "\n[DETACHED: Process continues in background]\n".to_string(),
+                }
+            );
+            
+            Ok("Detached - process continues in background".to_string())
+        } else {
+            Err(format!("Tool execution not found: {}", tool_use_id))
+        }
+    }
 
     /// Execute command in PTY with real-time streaming
     pub fn execute_in_pty(

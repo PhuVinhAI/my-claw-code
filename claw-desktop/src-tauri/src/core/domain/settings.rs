@@ -30,6 +30,20 @@ pub struct Settings {
     pub selected_model: Option<SelectedModel>,
 }
 
+// Structure for loading default providers from JSON
+#[derive(Debug, Deserialize)]
+struct DefaultProviderConfig {
+    id: String,
+    name: String,
+    base_url: String,
+    models: Vec<Model>,
+}
+
+#[derive(Debug, Deserialize)]
+struct DefaultProvidersFile {
+    providers: Vec<DefaultProviderConfig>,
+}
+
 impl Settings {
     pub fn new() -> Self {
         Self {
@@ -38,21 +52,41 @@ impl Settings {
         }
     }
 
-    /// Create default settings with pre-configured providers (without API keys)
+    /// Create default settings by loading providers from JSON file
     /// Only Kilo has default model, others require manual model configuration
     pub fn default_settings() -> Self {
-        let openrouter_provider = Provider {
-            id: "openrouter".to_string(),
-            name: "OpenRouter".to_string(),
-            api_key: String::new(), // Empty - user needs to fill
-            base_url: "https://openrouter.ai/api/v1".to_string(),
-            models: vec![], // No default models - user must add manually
-        };
+        // Load from embedded JSON file
+        let json_data = include_str!("default_providers.json");
+        
+        match serde_json::from_str::<DefaultProvidersFile>(json_data) {
+            Ok(config) => {
+                let providers = config.providers.into_iter().map(|p| Provider {
+                    id: p.id,
+                    name: p.name,
+                    api_key: String::new(), // Empty - user needs to fill
+                    base_url: p.base_url,
+                    models: p.models,
+                }).collect();
 
+                Self {
+                    providers,
+                    selected_model: None,
+                }
+            }
+            Err(e) => {
+                eprintln!("[SETTINGS] Failed to parse default_providers.json: {}", e);
+                // Fallback to hardcoded defaults if JSON parsing fails
+                Self::fallback_defaults()
+            }
+        }
+    }
+
+    /// Fallback defaults in case JSON loading fails
+    fn fallback_defaults() -> Self {
         let kilo_provider = Provider {
             id: "kilo".to_string(),
             name: "Kilo AI Gateway".to_string(),
-            api_key: String::new(), // Empty - user needs to fill
+            api_key: String::new(),
             base_url: "https://api.kilo.ai/api/gateway".to_string(),
             models: vec![
                 Model {
@@ -62,24 +96,8 @@ impl Settings {
             ],
         };
 
-        let google_provider = Provider {
-            id: "google-gemini".to_string(),
-            name: "Google Gemini".to_string(),
-            api_key: String::new(), // Empty - user needs to fill
-            base_url: "https://generativelanguage.googleapis.com/v1beta/openai/".to_string(),
-            models: vec![], // No default models - user must add manually
-        };
-
-        let nvidia_provider = Provider {
-            id: "nvidia".to_string(),
-            name: "NVIDIA".to_string(),
-            api_key: String::new(), // Empty - user needs to fill
-            base_url: "https://integrate.api.nvidia.com/v1".to_string(),
-            models: vec![], // No default models - user must add manually
-        };
-
         Self {
-            providers: vec![kilo_provider, openrouter_provider, google_provider, nvidia_provider],
+            providers: vec![kilo_provider],
             selected_model: None,
         }
     }

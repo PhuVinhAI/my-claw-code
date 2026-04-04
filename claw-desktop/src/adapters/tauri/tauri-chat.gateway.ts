@@ -37,6 +37,10 @@ export class TauriChatGateway implements IChatGateway {
     await invoke('cancel_tool_execution', { toolUseId });
   }
 
+  async detachToolExecution(toolUseId: string): Promise<void> {
+    await invoke('detach_tool_execution', { toolUseId });
+  }
+
   onStreamEvent(callback: (event: StreamEvent) => void): UnsubscribeFn {
     let unlisten: UnlistenFn | null = null;
 

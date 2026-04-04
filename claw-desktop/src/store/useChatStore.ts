@@ -12,6 +12,7 @@ interface ChatStore {
   messages: Message[];
   currentAssistantText: string;
   gateway: IChatGateway;
+  detachedTools: Set<string>; // Track detached tool IDs
 
   // Session Management
   sessions: SessionMetadata[];
@@ -31,6 +32,7 @@ interface ChatStore {
   stopGeneration: () => Promise<void>;
   sendToolInput: (toolUseId: string, input: string) => Promise<void>; // Send stdin to tool
   cancelToolExecution: (toolUseId: string) => Promise<void>; // Cancel specific tool execution
+  detachToolExecution: (toolUseId: string) => Promise<void>; // Detach tool - let it run but return current output
 
   // Session Actions
   loadSessions: () => Promise<void>;
@@ -56,6 +58,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   messages: [],
   currentAssistantText: '',
   gateway: new TauriChatGateway(),
+  detachedTools: new Set(),
   sessions: [],
   currentSessionId: null,
   isLoadingSessions: false,
@@ -157,6 +160,19 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       await gateway.cancelToolExecution(toolUseId);
     } catch (e) {
       console.error("Failed to cancel tool execution:", e);
+    }
+  },
+
+  detachToolExecution: async (toolUseId: string) => {
+    const { gateway } = get();
+    try {
+      await gateway.detachToolExecution(toolUseId);
+      // Mark tool as detached
+      set((prev) => ({
+        detachedTools: new Set([...prev.detachedTools, toolUseId])
+      }));
+    } catch (e) {
+      console.error("Failed to detach tool execution:", e);
     }
   },
 

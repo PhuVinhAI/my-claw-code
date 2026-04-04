@@ -1,0 +1,33 @@
+{
+  "providers": [
+    {
+      "id": "kilo",
+      "name": "Kilo AI Gateway",
+      "base_url": "https://api.kilo.ai/api/gateway",
+      "models": [
+        {
+          "id": "kilo-auto/free",
+          "name": "Kilo Auto (Free)"
+        }
+      ]
+    },
+    {
+      "id": "openrouter",
+      "name": "OpenRouter",
+      "base_url": "https://openrouter.ai/api/v1",
+      "models": []
+    },
+    {
+      "id": "google-gemini",
+      "name": "Google Gemini",
+      "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
+      "models": []
+    },
+    {
+      "id": "nvidia",
+      "name": "NVIDIA",
+      "base_url": "https://integrate.api.nvidia.com/v1",
+      "models": []
+    }
+  ]
+}

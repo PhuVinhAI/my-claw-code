@@ -13,6 +13,7 @@ export interface IChatGateway {
   cancelPrompt(): Promise<void>;
   sendToolInput(toolUseId: string, input: string): Promise<void>; // Send stdin to interactive tool
   cancelToolExecution(toolUseId: string): Promise<void>; // Cancel specific tool execution (bash/PowerShell)
+  detachToolExecution(toolUseId: string): Promise<void>; // Detach tool - let it run but return current output
 
   // Session CRUD
   listSessions(): Promise<SessionMetadata[]>;

@@ -8,12 +8,11 @@ import { Plus, Search, Settings, Sun, Moon, MessageSquareDashed, SearchX } from 
 
 const PAGE_SIZE = 20;
 
-// Skeleton row
 function SessionSkeleton() {
   return (
-    <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg animate-pulse">
-      <div className="flex-1 min-w-0 space-y-2">
-        <div className="h-3 bg-foreground/[0.06] rounded-md w-3/4" />
+    <div className="flex items-center gap-2 px-2 sm:px-3 py-2 sm:py-2.5 rounded-lg animate-pulse">
+      <div className="flex-1 min-w-0 space-y-1.5 sm:space-y-2">
+        <div className="h-2.5 sm:h-3 bg-foreground/[0.06] rounded-md w-3/4" />
         <div className="h-2 bg-foreground/[0.04] rounded-md w-1/3" />
       </div>
     </div>
@@ -32,7 +31,6 @@ export function SessionList({ onOpenSettings }: SessionListProps) {
   const [isDark, setIsDark] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
 
-  // Initialize and handle theme
   useEffect(() => {
     const isDarkSet = document.documentElement.classList.contains('dark') || localStorage.getItem('theme') === 'dark';
     setIsDark(isDarkSet);
@@ -55,18 +53,15 @@ export function SessionList({ onOpenSettings }: SessionListProps) {
     }
   };
 
-  // Filter sessions by search
   const filtered = useMemo(() => {
     if (!search.trim()) return sessions;
     const q = search.toLowerCase();
     return sessions.filter((s) => s.title.toLowerCase().includes(q));
   }, [sessions, search]);
 
-  // Lazy slice
   const visible = filtered.slice(0, visibleCount);
   const hasMore = visibleCount < filtered.length;
 
-  // Scroll handler for lazy loading
   const handleScroll = useCallback(() => {
     const el = listRef.current;
     if (!el || !hasMore) return;
@@ -76,7 +71,6 @@ export function SessionList({ onOpenSettings }: SessionListProps) {
     }
   }, [hasMore]);
 
-  // Reset visible count when search changes
   const handleSearchChange = (value: string) => {
     setSearch(value);
     setVisibleCount(PAGE_SIZE);
@@ -84,59 +78,58 @@ export function SessionList({ onOpenSettings }: SessionListProps) {
 
   return (
     <div className="flex flex-col h-full bg-background relative">
-      {/* 1. HEADER */}
-      <div className="shrink-0 flex flex-col gap-4 px-3 pt-5 pb-3 border-b border-border/50">
+      {/* Header */}
+      <div className="shrink-0 flex flex-col gap-3 sm:gap-4 px-2 sm:px-3 pt-4 sm:pt-5 pb-2 sm:pb-3 border-b border-border/50">
         <div className="flex items-center justify-between px-1">
           <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
             {t('sessionList.title')}
           </span>
           <button
             onClick={createNewSession}
-            className="flex items-center justify-center h-7 w-7 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+            className="flex items-center justify-center h-6 w-6 sm:h-7 sm:w-7 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
             title={t('sessionList.newChat')}
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           </button>
         </div>
 
         <div className="relative group px-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Search className="absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 sm:w-4 sm:h-4 text-muted-foreground" />
           <input
             type="text"
             value={search}
             onChange={(e) => handleSearchChange(e.target.value)}
             placeholder={t('sessionList.searchPlaceholder')}
-            className="w-full h-9 pl-8 pr-3 text-sm bg-background border border-input rounded-md placeholder:text-muted-foreground text-foreground outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all"
+            className="w-full h-8 sm:h-9 pl-7 sm:pl-8 pr-2.5 sm:pr-3 text-xs sm:text-sm bg-background border border-input rounded-md placeholder:text-muted-foreground text-foreground outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all"
           />
         </div>
       </div>
 
-      {/* 2. BODY (SESSIONS LIST) */}
+      {/* Body */}
       <div
         ref={listRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto px-2 py-3"
+        className="flex-1 overflow-y-auto px-1.5 sm:px-2 py-2 sm:py-3"
       >
         {isLoadingSessions ? (
-          // Skeleton loading
           <div className="space-y-1">
             {Array.from({ length: 6 }).map((_, i) => (
               <SessionSkeleton key={i} />
             ))}
           </div>
         ) : filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-[70%] px-4 text-center">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full border border-border bg-muted/30 mb-4">
+          <div className="flex flex-col items-center justify-center h-[70%] px-3 sm:px-4 text-center">
+            <div className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full border border-border bg-muted/30 mb-3 sm:mb-4">
               {search.trim() ? (
-                <SearchX className="h-5 w-5 text-muted-foreground" />
+                <SearchX className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
               ) : (
-                <MessageSquareDashed className="h-5 w-5 text-muted-foreground" />
+                <MessageSquareDashed className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
               )}
             </div>
-            <p className="text-sm font-medium text-foreground">
+            <p className="text-xs sm:text-sm font-medium text-foreground">
               {search.trim() ? t('sessionList.noResults') : t('sessionList.noConversations')}
             </p>
-            <p className="text-xs text-muted-foreground mt-1.5 max-w-[200px] leading-relaxed">
+            <p className="text-xs text-muted-foreground mt-1 sm:mt-1.5 max-w-[180px] sm:max-w-[200px] leading-relaxed">
               {search.trim() 
                 ? t('sessionList.noResultsHint')
                 : t('sessionList.noConversationsHint')}
@@ -151,9 +144,8 @@ export function SessionList({ onOpenSettings }: SessionListProps) {
                 isActive={session.id === currentSessionId}
               />
             ))}
-            {/* Load more indicator */}
             {hasMore && (
-              <div className="flex justify-center py-4">
+              <div className="flex justify-center py-3 sm:py-4">
                 <span className="text-xs font-medium text-muted-foreground">
                   {t('sessionList.loadMore', { count: filtered.length - visibleCount })}
                 </span>
@@ -163,24 +155,24 @@ export function SessionList({ onOpenSettings }: SessionListProps) {
         )}
       </div>
 
-      {/* 3. FOOTER */}
-      <div className="shrink-0 flex items-center justify-between p-3 border-t border-border/50 bg-background/80 backdrop-blur-sm">
+      {/* Footer */}
+      <div className="shrink-0 flex items-center justify-between p-2 sm:p-3 border-t border-border/50 bg-background/80 backdrop-blur-sm">
         <button
           onClick={onOpenSettings}
-          className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground px-2 py-1.5 rounded-md hover:bg-muted transition-colors group"
+          className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm font-medium text-muted-foreground hover:text-foreground px-1.5 sm:px-2 py-1 sm:py-1.5 rounded-md hover:bg-muted transition-colors group"
           title={t('sessionList.settings')}
         >
-          <Settings className="w-4 h-4 transition-transform group-hover:rotate-45" />
+          <Settings className="w-3.5 h-3.5 sm:w-4 sm:h-4 transition-transform group-hover:rotate-45" />
           <span>{t('sessionList.settings')}</span>
         </button>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-0.5 sm:gap-1">
           <LanguageSelector />
           <button
             onClick={toggleTheme}
-            className="flex items-center justify-center h-8 w-8 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            className="flex items-center justify-center h-7 w-7 sm:h-8 sm:w-8 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
             title={t('sessionList.theme')}
           >
-            {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            {isDark ? <Sun className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <Moon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
           </button>
         </div>
       </div>

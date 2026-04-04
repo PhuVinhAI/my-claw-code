@@ -24,17 +24,15 @@ export function MessageList() {
   const lastMessageCount = useRef(messages.length);
   const [containerWidth, setContainerWidth] = useState(0);
 
-  // Pretext measurement
   const { measureText } = useTextMeasurement({
     font: '16px Inter',
     whiteSpace: 'normal',
   });
 
-  // Track container width
   useEffect(() => {
     const updateWidth = () => {
       if (scrollParentRef.current) {
-        const maxW = Math.min(scrollParentRef.current.offsetWidth - 48, 768); // max-w-3xl = 768px
+        const maxW = Math.min(scrollParentRef.current.offsetWidth - 48, 768);
         setContainerWidth(maxW);
       }
     };
@@ -48,25 +46,23 @@ export function MessageList() {
     return () => resizeObserver.disconnect();
   }, []);
 
-  // Estimate message heights với Pretext
   const estimateSize = useCallback(
     (index: number) => {
-      if (!containerWidth) return 200; // fallback
+      if (!containerWidth) return 200;
 
       const message = messages[index];
       if (!message) return 200;
 
-      let totalHeight = 24; // base padding
+      let totalHeight = 24;
 
-      // Estimate từng block
       message.blocks.forEach((block) => {
         if (block.type === 'text' && block.text) {
           const { height } = measureText(block.text, containerWidth * 0.9, 28.8);
-          totalHeight += height + 16; // spacing
+          totalHeight += height + 16;
         } else if (block.type === 'thinking') {
-          totalHeight += 80; // collapsed thinking block
+          totalHeight += 80;
         } else if (block.type === 'tool_use') {
-          totalHeight += 120; // tool block estimate
+          totalHeight += 120;
         }
       });
 
@@ -75,7 +71,6 @@ export function MessageList() {
     [messages, containerWidth, measureText]
   );
 
-  // Virtualizer
   const virtualizer = useVirtualizer({
     count: messages.length,
     getScrollElement: () => scrollParentRef.current,
@@ -85,7 +80,6 @@ export function MessageList() {
 
   const virtualItems = virtualizer.getVirtualItems();
 
-  // Detect user scroll
   useEffect(() => {
     const el = scrollParentRef.current;
     if (!el) return;
@@ -103,7 +97,6 @@ export function MessageList() {
     return () => el.removeEventListener('scroll', onScroll);
   }, []);
 
-  // Auto-scroll to bottom
   useEffect(() => {
     if (userScrolledUp.current) return;
 
@@ -125,7 +118,6 @@ export function MessageList() {
     });
   }, [messages.length, currentAssistantText, state.status]);
 
-  // Reset scroll lock on new message
   useEffect(() => {
     if (messages.length > lastMessageCount.current) {
       userScrolledUp.current = false;
@@ -134,9 +126,8 @@ export function MessageList() {
   }, [messages.length]);
 
   return (
-    <div ref={scrollParentRef} className="flex-1 p-6 pb-4 overflow-y-auto">
-      <div className="max-w-3xl mx-auto">
-        {/* Virtual list */}
+    <div ref={scrollParentRef} className="flex-1 p-4 sm:p-5 lg:p-6 pb-3 sm:pb-4 overflow-y-auto">
+      <div className="max-w-2xl lg:max-w-3xl mx-auto">
         <div
           style={{
             height: `${virtualizer.getTotalSize()}px`,
@@ -158,7 +149,7 @@ export function MessageList() {
                   width: '100%',
                   transform: `translateY(${virtualItem.start}px)`,
                 }}
-                className="pb-6"
+                className="pb-4 sm:pb-5 lg:pb-6"
               >
                 <div
                   className={cn(
@@ -168,13 +159,13 @@ export function MessageList() {
                 >
                   <div
                     className={cn(
-                      'text-base leading-[1.8]',
+                      'text-sm sm:text-base leading-[1.7] sm:leading-[1.8]',
                       message.role === 'user'
-                        ? 'max-w-md lg:max-max-lg rounded-2xl bg-secondary text-secondary-foreground px-6 py-3.5'
+                        ? 'max-w-[85%] sm:max-w-md lg:max-w-lg rounded-xl sm:rounded-2xl bg-secondary text-secondary-foreground px-4 sm:px-5 lg:px-6 py-2.5 sm:py-3 lg:py-3.5'
                         : 'w-full'
                     )}
                   >
-                    <div className="space-y-4">
+                    <div className="space-y-3 sm:space-y-4">
                       {message.blocks.map((block, blockIdx) => {
                         if (block.type === 'text') {
                           return (
@@ -216,14 +207,14 @@ export function MessageList() {
           })}
         </div>
 
-        {/* Streaming text - always visible at bottom */}
+        {/* Streaming text */}
         {currentAssistantText && (
-          <div className="flex w-full items-start justify-start mt-8">
-            <div className="w-full text-base leading-[1.8]">
+          <div className="flex w-full items-start justify-start mt-6 sm:mt-7 lg:mt-8">
+            <div className="w-full text-sm sm:text-base leading-[1.7] sm:leading-[1.8]">
               {(() => {
                 const parsed = parseThinkingTags(currentAssistantText);
                 return (
-                  <div className="space-y-4">
+                  <div className="space-y-3 sm:space-y-4">
                     {parsed.blocks.map((block, idx) => {
                       if (block.type === 'thinking') {
                         return (
@@ -250,20 +241,20 @@ export function MessageList() {
 
         {/* Loading */}
         {state.status === 'GENERATING' && !currentAssistantText && (
-          <div className="flex w-full items-start justify-start mt-8">
-            <div className="flex items-center gap-3 text-muted-foreground py-3">
-              <div className="flex gap-1.5">
-                <span className="animate-bounce text-sm" style={{ animationDelay: '0ms' }}>
+          <div className="flex w-full items-start justify-start mt-6 sm:mt-7 lg:mt-8">
+            <div className="flex items-center gap-2 sm:gap-3 text-muted-foreground py-2 sm:py-3">
+              <div className="flex gap-1 sm:gap-1.5">
+                <span className="animate-bounce text-xs sm:text-sm" style={{ animationDelay: '0ms' }}>
                   ●
                 </span>
-                <span className="animate-bounce text-sm" style={{ animationDelay: '150ms' }}>
+                <span className="animate-bounce text-xs sm:text-sm" style={{ animationDelay: '150ms' }}>
                   ●
                 </span>
-                <span className="animate-bounce text-sm" style={{ animationDelay: '300ms' }}>
+                <span className="animate-bounce text-xs sm:text-sm" style={{ animationDelay: '300ms' }}>
                   ●
                 </span>
               </div>
-              <span className="text-sm font-medium">{t('messageList.thinking')}</span>
+              <span className="text-xs sm:text-sm font-medium">{t('messageList.thinking')}</span>
             </div>
           </div>
         )}

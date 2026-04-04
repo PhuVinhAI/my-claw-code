@@ -41,6 +41,7 @@ pub fn run() {
             reload_system_prompt,
             send_tool_input,
             cancel_tool_execution,
+            detach_tool_execution,
             get_work_mode,
             set_work_mode,
             get_workspace_path,

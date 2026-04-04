@@ -40,7 +40,6 @@ export function ModelSelector() {
     return model?.name || 'Chọn mô hình';
   };
 
-  // Build options grouped by provider (only providers with API key)
   const options: DropdownOption[] = settings.providers
     .filter(provider => provider.api_key && provider.api_key.trim() !== '')
     .flatMap((provider) =>
@@ -53,8 +52,8 @@ export function ModelSelector() {
 
   if (options.length === 0) {
     return (
-      <div className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm text-muted-foreground bg-muted/50">
-        <Bot className="h-4 w-4" />
+      <div className="flex items-center gap-1.5 sm:gap-2 rounded-lg px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm text-muted-foreground bg-muted/50">
+        <Bot className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
         <span>Chưa có mô hình</span>
       </div>
     );
@@ -64,8 +63,8 @@ export function ModelSelector() {
     <CustomDropdown
       trigger={
         <>
-          <Bot className="h-4 w-4 shrink-0" />
-          <span className="truncate min-w-0 flex-1 text-left" title={getSelectedModelName()}>
+          <Bot className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
+          <span className="truncate min-w-0 flex-1 text-left text-xs sm:text-sm" title={getSelectedModelName()}>
             {getSelectedModelName()}
           </span>
         </>
@@ -73,7 +72,7 @@ export function ModelSelector() {
       options={options}
       value={selectedValue}
       onChange={handleValueChange}
-      dropdownClassName="max-h-[400px] overflow-y-auto"
+      dropdownClassName="max-h-[350px] sm:max-h-[400px] overflow-y-auto"
     />
   );
 }

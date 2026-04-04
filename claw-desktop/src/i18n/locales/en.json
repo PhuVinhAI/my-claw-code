@@ -190,6 +190,8 @@
   "terminal": {
     "stoppedByUser": "Stopped by user",
     "stop": "Stop",
+    "detach": "Detach",
+    "detached": "Running in background",
     "clickToExpand": "Click to view output",
     "clickToCollapse": "Click to collapse"
   },

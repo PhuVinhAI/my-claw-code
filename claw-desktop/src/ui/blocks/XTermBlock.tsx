@@ -21,6 +21,7 @@ interface XTermBlockProps {
   isError?: boolean;
   isPending?: boolean;
   isCancelled?: boolean;
+  isDetached?: boolean; // NEW: Tool is running in background
   toolUseId?: string;
   output?: string; // Historical output from saved session
 }
@@ -32,6 +33,7 @@ export function XTermBlock({
   isError = false,
   isPending = false,
   isCancelled = false,
+  isDetached = false,
   toolUseId,
   output,
 }: XTermBlockProps) {
@@ -39,6 +41,7 @@ export function XTermBlock({
   const xtermRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
   const cancelToolExecution = useChatStore((state) => state.cancelToolExecution);
+  const detachToolExecution = useChatStore((state) => state.detachToolExecution);
   const { t } = useTranslation();
   
   // Collapse state - mặc định collapsed
@@ -56,11 +59,17 @@ export function XTermBlock({
   // Only listen if no historical output (means it's a new/active command)
   useTerminalStream(xtermRef.current, toolUseId, !output);
 
-  const StatusIcon = isPending ? Loader2 : (isError || isCancelled) ? XCircle : CheckCircle2;
+  const StatusIcon = isPending ? Loader2 : isDetached ? Loader2 : (isError || isCancelled) ? XCircle : CheckCircle2;
 
   const handleStop = async () => {
     if (toolUseId && isPending) {
       await cancelToolExecution(toolUseId);
+    }
+  };
+  
+  const handleDetach = async () => {
+    if (toolUseId && isPending) {
+      await detachToolExecution(toolUseId);
     }
   };
 
@@ -201,12 +210,21 @@ export function XTermBlock({
             className={cn(
               'h-4 w-4',
               isPending && 'animate-spin text-blue-400',
+              isDetached && 'animate-pulse text-yellow-400',
               isError && 'text-red-400',
-              !isPending && !isError && 'text-emerald-400'
+              !isPending && !isError && !isDetached && 'text-emerald-400'
             )}
           />
           <TerminalIcon className="h-4 w-4 text-muted-foreground/70" />
           <span className="text-sm font-semibold text-foreground/90">{toolName}</span>
+          
+          {/* Show detached status */}
+          {isDetached && (
+            <>
+              <span className="text-muted-foreground/30">|</span>
+              <span className="text-xs text-yellow-400">{t('terminal.detached')}</span>
+            </>
+          )}
           
           {/* Show timeout if specified */}
           {inputParams.timeout && (
@@ -225,17 +243,28 @@ export function XTermBlock({
           )}
         </div>
         
-        {/* Stop button - only show when pending */}
+        {/* Action buttons - only show when pending */}
         {isPending && toolUseId && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleStop}
-            className="h-7 px-2 text-xs text-red-400 hover:text-red-300 hover:bg-red-950/30"
-          >
-            <StopCircle className="h-3.5 w-3.5 mr-1" />
-            {t('terminal.stop')}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleDetach}
+              className="h-7 px-2 text-xs text-yellow-400 hover:text-yellow-300 hover:bg-yellow-950/30"
+            >
+              <StopCircle className="h-3.5 w-3.5 mr-1" />
+              {t('terminal.detach')}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleStop}
+              className="h-7 px-2 text-xs text-red-400 hover:text-red-300 hover:bg-red-950/30"
+            >
+              <StopCircle className="h-3.5 w-3.5 mr-1" />
+              {t('terminal.stop')}
+            </Button>
+          </div>
         )}
       </div>
 

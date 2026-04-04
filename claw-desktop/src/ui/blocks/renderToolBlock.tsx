@@ -8,6 +8,7 @@ import { FileOperationBlock } from './FileOperationBlock';
 import { SearchResultBlock } from './SearchResultBlock';
 import { WebSearchBlock } from './WebSearchBlock';
 import { DelegationBlock } from './DelegationBlock';
+import { useChatStore } from '../../store/useChatStore';
 
 interface RenderToolBlockProps {
   toolUseBlock: ContentBlock;
@@ -34,6 +35,10 @@ export function renderToolBlock({ toolUseBlock, toolResultBlock }: RenderToolBlo
   const isPending = !toolResultBlock || isStreaming; // Pending if no result OR still streaming
   const isCancelledState = isError && isCancelled(toolOutput);
   const toolUseId = toolUseBlock.id;
+  
+  // Check if tool is detached
+  const detachedTools = useChatStore((state) => state.detachedTools);
+  const isDetached = toolUseId ? detachedTools.has(toolUseId) : false;
 
   // Parse input JSON
   let parsedInput: any = {};
@@ -91,6 +96,7 @@ export function renderToolBlock({ toolUseBlock, toolResultBlock }: RenderToolBlo
         isError={isError}
         isPending={isPending}
         isCancelled={isCancelledState}
+        isDetached={isDetached}
         toolUseId={toolUseId || undefined}
         output={rawOutput}
       />

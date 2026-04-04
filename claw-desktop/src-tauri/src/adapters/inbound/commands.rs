@@ -373,6 +373,16 @@ pub fn cancel_tool_execution(
     state.pty_executor.cancel_tool(&tool_use_id)
 }
 
+/// Detach a tool execution - let it run but return current output to AI
+#[tauri::command]
+pub fn detach_tool_execution(
+    tool_use_id: String,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    state.pty_executor.detach_tool(&tool_use_id)?;
+    Ok(())
+}
+
 /// Get current work mode
 #[tauri::command]
 pub fn get_work_mode(state: State<'_, AppState>) -> Result<crate::core::domain::types::WorkMode, String> {
