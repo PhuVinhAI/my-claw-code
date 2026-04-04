@@ -1,5 +1,6 @@
 // SearchResultBlock — Clean inline search indicator
 import { Search, FileSearch, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
 
 interface SearchResultBlockProps {
@@ -19,9 +20,10 @@ export function SearchResultBlock({
   isPending = false,
   isCancelled = false,
 }: SearchResultBlockProps) {
+  const { t } = useTranslation();
   const StatusIcon = isPending ? Loader2 : (isError || isCancelled) ? XCircle : CheckCircle2;
   const Icon = toolName === 'grep_search' ? Search : FileSearch;
-  const label = toolName === 'grep_search' ? 'Tìm nội dung' : 'Tìm file';
+  const label = toolName === 'grep_search' ? t('search.grepSearch') : t('search.globSearch');
   const resultCount = output ? output.split('\n').filter((l) => l.trim()).length : 0;
 
   return (
@@ -40,9 +42,18 @@ export function SearchResultBlock({
       <span className="text-muted-foreground/40">|</span>
       <span className="font-mono truncate flex-1 text-muted-foreground text-[11px] sm:text-[13px]">{pattern}</span>
       {!isPending && !isError && !isCancelled && (
-        <span className="text-[10px] sm:text-xs font-medium bg-foreground/5 text-foreground/70 px-1.5 sm:px-2 py-0.5 rounded-md">{resultCount} kết quả</span>
+        <span className="text-[10px] sm:text-xs font-medium bg-foreground/5 text-foreground/70 px-1.5 sm:px-2 py-0.5 rounded-md">{t('search.results', { count: resultCount })}</span>
       )}
-      {isCancelled && <span className="text-destructive text-[10px] sm:text-xs font-medium bg-destructive/10 px-1.5 sm:px-2 py-0.5 rounded-md">Đã dừng</span>}
+      {isCancelled && (
+        <span className="text-destructive text-[10px] sm:text-xs font-medium bg-destructive/10 px-1.5 sm:px-2 py-0.5 rounded-md">
+          {t('search.stopped')}
+        </span>
+      )}
+      {isError && !isCancelled && (
+        <span className="text-destructive text-[10px] sm:text-xs font-medium bg-destructive/10 px-1.5 sm:px-2 py-0.5 rounded-md">
+          {t('search.error')}
+        </span>
+      )}
     </div>
   );
 }

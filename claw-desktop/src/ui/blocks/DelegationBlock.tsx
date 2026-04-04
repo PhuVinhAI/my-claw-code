@@ -106,6 +106,7 @@ export function DelegationBlock({
         
         {isPending && <span className="text-[10px] sm:text-xs text-indigo-500 animate-pulse">{t('delegation.processing')}</span>}
         {isCancelled && <span className="text-red-400 text-[10px] sm:text-xs font-medium bg-red-400/10 px-1.5 sm:px-2 py-0.5 rounded-md">{t('delegation.stopped')}</span>}
+        {isError && !isCancelled && <span className="text-red-400 text-[10px] sm:text-xs font-medium bg-red-400/10 px-1.5 sm:px-2 py-0.5 rounded-md">{t('delegation.error')}</span>}
         
         {parsedOutput && 'status' in parsedOutput && (
           <span className={cn(
@@ -204,7 +205,7 @@ export function DelegationBlock({
 
                   {parsedOutput.error && (
                     <div className="text-[10px] sm:text-xs text-red-400 bg-red-400/10 px-2 py-1 rounded">
-                      {t('delegation.error')}: {parsedOutput.error}
+                      {t('delegation.errorMessage')}: {parsedOutput.error}
                     </div>
                   )}
                 </>

@@ -301,7 +301,7 @@ where
             assistant_messages,
             tool_results,
             iterations,
-            usage: self.usage_tracker.cumulative_usage(),
+            usage: self.usage_tracker.current_turn_usage(),
         })
     }
 
@@ -428,7 +428,7 @@ where
             assistant_messages,
             tool_results,
             iterations,
-            usage: self.usage_tracker.cumulative_usage(),
+            usage: self.usage_tracker.current_turn_usage(),
         })
     }
 

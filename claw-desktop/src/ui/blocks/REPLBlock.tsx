@@ -7,6 +7,7 @@ import { ClipboardAddon } from '@xterm/addon-clipboard';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { Code, ChevronDown, ChevronRight, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
 import { useChatStore } from '../../store/useChatStore';
 import { useTerminalStream } from './useTerminalStream';
@@ -35,6 +36,7 @@ export function REPLBlock({
   toolUseId,
   output,
 }: REPLBlockProps) {
+  const { t } = useTranslation();
   const [isCodeExpanded, setIsCodeExpanded] = useState(false);
   const terminalRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<Terminal | null>(null);
@@ -157,7 +159,7 @@ export function REPLBlock({
           </div>
         </div>
         <div className="px-3 sm:px-4 py-2.5 sm:py-3 bg-muted/5">
-          <p className="text-xs sm:text-sm text-red-400 font-mono">Đã dừng bởi người dùng</p>
+          <p className="text-xs sm:text-sm text-red-400 font-mono">{t('terminal.stoppedByUser')}</p>
         </div>
       </div>
     );
@@ -201,9 +203,9 @@ export function REPLBlock({
             <ChevronRight className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground/70" />
           )}
           <span className="text-[10px] sm:text-xs text-muted-foreground/80 font-mono">
-            {isCodeExpanded ? 'Ẩn code Python' : 'Xem code Python'}
+            {isCodeExpanded ? t('repl.hideCode') : t('repl.showCode')}
           </span>
-          <span className="text-[10px] sm:text-xs text-muted-foreground/50">({code.split('\n').length} dòng)</span>
+          <span className="text-[10px] sm:text-xs text-muted-foreground/50">({code.split('\n').length} {t('repl.lines')})</span>
         </button>
         
         {isCodeExpanded && (
@@ -234,7 +236,7 @@ export function REPLBlock({
 
       {/* Output Terminal */}
       <div className="px-3 sm:px-4 py-2.5 sm:py-3 bg-muted/5">
-        <div className="text-[10px] sm:text-xs text-muted-foreground/70 mb-1.5 sm:mb-2 font-mono">Output:</div>
+        <div className="text-[10px] sm:text-xs text-muted-foreground/70 mb-1.5 sm:mb-2 font-mono">{t('repl.output')}:</div>
         <div 
           ref={terminalRef}
           className="w-full xterm-container rounded-md overflow-hidden border border-border/20"

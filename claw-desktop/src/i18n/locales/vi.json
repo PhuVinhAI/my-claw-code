@@ -125,13 +125,15 @@
     "read": "Đọc file",
     "write": "Tạo file",
     "edit": "Sửa file",
-    "stopped": "Đã dừng"
+    "stopped": "Đã dừng",
+    "error": "Lỗi"
   },
   "webSearch": {
     "search": "Tìm kiếm web",
     "fetch": "Lấy nội dung web",
     "results": "{{count}} kết quả",
     "stopped": "Đã dừng",
+    "error": "Lỗi",
     "hideResults": "Ẩn kết quả",
     "showResults": "Xem kết quả",
     "status": "Trạng thái",
@@ -150,6 +152,7 @@
     "command": "Lệnh",
     "path": "Đường dẫn",
     "stopped": "Đã dừng",
+    "error": "Lỗi",
     "hideOutput": "Ẩn kết quả",
     "showOutput": "Xem kết quả",
     "success": "Thành công",
@@ -196,6 +199,7 @@
     "agent": "Agent",
     "processing": "Đang xử lý…",
     "stopped": "Đã dừng",
+    "error": "Lỗi",
     "hideDetails": "Ẩn chi tiết",
     "showDetails": "Xem chi tiết",
     "path": "Đường dẫn",
@@ -206,7 +210,7 @@
     "status": "Trạng thái",
     "created": "Tạo lúc",
     "outputFile": "File output",
-    "error": "Lỗi",
+    "errorMessage": "Lỗi",
     "running": "Đang chạy",
     "completed": "Hoàn thành",
     "failed": "Thất bại",
@@ -223,6 +227,19 @@
   "languages": {
     "vi": "Tiếng Việt",
     "en": "English"
+  },
+  "search": {
+    "grepSearch": "Tìm nội dung",
+    "globSearch": "Tìm file",
+    "results": "{{count}} kết quả",
+    "stopped": "Đã dừng",
+    "error": "Lỗi"
+  },
+  "repl": {
+    "hideCode": "Ẩn code",
+    "showCode": "Xem code",
+    "lines": "dòng",
+    "output": "Output"
   },
   "common": {
     "loading": "Đang tải...",

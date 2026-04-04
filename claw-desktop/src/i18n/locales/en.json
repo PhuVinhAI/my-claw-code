@@ -125,13 +125,15 @@
     "read": "Read file",
     "write": "Create file",
     "edit": "Edit file",
-    "stopped": "Stopped"
+    "stopped": "Stopped",
+    "error": "Error"
   },
   "webSearch": {
     "search": "Web search",
     "fetch": "Fetch web content",
     "results": "{{count}} results",
     "stopped": "Stopped",
+    "error": "Error",
     "hideResults": "Hide results",
     "showResults": "Show results",
     "status": "Status",
@@ -150,6 +152,7 @@
     "command": "Command",
     "path": "Path",
     "stopped": "Stopped",
+    "error": "Error",
     "hideOutput": "Hide output",
     "showOutput": "Show output",
     "success": "Success",
@@ -181,6 +184,7 @@
     "agent": "Agent",
     "processing": "Processing…",
     "stopped": "Stopped",
+    "error": "Error",
     "hideDetails": "Hide details",
     "showDetails": "Show details",
     "path": "Path",
@@ -191,7 +195,7 @@
     "status": "Status",
     "created": "Created",
     "outputFile": "Output file",
-    "error": "Error",
+    "errorMessage": "Error",
     "running": "Running",
     "completed": "Completed",
     "failed": "Failed",
@@ -223,6 +227,19 @@
     "seconds": "seconds",
     "description": "Description",
     "openInTerminal": "Open in terminal"
+  },
+  "search": {
+    "grepSearch": "Search content",
+    "globSearch": "Search files",
+    "results": "{{count}} results",
+    "stopped": "Stopped",
+    "error": "Error"
+  },
+  "repl": {
+    "hideCode": "Hide code",
+    "showCode": "Show code",
+    "lines": "lines",
+    "output": "Output"
   },
   "common": {
     "loading": "Loading...",

@@ -219,6 +219,11 @@ export function ToolExecutionBlock({
             {t('toolExecution.stopped')}
           </span>
         )}
+        {isError && !isCancelled && (
+          <span className="text-red-400 text-[10px] sm:text-xs leading-4 font-medium bg-red-400/10 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md border border-red-400/20">
+            {t('toolExecution.error')}
+          </span>
+        )}
       </div>
 
       {/* Auto-expanded or Expandable Output (only for complex tools) */}
