@@ -336,6 +336,15 @@ fn prepare_command(
             .arg("-NonInteractive")
             .arg("-Command")
             .arg(command);
+        
+        // CRITICAL: Ẩn console window trên Windows (tránh cmd nhảy ra)
+        #[cfg(windows)]
+        {
+            use std::os::windows::process::CommandExt;
+            const CREATE_NO_WINDOW: u32 = 0x08000000;
+            cmd.creation_flags(CREATE_NO_WINDOW);
+        }
+        
         cmd
     } else {
         let mut cmd = Command::new("sh");
@@ -376,6 +385,15 @@ fn prepare_tokio_command(
             .arg("-NonInteractive")
             .arg("-Command")
             .arg(command);
+        
+        // CRITICAL: Ẩn console window trên Windows (tránh cmd nhảy ra)
+        #[cfg(windows)]
+        {
+            use std::os::windows::process::CommandExt;
+            const CREATE_NO_WINDOW: u32 = 0x08000000;
+            cmd.creation_flags(CREATE_NO_WINDOW);
+        }
+        
         cmd
     } else {
         let mut cmd = TokioCommand::new("sh");

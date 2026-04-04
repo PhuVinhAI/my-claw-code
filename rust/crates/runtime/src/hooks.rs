@@ -241,6 +241,12 @@ fn shell_command(command: &str) -> CommandWithStdin {
     let mut command_builder = {
         let mut command_builder = Command::new("cmd");
         command_builder.arg("/C").arg(command);
+        
+        // CRITICAL: Ẩn console window trên Windows
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        command_builder.creation_flags(CREATE_NO_WINDOW);
+        
         CommandWithStdin::new(command_builder)
     };
 

@@ -2973,15 +2973,24 @@ fn execute_shell_command(
     run_in_background: Option<bool>,
 ) -> std::io::Result<runtime::BashCommandOutput> {
     if run_in_background.unwrap_or(false) {
-        let child = std::process::Command::new(shell)
-            .arg("-NoProfile")
+        let mut cmd = std::process::Command::new(shell);
+        cmd.arg("-NoProfile")
             .arg("-NonInteractive")
             .arg("-Command")
             .arg(command)
             .stdin(std::process::Stdio::null())
             .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
-            .spawn()?;
+            .stderr(std::process::Stdio::null());
+        
+        // CRITICAL: Ẩn console window trên Windows
+        #[cfg(windows)]
+        {
+            use std::os::windows::process::CommandExt;
+            const CREATE_NO_WINDOW: u32 = 0x08000000;
+            cmd.creation_flags(CREATE_NO_WINDOW);
+        }
+        
+        let child = cmd.spawn()?;
         return Ok(runtime::BashCommandOutput {
             stdout: String::new(),
             stderr: String::new(),
@@ -3010,6 +3019,14 @@ fn execute_shell_command(
     process
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped());
+    
+    // CRITICAL: Ẩn console window trên Windows
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        process.creation_flags(CREATE_NO_WINDOW);
+    }
 
     if let Some(timeout_ms) = timeout {
         let mut child = process.spawn()?;

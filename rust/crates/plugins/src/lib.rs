@@ -306,6 +306,15 @@ impl PluginTool {
             .env("CLAW_PLUGIN_NAME", &self.plugin_name)
             .env("CLAW_TOOL_NAME", &self.definition.name)
             .env("CLAW_TOOL_INPUT", &input_json);
+        
+        // CRITICAL: Ẩn console window trên Windows
+        #[cfg(windows)]
+        {
+            use std::os::windows::process::CommandExt;
+            const CREATE_NO_WINDOW: u32 = 0x08000000;
+            process.creation_flags(CREATE_NO_WINDOW);
+        }
+        
         if let Some(root) = &self.root {
             process
                 .current_dir(root)
@@ -1813,6 +1822,15 @@ fn run_lifecycle_commands(
             if cfg!(windows) {
                 let mut process = Command::new("cmd");
                 process.arg("/C").arg(command);
+                
+                // CRITICAL: Ẩn console window trên Windows
+                #[cfg(windows)]
+                {
+                    use std::os::windows::process::CommandExt;
+                    const CREATE_NO_WINDOW: u32 = 0x08000000;
+                    process.creation_flags(CREATE_NO_WINDOW);
+                }
+                
                 process
             } else {
                 let mut process = Command::new("sh");
@@ -1822,6 +1840,15 @@ fn run_lifecycle_commands(
         } else if cfg!(windows) {
             let mut process = Command::new("cmd");
             process.arg("/C").arg(command);
+            
+            // CRITICAL: Ẩn console window trên Windows
+            #[cfg(windows)]
+            {
+                use std::os::windows::process::CommandExt;
+                const CREATE_NO_WINDOW: u32 = 0x08000000;
+                process.creation_flags(CREATE_NO_WINDOW);
+            }
+            
             process
         } else {
             let mut process = Command::new("sh");
