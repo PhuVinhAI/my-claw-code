@@ -46,28 +46,28 @@ export function FileOperationBlock({
   }
 
   return (
-    <div className="group flex items-center gap-3 px-4 py-3 my-2 bg-muted/20 border border-border/30 rounded-lg text-sm transition-all hover:bg-muted/30 hover:border-border/50">
+    <div className="group flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2.5 sm:py-3 my-1.5 sm:my-2 bg-muted/20 border border-border/30 rounded-lg text-xs sm:text-sm transition-all hover:bg-muted/30 hover:border-border/50">
       <StatusIcon
         className={cn(
-          'h-4 w-4 shrink-0',
+          'h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0',
           isPending && 'animate-spin text-blue-400',
           isError && 'text-red-400',
           isCancelled && 'text-red-400',
           !isPending && !isError && !isCancelled && 'text-emerald-400'
         )}
       />
-      <Icon className="h-4 w-4 shrink-0 text-muted-foreground/70" />
+      <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0 text-muted-foreground/70" />
       <span className={cn('font-semibold text-foreground/90', isError && 'text-red-400')}>{label}</span>
       <span className="text-muted-foreground/30">|</span>
-      <span className="font-mono truncate flex-1 text-muted-foreground/70 text-xs">{filePath}</span>
+      <span className="font-mono truncate flex-1 text-muted-foreground/70 text-[10px] sm:text-xs">{filePath}</span>
       {additionalInfo && (
         <>
-          <span className="text-muted-foreground/30">|</span>
-          <span className="font-mono text-muted-foreground/60 text-xs">{additionalInfo}</span>
+          <span className="text-muted-foreground/30 hidden sm:inline">|</span>
+          <span className="font-mono text-muted-foreground/60 text-[10px] sm:text-xs hidden sm:inline">{additionalInfo}</span>
         </>
       )}
       {isCancelled && (
-        <span className="text-red-400 text-xs font-medium bg-red-400/10 px-2 py-1 rounded-md border border-red-400/20">
+        <span className="text-red-400 text-[10px] sm:text-xs font-medium bg-red-400/10 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md border border-red-400/20">
           {t('fileOperation.stopped')}
         </span>
       )}

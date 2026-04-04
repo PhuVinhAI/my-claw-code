@@ -94,52 +94,52 @@ export function WebSearchBlock({
   const hasResults = !isPending && !isError && !isCancelled && parsedOutput && (searchHits.length > 0 || (toolName === 'WebFetch' && 'result' in parsedOutput));
 
   return (
-    <div className="my-2 bg-muted/10 rounded-lg border border-border/30 overflow-hidden">
+    <div className="my-1.5 sm:my-2 bg-muted/10 rounded-lg border border-border/30 overflow-hidden">
       {/* Header */}
-      <div className="group flex items-center gap-3 px-4 py-3 bg-muted/20 border-b border-border/30">
+      <div className="group flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2.5 sm:py-3 bg-muted/20 border-b border-border/30">
         <StatusIcon
           className={cn(
-            'h-4 w-4 shrink-0',
+            'h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0',
             isPending && 'animate-spin text-blue-400',
             isError && 'text-red-400',
             isCancelled && 'text-red-400',
             !isPending && !isError && !isCancelled && 'text-emerald-400'
           )}
         />
-        <Globe className="h-4 w-4 shrink-0 text-muted-foreground/70" />
-        <span className={cn('font-semibold text-foreground/90', isError && 'text-red-400')}>{label}</span>
+        <Globe className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0 text-muted-foreground/70" />
+        <span className={cn('text-sm sm:text-base font-semibold text-foreground/90', isError && 'text-red-400')}>{label}</span>
         <span className="text-muted-foreground/30">|</span>
-        <span className="font-mono truncate flex-1 text-muted-foreground/70 text-xs">{displayText}</span>
+        <span className="font-mono truncate flex-1 text-muted-foreground/70 text-[10px] sm:text-xs">{displayText}</span>
         
         {/* Show allowed/blocked domains for WebSearch */}
         {toolName === 'WebSearch' && inputParams.allowed_domains && inputParams.allowed_domains.length > 0 && (
           <>
-            <span className="text-muted-foreground/30">|</span>
-            <span className="text-xs text-emerald-400/80">{t('webSearch.allowedDomains')}: {inputParams.allowed_domains.join(', ')}</span>
+            <span className="text-muted-foreground/30 hidden lg:inline">|</span>
+            <span className="text-[10px] sm:text-xs text-emerald-400/80 hidden lg:inline">{t('webSearch.allowedDomains')}: {inputParams.allowed_domains.join(', ')}</span>
           </>
         )}
         {toolName === 'WebSearch' && inputParams.blocked_domains && inputParams.blocked_domains.length > 0 && (
           <>
-            <span className="text-muted-foreground/30">|</span>
-            <span className="text-xs text-red-400/80">{t('webSearch.blockedDomains')}: {inputParams.blocked_domains.join(', ')}</span>
+            <span className="text-muted-foreground/30 hidden lg:inline">|</span>
+            <span className="text-[10px] sm:text-xs text-red-400/80 hidden lg:inline">{t('webSearch.blockedDomains')}: {inputParams.blocked_domains.join(', ')}</span>
           </>
         )}
         
         {duration && (
-          <span className="flex items-center gap-1 text-xs text-muted-foreground/60">
-            <Clock className="h-3 w-3" />
+          <span className="flex items-center gap-0.5 sm:gap-1 text-[10px] sm:text-xs text-muted-foreground/60">
+            <Clock className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
             {duration}
           </span>
         )}
         
         {hasResults && resultCount > 0 && (
-          <span className="text-xs font-medium bg-emerald-400/10 text-emerald-400 px-2 py-1 rounded-md border border-emerald-400/20">
+          <span className="text-[10px] sm:text-xs font-medium bg-emerald-400/10 text-emerald-400 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md border border-emerald-400/20">
             {t('webSearch.results', { count: resultCount })}
           </span>
         )}
         
         {isCancelled && (
-          <span className="text-red-400 text-xs font-medium bg-red-400/10 px-2 py-1 rounded-md border border-red-400/20">
+          <span className="text-red-400 text-[10px] sm:text-xs font-medium bg-red-400/10 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md border border-red-400/20">
             {t('webSearch.stopped')}
           </span>
         )}
@@ -147,8 +147,8 @@ export function WebSearchBlock({
 
       {/* Purpose section for WebFetch - show below header */}
       {toolName === 'WebFetch' && inputParams.prompt && (
-        <div className="px-4 py-2 bg-muted/5 border-b border-border/20">
-          <span className="text-xs text-foreground/80 italic">{inputParams.prompt}</span>
+        <div className="px-3 sm:px-4 py-1.5 sm:py-2 bg-muted/5 border-b border-border/20">
+          <span className="text-[10px] sm:text-xs text-foreground/80 italic">{inputParams.prompt}</span>
         </div>
       )}
 
@@ -157,36 +157,36 @@ export function WebSearchBlock({
         <>
           <button
             onClick={() => setIsExpanded(!isExpanded)}
-            className="w-full flex items-center gap-2 px-4 py-2 bg-muted/5 hover:bg-muted/10 transition-colors text-left border-b border-border/20"
+            className="w-full flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 bg-muted/5 hover:bg-muted/10 transition-colors text-left border-b border-border/20"
           >
             {isExpanded ? (
-              <ChevronDown className="h-4 w-4 text-muted-foreground/70" />
+              <ChevronDown className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground/70" />
             ) : (
-              <ChevronRight className="h-4 w-4 text-muted-foreground/70" />
+              <ChevronRight className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground/70" />
             )}
-            <span className="text-xs text-muted-foreground/80 font-medium">
+            <span className="text-[10px] sm:text-xs text-muted-foreground/80 font-medium">
               {isExpanded ? t('webSearch.hideResults') : t('webSearch.showResults')}
             </span>
           </button>
 
           {isExpanded && (
-            <div className="px-4 py-3 bg-muted/5 max-h-96 overflow-auto">
+            <div className="px-3 sm:px-4 py-2.5 sm:py-3 bg-muted/5 max-h-96 overflow-auto">
               {toolName === 'WebSearch' && searchHits.length > 0 && (
-                <div className="space-y-2">
+                <div className="space-y-1.5 sm:space-y-2">
                   {searchHits.map((hit, idx) => (
                     <a
                       key={idx}
                       href={hit.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-start gap-2 p-2 rounded-md hover:bg-muted/20 transition-colors group/link"
+                      className="flex items-start gap-1.5 sm:gap-2 p-1.5 sm:p-2 rounded-md hover:bg-muted/20 transition-colors group/link"
                     >
-                      <ExternalLink className="h-3.5 w-3.5 mt-0.5 text-blue-400 shrink-0" />
+                      <ExternalLink className="h-3 w-3 sm:h-3.5 sm:w-3.5 mt-0.5 text-blue-400 shrink-0" />
                       <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium text-foreground/90 group-hover/link:text-blue-400 transition-colors">
+                        <div className="text-xs sm:text-sm font-medium text-foreground/90 group-hover/link:text-blue-400 transition-colors">
                           {hit.title}
                         </div>
-                        <div className="text-xs text-muted-foreground/60 truncate font-mono mt-0.5">
+                        <div className="text-[10px] sm:text-xs text-muted-foreground/60 truncate font-mono mt-0.5">
                           {hit.url}
                         </div>
                       </div>
@@ -196,11 +196,11 @@ export function WebSearchBlock({
               )}
 
               {toolName === 'WebFetch' && parsedOutput && 'result' in parsedOutput && (
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2 text-xs">
+                <div className="space-y-2.5 sm:space-y-3">
+                  <div className="flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-xs">
                     <span className="text-muted-foreground/70">{t('webSearch.status')}:</span>
                     <span className={cn(
-                      'font-medium px-2 py-0.5 rounded-md',
+                      'font-medium px-1.5 sm:px-2 py-0.5 rounded-md',
                       parsedOutput.code >= 200 && parsedOutput.code < 300
                         ? 'bg-emerald-400/10 text-emerald-400'
                         : 'bg-red-400/10 text-red-400'
@@ -210,7 +210,7 @@ export function WebSearchBlock({
                     <span className="text-muted-foreground/70">|</span>
                     <span className="text-muted-foreground/70">{parsedOutput.bytes} {t('webSearch.bytes')}</span>
                   </div>
-                  <div className="text-sm text-foreground/80 whitespace-pre-wrap leading-relaxed">
+                  <div className="text-xs sm:text-sm text-foreground/80 whitespace-pre-wrap leading-relaxed">
                     {parsedOutput.result}
                   </div>
                 </div>
