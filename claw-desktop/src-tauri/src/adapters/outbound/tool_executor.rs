@@ -108,12 +108,6 @@ impl ToolExecutor for TauriToolExecutor {
     }
     
     fn execute_with_context(&mut self, tool_name: &str, input: &str, tool_use_id: &str) -> Result<String, ToolError> {
-        // Check cancel BEFORE executing tool
-        if self.cancel_flag.load(Ordering::Relaxed) {
-            eprintln!("[TOOL EXECUTOR] Tool execution cancelled before start");
-            return Err(ToolError::new("Tool execution cancelled by user".to_string()));
-        }
-
         eprintln!("[TOOL EXECUTOR] Executing tool: {} (id: {})", tool_name, tool_use_id);
         eprintln!("[TOOL EXECUTOR] Input: {}", input);
         

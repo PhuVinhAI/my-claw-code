@@ -195,8 +195,9 @@ export function XTermBlock({
               'h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0',
               isPending && 'animate-spin text-blue-400',
               isDetached && 'animate-pulse text-yellow-400',
-              isError && 'text-red-400',
-              !isPending && !isError && !isDetached && 'text-emerald-400'
+              isCancelled && 'text-orange-400',
+              isError && !isCancelled && 'text-red-400',
+              !isPending && !isError && !isDetached && !isCancelled && 'text-emerald-400'
             )}
           />
           <TerminalIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground/70 shrink-0" />
@@ -206,6 +207,13 @@ export function XTermBlock({
             <>
               <span className="text-muted-foreground/30">|</span>
               <span className="text-[10px] sm:text-xs text-yellow-400">{t('terminal.detached')}</span>
+            </>
+          )}
+          
+          {isCancelled && (
+            <>
+              <span className="text-muted-foreground/30">|</span>
+              <span className="text-[10px] sm:text-xs text-orange-400 font-medium">{t('terminal.cancelled')}</span>
             </>
           )}
           

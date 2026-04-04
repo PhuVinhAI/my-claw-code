@@ -15,12 +15,18 @@ export type ChatEvent =
   | { type: 'PERMISSION_REQUESTED'; request: PermissionRequest }
   | { type: 'PERMISSION_ANSWERED'; allow: boolean }
   | { type: 'MESSAGE_STOP' }
+  | { type: 'USER_CANCELLED' } // User explicitly cancelled (Stop button)
   | { type: 'ERROR'; message: string };
 
 export function chatReducer(
   state: ChatMachineState,
   event: ChatEvent
 ): ChatMachineState {
+  // USER_CANCELLED always goes to IDLE from any state
+  if (event.type === 'USER_CANCELLED') {
+    return { status: 'IDLE' };
+  }
+  
   switch (state.status) {
     case 'IDLE':
       if (event.type === 'USER_SENT_PROMPT') {

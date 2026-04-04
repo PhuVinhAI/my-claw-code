@@ -190,6 +190,7 @@
   },
   "terminal": {
     "stoppedByUser": "Stopped by user",
+    "cancelled": "Cancelled",
     "stop": "Stop",
     "detach": "Detach",
     "detached": "Running in background",

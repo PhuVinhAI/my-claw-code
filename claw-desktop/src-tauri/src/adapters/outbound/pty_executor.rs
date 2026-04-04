@@ -9,11 +9,16 @@ use crossbeam_channel::Receiver;
 use crate::core::use_cases::ports::IEventPublisher;
 use crate::core::domain::types::StreamEvent;
 
+struct ToolProcess {
+    cancel_flag: Arc<AtomicBool>,
+    detach_flag: Arc<AtomicBool>,
+}
+
 pub struct PtyExecutor {
     event_publisher: Arc<dyn IEventPublisher>,
     cancel_flag: Arc<AtomicBool>,
     stdin_rx: Receiver<(String, String)>, // (tool_use_id, input)
-    running_processes: Arc<Mutex<HashMap<String, Arc<AtomicBool>>>>, // tool_use_id -> cancel flag
+    running_processes: Arc<Mutex<HashMap<String, ToolProcess>>>, // tool_use_id -> process control
 }
 
 impl PtyExecutor {
@@ -33,12 +38,15 @@ impl PtyExecutor {
     /// Cancel a specific tool execution by tool_use_id
     pub fn cancel_tool(&self, tool_use_id: &str) -> Result<(), String> {
         let processes = self.running_processes.lock().unwrap();
-        if let Some(cancel_flag) = processes.get(tool_use_id) {
-            cancel_flag.store(true, Ordering::Relaxed);
+        if let Some(process) = processes.get(tool_use_id) {
+            process.cancel_flag.store(true, Ordering::Relaxed);
             eprintln!("[PTY] Cancelled tool execution: {}", tool_use_id);
             Ok(())
         } else {
-            Err(format!("Tool execution not found: {}", tool_use_id))
+            // Tool might be detached (not in running_processes anymore)
+            // Can't kill detached processes directly
+            eprintln!("[PTY] Tool not found in running processes (might be detached): {}", tool_use_id);
+            Err(format!("Tool execution not found or already detached: {}", tool_use_id))
         }
     }
     
@@ -49,23 +57,13 @@ impl PtyExecutor {
     }
     
     /// Detach a tool execution - return current output but keep process running
-    pub fn detach_tool(&self, tool_use_id: &str) -> Result<String, String> {
+    pub fn detach_tool(&self, tool_use_id: &str) -> Result<(), String> {
         let processes = self.running_processes.lock().unwrap();
-        if processes.contains_key(tool_use_id) {
-            // Tool exists and is running
-            // We'll emit a special marker to indicate detachment
-            // The actual output collection happens in the reader thread
+        if let Some(process) = processes.get(tool_use_id) {
+            // Set detach flag - this will cause execute_in_pty to return current output
+            process.detach_flag.store(true, Ordering::Relaxed);
             eprintln!("[PTY] Detached tool execution: {}", tool_use_id);
-            
-            // Emit detach event
-            self.event_publisher.publish_stream_event(
-                crate::core::domain::types::StreamEvent::ToolOutputChunk {
-                    tool_use_id: tool_use_id.to_string(),
-                    chunk: "\n[DETACHED: Process continues in background]\n".to_string(),
-                }
-            );
-            
-            Ok("Detached - process continues in background".to_string())
+            Ok(())
         } else {
             Err(format!("Tool execution not found: {}", tool_use_id))
         }
@@ -77,13 +75,19 @@ impl PtyExecutor {
         command: &str,
         tool_use_id: &str,
     ) -> Result<String, String> {
-        // Create per-tool cancel flag
-        let tool_cancel_flag = Arc::new(AtomicBool::new(false));
+        // Create per-tool control flags
+        let tool_process = ToolProcess {
+            cancel_flag: Arc::new(AtomicBool::new(false)),
+            detach_flag: Arc::new(AtomicBool::new(false)),
+        };
         
         // Register this tool execution
         {
             let mut processes = self.running_processes.lock().unwrap();
-            processes.insert(tool_use_id.to_string(), tool_cancel_flag.clone());
+            processes.insert(tool_use_id.to_string(), ToolProcess {
+                cancel_flag: tool_process.cancel_flag.clone(),
+                detach_flag: tool_process.detach_flag.clone(),
+            });
         }
 
         // Create PTY system
@@ -128,15 +132,19 @@ impl PtyExecutor {
         let event_publisher = self.event_publisher.clone();
         let tool_use_id_owned = tool_use_id.to_string();
         let cancel_flag = self.cancel_flag.clone();
-        let tool_cancel_flag_reader = tool_cancel_flag.clone();
+        let tool_cancel_flag_reader = tool_process.cancel_flag.clone();
+        let tool_detach_flag_reader = tool_process.detach_flag.clone();
+
+        // Shared output buffer
+        let output_buffer = Arc::new(Mutex::new(String::new()));
+        let output_buffer_reader = output_buffer.clone();
 
         // Spawn reader thread - stream raw bytes to frontend
         let reader_handle = std::thread::spawn(move || {
             let mut buffer = [0u8; 1024];
-            let mut accumulated = String::new();
             
             loop {
-                // Check both global and tool-specific cancel flags
+                // Check cancel flag (stop reading if cancelled)
                 if cancel_flag.load(Ordering::Relaxed) || tool_cancel_flag_reader.load(Ordering::Relaxed) {
                     break;
                 }
@@ -148,9 +156,14 @@ impl PtyExecutor {
 
                         // Convert to string - preserve all bytes including \r\n
                         let text = String::from_utf8_lossy(chunk).to_string();
-                        accumulated.push_str(&text);
                         
-                        // Emit raw text (xterm.js handles all formatting)
+                        // Always accumulate to buffer
+                        {
+                            let mut output = output_buffer_reader.lock().unwrap();
+                            output.push_str(&text);
+                        }
+                        
+                        // ALWAYS emit - even if detached (user wants to see output)
                         event_publisher.publish_stream_event(StreamEvent::ToolOutputChunk {
                             tool_use_id: tool_use_id_owned.clone(),
                             chunk: text,
@@ -162,8 +175,6 @@ impl PtyExecutor {
                     }
                 }
             }
-            
-            accumulated
         });
 
         // Spawn stdin forwarder thread
@@ -188,10 +199,10 @@ impl PtyExecutor {
             }
         });
 
-        // Wait for process to finish or cancellation
+        // Wait for process to finish, cancellation, or detachment
         let result = loop {
-            // Check both global and tool-specific cancel flags
-            if self.cancel_flag.load(Ordering::Relaxed) || tool_cancel_flag.load(Ordering::Relaxed) {
+            // Check cancel flag
+            if self.cancel_flag.load(Ordering::Relaxed) || tool_process.cancel_flag.load(Ordering::Relaxed) {
                 eprintln!("[PTY] Cancel detected - killing process");
                 
                 // CRITICAL: Kill child process immediately
@@ -199,14 +210,47 @@ impl PtyExecutor {
                     eprintln!("[PTY] Failed to kill process: {}", e);
                 }
                 
-                // Will drop pair after loop
                 break Err("Tool execution cancelled by user".to_string());
+            }
+            
+            // Check detach flag - return current output but DON'T kill process  
+            if tool_process.detach_flag.load(Ordering::Relaxed) {
+                eprintln!("[PTY] Detach detected - returning current output, process continues");
+                
+                // Get current output
+                let current_output = {
+                    let output = output_buffer.lock().unwrap();
+                    output.clone()
+                };
+                
+                // Add detach marker
+                let detached_output = format!("{}\n\n[Process detached - continues running in background]", current_output);
+                
+                // Note: We can't move child to detached list because it's borrowed
+                // Instead, just remove from running_processes and let it continue
+                // User can still see output via reader thread
+                {
+                    let mut processes = self.running_processes.lock().unwrap();
+                    processes.remove(tool_use_id);
+                }
+                
+                // DON'T drop pair - process continues running
+                // DON'T join reader thread - let it continue streaming
+                // DON'T drop child - let it continue running
+                
+                // Leak the resources intentionally (process continues in background)
+                std::mem::forget(pair);
+                std::mem::forget(child);
+                std::mem::forget(reader_handle);
+                
+                // Return current output to AI
+                return Ok(detached_output);
             }
 
             // Check if child process finished
             match child.try_wait() {
                 Ok(Some(_status)) => {
-                    // Process finished
+                    // Process finished normally
                     break Ok(());
                 }
                 Ok(None) => {
@@ -220,13 +264,17 @@ impl PtyExecutor {
             }
         };
 
-        // Drop PTY pair to close pipes and signal reader thread to stop
-        // This will kill the child process if still running (backup)
+        // Drop PTY pair to close pipes (only if not detached)
         drop(pair);
         
-        // Wait for reader thread to finish
-        let output = reader_handle.join()
-            .map_err(|_| "Reader thread panicked".to_string())?;
+        // Wait for reader thread to finish (with timeout for detached case)
+        let _ = reader_handle.join();
+
+        // Get final output
+        let output = {
+            let output = output_buffer.lock().unwrap();
+            output.clone()
+        };
 
         // Cleanup: remove from running processes
         {
@@ -241,4 +289,3 @@ impl PtyExecutor {
         }
     }
 }
-

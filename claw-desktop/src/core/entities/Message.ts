@@ -11,6 +11,7 @@ export interface ContentBlock {
   tool_name?: string;
   output?: string;
   is_error?: boolean;
+  is_cancelled?: boolean; // True when tool was cancelled by user
   isStreaming?: boolean; // True when receiving chunks, false when complete
   thinking?: string; // For thinking blocks (parsed from text)
 }

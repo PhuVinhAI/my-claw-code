@@ -129,20 +129,20 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   stopGeneration: async () => {
     const { gateway, dispatch, flushAssistantMessage } = get();
     
-    console.log('[STORE] stopGeneration called - cancelling backend first');
+    console.log('[STORE] stopGeneration called - updating UI first');
     
-    // CRITICAL: Cancel backend FIRST (kill all running tools)
+    // Update UI FIRST (immediate feedback) - use USER_CANCELLED to force IDLE
+    flushAssistantMessage();
+    dispatch({ type: 'USER_CANCELLED' });
+    console.log('[STORE] UI state updated to IDLE');
+    
+    // Then cancel backend (kill all running tools)
     try {
       await gateway.cancelPrompt();
       console.log('[STORE] Backend cancelled successfully');
     } catch (e) {
       console.error("[STORE] Failed to cancel backend prompt:", e);
     }
-    
-    // Then update UI state
-    flushAssistantMessage();
-    dispatch({ type: 'MESSAGE_STOP' });
-    console.log('[STORE] UI state updated to IDLE');
   },
 
   sendToolInput: async (toolUseId: string, input: string) => {
@@ -523,6 +523,7 @@ export function initializeChatStore() {
                     tool_name: toolUseBlock.name,
                     output: event.output, // Use final output from backend
                     is_error: event.is_error,
+                    is_cancelled: event.is_cancelled,
                     isStreaming: false, // Mark as complete
                   };
                 } else {
@@ -537,6 +538,7 @@ export function initializeChatStore() {
                         tool_name: toolUseBlock.name,
                         output: event.output,
                         is_error: event.is_error,
+                        is_cancelled: event.is_cancelled,
                         isStreaming: false,
                       },
                     ],

@@ -31,9 +31,11 @@ export function renderToolBlock({ toolUseBlock, toolResultBlock, detachedTools }
   const toolInput = toolUseBlock.input || '';
   const toolOutput = toolResultBlock?.output;
   const isError = toolResultBlock?.is_error || false;
+  const isCancelledFromBackend = toolResultBlock?.is_cancelled || false;
   const isStreaming = toolResultBlock?.isStreaming || false;
   const isPending = !toolResultBlock || isStreaming; // Pending if no result OR still streaming
-  const isCancelledState = isError && isCancelled(toolOutput);
+  // Use is_cancelled from backend if available, otherwise fallback to output detection
+  const isCancelledState = isCancelledFromBackend || (isError && isCancelled(toolOutput));
   const toolUseId = toolUseBlock.id;
   
   // Check if tool is detached (from parent)

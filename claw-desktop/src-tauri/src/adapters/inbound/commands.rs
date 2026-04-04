@@ -386,8 +386,7 @@ pub fn detach_tool_execution(
     tool_use_id: String,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
-    state.pty_executor.detach_tool(&tool_use_id)?;
-    Ok(())
+    state.pty_executor.detach_tool(&tool_use_id)
 }
 
 /// Get current work mode

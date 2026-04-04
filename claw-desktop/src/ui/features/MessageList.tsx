@@ -137,6 +137,18 @@ export function MessageList() {
   }, []);
 
   useEffect(() => {
+    // Reset userScrolledUp when NEW USER message is added (user sent a message)
+    if (messages.length > lastMessageCount.current) {
+      const lastMessage = messages[messages.length - 1];
+      if (lastMessage?.role === 'user') {
+        // User just sent a message - force scroll to bottom
+        userScrolledUp.current = false;
+      }
+    }
+    lastMessageCount.current = messages.length;
+  }, [messages.length]);
+
+  useEffect(() => {
     if (userScrolledUp.current) return;
 
     const el = scrollParentRef.current;
@@ -156,13 +168,6 @@ export function MessageList() {
       }, 100);
     });
   }, [messages.length, currentAssistantText, state.status]);
-
-  useEffect(() => {
-    if (messages.length > lastMessageCount.current) {
-      userScrolledUp.current = false;
-    }
-    lastMessageCount.current = messages.length;
-  }, [messages.length]);
 
   return (
     <div ref={scrollParentRef} className="flex-1 p-4 sm:p-5 lg:p-6 pb-3 sm:pb-4 overflow-y-auto">
@@ -247,6 +252,9 @@ export function MessageList() {
                     
                     {/* Footer for AI messages - only show on last message in sequence */}
                     {message.role === 'assistant' && (() => {
+                      // Only show footer when AI is done (not generating)
+                      if (state.status === 'GENERATING') return null;
+                      
                       // Check if this is the last assistant message before next user message
                       const isLastInSequence = virtualItem.index === messages.length - 1 || 
                         messages[virtualItem.index + 1]?.role === 'user';

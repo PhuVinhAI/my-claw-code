@@ -232,11 +232,15 @@ impl ChatSessionActor {
                             is_error,
                         } = block
                         {
+                            // Detect if tool was cancelled (check output message)
+                            let is_cancelled = output.contains("cancelled by user") || output.contains("Tool execution cancelled");
+                            
                             event_publisher.publish_stream_event(
                                 crate::core::domain::types::StreamEvent::ToolResult {
                                     tool_use_id: tool_use_id.clone(),
                                     output: output.clone(),
                                     is_error: *is_error,
+                                    is_cancelled,
                                 },
                             );
                         }
