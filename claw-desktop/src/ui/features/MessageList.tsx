@@ -55,7 +55,7 @@ function fixIncompleteCodeBlocks(text: string): string {
 
 export function MessageList() {
   const { t } = useTranslation();
-  const { messages, currentAssistantText, state } = useChatStore();
+  const { messages, currentAssistantText, state, detachedTools } = useChatStore();
   const scrollParentRef = useRef<HTMLDivElement>(null);
   const userScrolledUp = useRef(false);
   const isProgrammaticScroll = useRef(false);
@@ -234,6 +234,7 @@ export function MessageList() {
                               {renderToolBlock({
                                 toolUseBlock: block,
                                 toolResultBlock: toolResult,
+                                detachedTools,
                               })}
                             </div>
                           );

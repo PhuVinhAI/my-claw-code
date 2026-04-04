@@ -8,11 +8,11 @@ import { FileOperationBlock } from './FileOperationBlock';
 import { SearchResultBlock } from './SearchResultBlock';
 import { WebSearchBlock } from './WebSearchBlock';
 import { DelegationBlock } from './DelegationBlock';
-import { useChatStore } from '../../store/useChatStore';
 
 interface RenderToolBlockProps {
   toolUseBlock: ContentBlock;
   toolResultBlock?: ContentBlock;
+  detachedTools?: Set<string>; // Pass from parent component
 }
 
 // Detect if tool was cancelled by user
@@ -26,7 +26,7 @@ export function isCancelled(output?: string): boolean {
   );
 }
 
-export function renderToolBlock({ toolUseBlock, toolResultBlock }: RenderToolBlockProps) {
+export function renderToolBlock({ toolUseBlock, toolResultBlock, detachedTools }: RenderToolBlockProps) {
   const toolName = toolUseBlock.name || 'unknown';
   const toolInput = toolUseBlock.input || '';
   const toolOutput = toolResultBlock?.output;
@@ -36,9 +36,8 @@ export function renderToolBlock({ toolUseBlock, toolResultBlock }: RenderToolBlo
   const isCancelledState = isError && isCancelled(toolOutput);
   const toolUseId = toolUseBlock.id;
   
-  // Check if tool is detached
-  const detachedTools = useChatStore((state) => state.detachedTools);
-  const isDetached = toolUseId ? detachedTools.has(toolUseId) : false;
+  // Check if tool is detached (from parent)
+  const isDetached = toolUseId && detachedTools ? detachedTools.has(toolUseId) : false;
 
   // Parse input JSON
   let parsedInput: any = {};
