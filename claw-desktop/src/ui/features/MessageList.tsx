@@ -59,7 +59,7 @@ function fixIncompleteCodeBlocks(text: string): string {
 
 export function MessageList() {
   const { t } = useTranslation();
-  const { messages, currentAssistantText, state, detachedTools } = useChatStore();
+  const { messages, currentAssistantText, state, detachedTools, currentSessionId } = useChatStore();
   const scrollParentRef = useRef<HTMLDivElement>(null);
   const userScrolledUp = useRef(false);
   const isProgrammaticScroll = useRef(false);
@@ -68,6 +68,7 @@ export function MessageList() {
   const [showScrollButton, setShowScrollButton] = useState(false);
   const autoScrollEnabled = useRef(true); // Track if auto-scroll should happen
   const isScrollingToBottom = useRef(false); // Track if we're in the middle of scrolling to bottom
+  const lastSessionId = useRef<string | null>(currentSessionId);
 
   const { measureText } = useTextMeasurement({
     font: '16px Inter',
@@ -125,6 +126,35 @@ export function MessageList() {
 
   const virtualItems = virtualizer.getVirtualItems();
 
+  // Detect session change and scroll to bottom instantly
+  useEffect(() => {
+    if (currentSessionId !== lastSessionId.current) {
+      lastSessionId.current = currentSessionId;
+      
+      // Reset scroll state
+      autoScrollEnabled.current = true;
+      userScrolledUp.current = false;
+      isScrollingToBottom.current = false;
+      setShowScrollButton(false);
+      
+      // Scroll to bottom instantly after virtualizer renders
+      const el = scrollParentRef.current;
+      if (el) {
+        // Use longer delay for session change to ensure virtualizer is ready
+        setTimeout(() => {
+          isProgrammaticScroll.current = true;
+          el.scrollTo({
+            top: el.scrollHeight,
+            behavior: 'instant',
+          });
+          setTimeout(() => {
+            isProgrammaticScroll.current = false;
+          }, 50);
+        }, 100);
+      }
+    }
+  }, [currentSessionId]);
+
   useEffect(() => {
     const el = scrollParentRef.current;
     if (!el) return;
@@ -140,8 +170,9 @@ export function MessageList() {
         autoScrollEnabled.current = true;
         userScrolledUp.current = false;
         isScrollingToBottom.current = false;
-      } else {
-        // User scrolled up - disable auto-scroll
+      } else if (distFromBottom > SHOW_BUTTON_THRESHOLD) {
+        // Only disable auto-scroll if user scrolled up significantly
+        // This prevents disabling during small scroll adjustments
         autoScrollEnabled.current = false;
         userScrolledUp.current = true;
       }
@@ -161,23 +192,11 @@ export function MessageList() {
     if (messages.length > lastMessageCount.current) {
       const lastMessage = messages[messages.length - 1];
       if (lastMessage?.role === 'user') {
-        // User just sent a message - force enable auto-scroll and scroll immediately
+        // User just sent a message - force enable auto-scroll
         autoScrollEnabled.current = true;
         userScrolledUp.current = false;
+        isScrollingToBottom.current = false;
         setShowScrollButton(false);
-        
-        // Immediate scroll
-        const el = scrollParentRef.current;
-        if (el) {
-          isProgrammaticScroll.current = true;
-          el.scrollTo({
-            top: el.scrollHeight,
-            behavior: 'smooth',
-          });
-          setTimeout(() => {
-            isProgrammaticScroll.current = false;
-          }, 100);
-        }
       }
     }
     lastMessageCount.current = messages.length;
@@ -189,18 +208,21 @@ export function MessageList() {
 
     const el = scrollParentRef.current;
     if (!el) return;
-
-    isProgrammaticScroll.current = true;
-
-    el.scrollTo({
-      top: el.scrollHeight,
-      behavior: 'smooth',
-    });
-
+    
+    // Small delay to let virtualizer update first
     requestAnimationFrame(() => {
-      setTimeout(() => {
-        isProgrammaticScroll.current = false;
-      }, 100);
+      requestAnimationFrame(() => {
+        isProgrammaticScroll.current = true;
+        
+        el.scrollTo({
+          top: el.scrollHeight,
+          behavior: 'smooth',
+        });
+
+        setTimeout(() => {
+          isProgrammaticScroll.current = false;
+        }, 100);
+      });
     });
   }, [messages.length, currentAssistantText, state.status]);
 
