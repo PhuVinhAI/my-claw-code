@@ -255,6 +255,14 @@ impl ChatSessionActor {
                         }
                     }
                 },
+                |usage| {
+                    // Emit usage NGAY SAU mỗi API call trong vòng lặp tool
+                    event_publisher.publish_stream_event(
+                        crate::core::domain::types::StreamEvent::Usage {
+                            usage: usage.clone(),
+                        },
+                    );
+                },
             )
         });
 
@@ -277,13 +285,6 @@ impl ChatSessionActor {
         }
 
         let summary = summary?;
-
-        // Emit usage
-        self.event_publisher.publish_stream_event(
-            crate::core::domain::types::StreamEvent::Usage {
-                usage: summary.usage,
-            },
-        );
 
         // Auto-compact check: Nếu token gần đạt ngưỡng, tự động compact
         self.check_and_auto_compact();
@@ -360,6 +361,20 @@ impl ChatSessionActor {
                         summary: result.formatted_summary,
                         new_estimated_tokens,
                         max_tokens,
+                    }
+                );
+                
+                // Emit updated usage after compact (estimate based on new token count)
+                // This allows frontend to update token counter immediately
+                let estimated_usage = runtime::TokenUsage {
+                    input_tokens: new_estimated_tokens as u32,
+                    output_tokens: 0, // We don't track output separately in estimates
+                    cache_creation_input_tokens: 0,
+                    cache_read_input_tokens: 0,
+                };
+                self.event_publisher.publish_stream_event(
+                    crate::core::domain::types::StreamEvent::Usage {
+                        usage: estimated_usage,
                     }
                 );
             } else {

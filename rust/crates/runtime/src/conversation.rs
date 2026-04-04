@@ -312,14 +312,16 @@ where
     /// 
     /// The callback receives a reference to the tool result message immediately after
     /// the tool executes, before the next tool in the sequence runs.
-    pub fn run_turn_with_callback<F>(
+    pub fn run_turn_with_callback<F, G>(
         &mut self,
         user_input: impl Into<String>,
         mut prompter: Option<&mut dyn PermissionPrompter>,
         mut on_tool_result: F,
+        mut on_usage: G,
     ) -> Result<TurnSummary, RuntimeError>
     where
         F: FnMut(&ConversationMessage),
+        G: FnMut(&crate::TokenUsage),
     {
         self.session
             .messages
@@ -345,7 +347,9 @@ where
             let model_name = self.api_client.model_name();
             let (assistant_message, usage) = build_assistant_message(events, model_name)?;
             if let Some(usage) = usage {
-                self.usage_tracker.record(usage);
+                self.usage_tracker.record(usage.clone());
+                // Emit usage immediately after each API call in the loop
+                on_usage(&usage);
             }
             let pending_tool_uses = assistant_message
                 .blocks
