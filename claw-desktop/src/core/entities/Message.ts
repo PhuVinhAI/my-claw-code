@@ -2,7 +2,7 @@
 export type MessageRole = 'user' | 'assistant' | 'system' | 'tool';
 
 export interface ContentBlock {
-  type: 'text' | 'tool_use' | 'tool_result' | 'thinking';
+  type: 'text' | 'tool_use' | 'tool_result' | 'thinking' | 'compact';
   text?: string;
   id?: string;
   name?: string;
@@ -15,6 +15,13 @@ export interface ContentBlock {
   is_timed_out?: boolean; // True when tool timed out
   isStreaming?: boolean; // True when receiving chunks, false when complete
   thinking?: string; // For thinking blocks (parsed from text)
+  // Compact block fields
+  status?: 'started' | 'completed';
+  estimatedTokens?: number;
+  maxTokens?: number;
+  removedCount?: number;
+  summary?: string;
+  newEstimatedTokens?: number;
 }
 
 export interface TokenUsage {

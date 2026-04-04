@@ -9,4 +9,6 @@ export type StreamEvent =
   | { type: 'usage'; usage: TokenUsage }
   | { type: 'message_stop' }
   | { type: 'error'; message: string }
-  | { type: 'system_message'; message: string }; // System notification
+  | { type: 'system_message'; message: string } // System notification
+  | { type: 'compact_started'; estimated_tokens: number; max_tokens: number } // Auto-compact bắt đầu
+  | { type: 'compact_completed'; removed_count: number; summary: string; new_estimated_tokens: number; max_tokens: number }; // Auto-compact hoàn thành

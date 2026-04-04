@@ -239,5 +239,25 @@
     "unauthorized": "API key không hợp lệ. Vui lòng kiểm tra cài đặt.",
     "timeout": "Kết nối timeout. Vui lòng thử lại.",
     "network": "Lỗi kết nối mạng. Vui lòng kiểm tra internet."
+  },
+  "compact": {
+    "compacting": "Đang nén hội thoại...",
+    "completed": "Nén hội thoại thành công",
+    "removed": "Đã xóa",
+    "messages": "tin nhắn",
+    "saved": "Tiết kiệm",
+    "newTokenCount": "Số token mới",
+    "viewSummary": "Xem tóm tắt",
+    "settings": {
+      "title": "Auto-Compact",
+      "description": "Tự động nén hội thoại khi token gần đạt giới hạn",
+      "threshold": "Ngưỡng kích hoạt",
+      "thresholdUnit": "% của max context",
+      "thresholdHint": "Ví dụ: Model có 128K tokens, ngưỡng 80% = compact khi đạt ~102K tokens",
+      "preserveMessages": "Giữ lại tin nhắn gần nhất",
+      "preserveMessagesUnit": "tin nhắn",
+      "preserveMessagesHint": "Số tin nhắn gần nhất sẽ được giữ nguyên sau khi compact",
+      "saveChanges": "Lưu thay đổi"
+    }
   }
 }

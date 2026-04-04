@@ -9,6 +9,7 @@ import { Plus, Trash2, X, Check, Bot, Sparkles, AlertCircle, Pencil, Eye, EyeOff
 import { ConfirmDeleteProviderDialog } from './ConfirmDeleteProviderDialog';
 import { KiloModelsBrowser, KiloModel } from './KiloModelsBrowser';
 import { fetchKiloModels } from './fetchKiloModels';
+import { CompactSettingsSection } from './CompactSettingsSection';
 import { cn } from '../../../lib/utils';
 
 export function AISettingsTab() {
@@ -565,6 +566,9 @@ export function AISettingsTab() {
                 </div>
               )}
             </div>
+
+            {/* Compact Settings Section */}
+            <CompactSettingsSection />
           </div>
         ) : (
           /* Empty State */

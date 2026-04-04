@@ -793,6 +793,49 @@ export function initializeChatStore() {
         // AI sẽ nhận được thông báo này trong turn tiếp theo
         console.log('[SYSTEM]', event.message);
         break;
+      case 'compact_started':
+        // Thêm compact message vào UI với status "started"
+        useChatStore.setState((prev) => {
+          const compactMessage: Message = {
+            role: 'system',
+            blocks: [{
+              type: 'compact',
+              status: 'started',
+              estimatedTokens: event.estimated_tokens,
+              maxTokens: event.max_tokens,
+            }],
+          };
+          return { messages: [...prev.messages, compactMessage] };
+        });
+        break;
+      case 'compact_completed':
+        // Update compact message với status "completed"
+        useChatStore.setState((prev) => {
+          const messages = [...prev.messages];
+          // Tìm compact message cuối cùng và update
+          for (let i = messages.length - 1; i >= 0; i--) {
+            const msg = messages[i];
+            if (msg.role === 'system' && msg.blocks.some(b => b.type === 'compact')) {
+              // Preserve estimatedTokens from started event
+              const startedBlock = msg.blocks.find(b => b.type === 'compact');
+              messages[i] = {
+                ...msg,
+                blocks: [{
+                  type: 'compact',
+                  status: 'completed',
+                  estimatedTokens: startedBlock?.estimatedTokens, // From started event
+                  maxTokens: event.max_tokens,
+                  removedCount: event.removed_count,
+                  summary: event.summary,
+                  newEstimatedTokens: event.new_estimated_tokens,
+                }],
+              };
+              break;
+            }
+          }
+          return { messages };
+        });
+        break;
       case 'error':
         // On error, remove last user message and restore to input
         useChatStore.setState((prev: ChatStore) => {

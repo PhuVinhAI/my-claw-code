@@ -93,6 +93,7 @@ pub struct ChatSessionActor {
     prompter: crate::adapters::outbound::tauri_prompter::TauriPermissionAdapter,
     session_repository: Arc<dyn crate::core::use_cases::ports::ISessionRepository>,
     current_session_id: Option<String>,
+    settings_manager: Arc<crate::core::domain::settings::SettingsManager>,
 }
 
 impl ChatSessionActor {
@@ -105,6 +106,7 @@ impl ChatSessionActor {
         event_publisher: Arc<dyn IEventPublisher>,
         prompter: crate::adapters::outbound::tauri_prompter::TauriPermissionAdapter,
         session_repository: Arc<dyn crate::core::use_cases::ports::ISessionRepository>,
+        settings_manager: Arc<crate::core::domain::settings::SettingsManager>,
     ) -> Self {
         Self {
             runtime,
@@ -113,6 +115,7 @@ impl ChatSessionActor {
             prompter,
             session_repository,
             current_session_id: None,
+            settings_manager,
         }
     }
 
@@ -282,7 +285,87 @@ impl ChatSessionActor {
             },
         );
 
+        // Auto-compact check: Nếu token gần đạt ngưỡng, tự động compact
+        self.check_and_auto_compact();
+
         Ok(summary)
+    }
+
+    /// Check và auto-compact session nếu token vượt ngưỡng
+    fn check_and_auto_compact(&mut self) {
+        // Load settings để lấy config và model max_context
+        let settings = match self.settings_manager.load() {
+            Ok(s) => s,
+            Err(e) => {
+                eprintln!("[AUTO-COMPACT] Failed to load settings: {}", e);
+                return;
+            }
+        };
+        
+        // Get max_tokens từ selected model
+        let max_tokens = if let Some(selected) = &settings.selected_model {
+            if let Some(provider) = settings.get_provider(&selected.provider_id) {
+                if let Some(model) = provider.models.iter().find(|m| m.id == selected.model_id) {
+                    model.max_context.unwrap_or(64_000) as usize
+                } else {
+                    64_000 // Fallback
+                }
+            } else {
+                64_000 // Fallback
+            }
+        } else {
+            64_000 // Fallback
+        };
+        
+        let threshold_ratio = settings.compact_config.threshold_ratio;
+        let threshold = (max_tokens as f64 * threshold_ratio) as usize;
+        
+        let estimated_tokens = self.runtime.estimated_tokens();
+        
+        eprintln!("[AUTO-COMPACT] Estimated tokens: {} / {} (threshold: {} at {:.0}%)", 
+            estimated_tokens, max_tokens, threshold, threshold_ratio * 100.0);
+        
+        if estimated_tokens >= threshold {
+            eprintln!("[AUTO-COMPACT] Threshold reached, starting compaction...");
+            
+            // Emit CompactStarted event
+            self.event_publisher.publish_stream_event(
+                crate::core::domain::types::StreamEvent::CompactStarted {
+                    estimated_tokens,
+                    max_tokens,
+                }
+            );
+            
+            // Perform compaction using core logic với config từ settings
+            let config = runtime::CompactionConfig {
+                preserve_recent_messages: settings.compact_config.preserve_recent_messages,
+                max_estimated_tokens: 10_000,
+            };
+            
+            let result = self.runtime.compact(config);
+            
+            if result.removed_message_count > 0 {
+                // Replace session with compacted version
+                self.runtime.replace_session(result.compacted_session.clone());
+                
+                let new_estimated_tokens = self.runtime.estimated_tokens();
+                
+                eprintln!("[AUTO-COMPACT] Compaction completed: removed {} messages, tokens: {} -> {}",
+                    result.removed_message_count, estimated_tokens, new_estimated_tokens);
+                
+                // Emit CompactCompleted event
+                self.event_publisher.publish_stream_event(
+                    crate::core::domain::types::StreamEvent::CompactCompleted {
+                        removed_count: result.removed_message_count,
+                        summary: result.formatted_summary,
+                        new_estimated_tokens,
+                        max_tokens,
+                    }
+                );
+            } else {
+                eprintln!("[AUTO-COMPACT] No compaction needed (should_compact returned false)");
+            }
+        }
     }
 
     fn handle_cancel(&mut self) {

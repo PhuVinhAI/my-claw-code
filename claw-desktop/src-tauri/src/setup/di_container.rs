@@ -73,7 +73,7 @@ async fn initialize_app_async(app_handle: AppHandle) -> Result<AppState, String>
         .app_data_dir()
         .map_err(|e| format!("Failed to get app data dir: {}", e))?
         .join("settings.json");
-    let settings_manager = SettingsManager::new(settings_path);
+    let settings_manager = Arc::new(SettingsManager::new(settings_path));
     
     // Try to load settings and configure API client
     let settings = settings_manager.load().unwrap_or_else(|_| {
@@ -186,7 +186,14 @@ async fn initialize_app_async(app_handle: AppHandle) -> Result<AppState, String>
     let (tx, rx) = mpsc::channel::<ActorCommand>(100);
 
     // 14. Create Actor
-    let actor = ChatSessionActor::new(runtime, rx, event_publisher, prompter, repository);
+    let actor = ChatSessionActor::new(
+        runtime, 
+        rx, 
+        event_publisher, 
+        prompter, 
+        repository,
+        settings_manager.clone(), // Pass settings_manager to actor
+    );
 
     // 15. Spawn Actor task
     tokio::spawn(async move {

@@ -26,10 +26,42 @@ pub struct SelectedModel {
     pub model_id: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Settings {
     pub providers: Vec<Provider>,
     pub selected_model: Option<SelectedModel>,
+    #[serde(default)]
+    pub compact_config: CompactConfig,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct CompactConfig {
+    /// Ngưỡng % để trigger auto-compact (0.0 - 1.0)
+    /// Default: 0.80 (80%)
+    #[serde(default = "default_threshold_ratio")]
+    pub threshold_ratio: f64,
+    
+    /// Số tin nhắn gần nhất được giữ lại sau compact
+    /// Default: 4
+    #[serde(default = "default_preserve_messages")]
+    pub preserve_recent_messages: usize,
+}
+
+fn default_threshold_ratio() -> f64 {
+    0.80
+}
+
+fn default_preserve_messages() -> usize {
+    4
+}
+
+impl Default for CompactConfig {
+    fn default() -> Self {
+        Self {
+            threshold_ratio: default_threshold_ratio(),
+            preserve_recent_messages: default_preserve_messages(),
+        }
+    }
 }
 
 // Structure for loading default providers from JSON
@@ -51,6 +83,7 @@ impl Settings {
         Self {
             providers: Vec::new(),
             selected_model: None,
+            compact_config: CompactConfig::default(),
         }
     }
 
@@ -73,6 +106,7 @@ impl Settings {
                 Self {
                     providers,
                     selected_model: None,
+                    compact_config: CompactConfig::default(),
                 }
             }
             Err(e) => {
@@ -102,6 +136,7 @@ impl Settings {
         Self {
             providers: vec![kilo_provider],
             selected_model: None,
+            compact_config: CompactConfig::default(),
         }
     }
 

@@ -7,4 +7,5 @@ export * from './SearchResultBlock';
 export * from './WebSearchBlock';
 export * from './DelegationBlock';
 export * from './ThinkingBlock';
+export * from './CompactBlock';
 export * from './renderToolBlock';

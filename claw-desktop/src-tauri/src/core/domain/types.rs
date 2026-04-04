@@ -19,6 +19,8 @@ pub enum StreamEvent {
     MessageStop,
     Error { message: String },
     SystemMessage { message: String }, // System notification (e.g., tool changes)
+    CompactStarted { estimated_tokens: usize, max_tokens: usize }, // Auto-compact bắt đầu
+    CompactCompleted { removed_count: usize, summary: String, new_estimated_tokens: usize, max_tokens: usize }, // Auto-compact hoàn thành
 }
 
 /// Permission request event

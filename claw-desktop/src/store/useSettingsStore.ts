@@ -29,6 +29,9 @@ interface SettingsStore {
   // Selected model
   setSelectedModel: (providerId: string, modelId: string) => Promise<void>;
   getSelectedModelInfo: () => Promise<{ provider: Provider; model: Model } | null>;
+  
+  // Compact config
+  updateCompactConfig: (config: { threshold_ratio: number; preserve_recent_messages: number }) => Promise<void>;
 }
 
 export const useSettingsStore = create<SettingsStore>((set, get) => ({
@@ -151,6 +154,24 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
       return await get().gateway.getSelectedModelInfo();
     } catch (error) {
       console.error('Failed to get selected model info:', error);
+      throw error;
+    }
+  },
+
+  updateCompactConfig: async (config: { threshold_ratio: number; preserve_recent_messages: number }) => {
+    try {
+      const currentSettings = get().settings;
+      if (!currentSettings) throw new Error('Settings not loaded');
+      
+      const updatedSettings = {
+        ...currentSettings,
+        compact_config: config,
+      };
+      
+      await get().saveSettings(updatedSettings);
+      await get().loadSettings(); // Reload
+    } catch (error) {
+      console.error('Failed to update compact config:', error);
       throw error;
     }
   },

@@ -313,6 +313,25 @@ export function MessageList() {
                             />
                           );
                         }
+                        if (block.type === 'compact') {
+                          return (
+                            <div key={blockIdx}>
+                              {(() => {
+                                const { CompactBlock } = require('../blocks');
+                                return (
+                                  <CompactBlock
+                                    status={block.status || 'started'}
+                                    estimatedTokens={block.estimatedTokens}
+                                    maxTokens={block.maxTokens}
+                                    removedCount={block.removedCount}
+                                    summary={block.summary}
+                                    newEstimatedTokens={block.newEstimatedTokens}
+                                  />
+                                );
+                              })()}
+                            </div>
+                          );
+                        }
                         if (block.type === 'tool_use') {
                           const toolResult = message.blocks.find(
                             (b) => b.type === 'tool_result' && b.tool_use_id === block.id

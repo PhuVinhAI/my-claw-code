@@ -239,5 +239,25 @@
     "unauthorized": "Invalid API key. Please check settings.",
     "timeout": "Connection timeout. Please try again.",
     "network": "Network connection error. Please check your internet."
+  },
+  "compact": {
+    "compacting": "Compacting conversation...",
+    "completed": "Conversation compacted successfully",
+    "removed": "Removed",
+    "messages": "messages",
+    "saved": "Saved",
+    "newTokenCount": "New token count",
+    "viewSummary": "View summary",
+    "settings": {
+      "title": "Auto-Compact",
+      "description": "Automatically compact conversation when tokens approach limit",
+      "threshold": "Activation threshold",
+      "thresholdUnit": "% of max context",
+      "thresholdHint": "Example: Model with 128K tokens, 80% threshold = compact at ~102K tokens",
+      "preserveMessages": "Keep recent messages",
+      "preserveMessagesUnit": "messages",
+      "preserveMessagesHint": "Number of recent messages to preserve after compaction",
+      "saveChanges": "Save changes"
+    }
   }
 }

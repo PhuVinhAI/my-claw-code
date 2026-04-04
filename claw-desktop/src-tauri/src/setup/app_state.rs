@@ -19,7 +19,7 @@ pub struct AppState {
     pub tool_stdin_tx: crossbeam_channel::Sender<(String, String)>, // (tool_use_id, input)
     pub work_mode: Arc<Mutex<WorkMode>>,
     pub workspace_path: Arc<Mutex<Option<String>>>,
-    pub settings_manager: SettingsManager,
+    pub settings_manager: Arc<SettingsManager>,
     pub pty_executor: Arc<PtyExecutor>, // For cancelling specific PTY tools
 }
 
@@ -30,7 +30,7 @@ impl AppState {
         cancel_flag: Arc<AtomicBool>,
         cancel_tx: Sender<()>,
         tool_stdin_tx: crossbeam_channel::Sender<(String, String)>,
-        settings_manager: SettingsManager,
+        settings_manager: Arc<SettingsManager>,
         pty_executor: Arc<PtyExecutor>,
     ) -> Self {
         Self {
