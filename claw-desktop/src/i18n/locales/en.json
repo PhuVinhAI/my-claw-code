@@ -42,7 +42,8 @@
   },
   "tools": {
     "webSearch": "Web Search",
-    "webFetch": "Web Fetch"
+    "webFetch": "Web Fetch",
+    "repl": "Code Execution"
   },
   "messageList": {
     "thinking": "Thinking..."

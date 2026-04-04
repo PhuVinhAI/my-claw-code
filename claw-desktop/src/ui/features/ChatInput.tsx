@@ -24,6 +24,7 @@ export function ChatInput() {
   const availableTools = [
     { id: 'WebSearch', label: t('tools.webSearch') },
     { id: 'WebFetch', label: t('tools.webFetch') },
+    { id: 'REPL', label: t('tools.repl') },
   ];
 
   useEffect(() => {

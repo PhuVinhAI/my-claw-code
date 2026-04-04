@@ -42,7 +42,8 @@
   },
   "tools": {
     "webSearch": "Tìm kiếm Web",
-    "webFetch": "Truy cập Web"
+    "webFetch": "Truy cập Web",
+    "repl": "Thực thi Code"
   },
   "messageList": {
     "thinking": "Đang suy nghĩ..."
