@@ -41,7 +41,35 @@ export function ChatInput() {
   }, []);
 
   const handleSend = async () => {
-    if (!input.trim() || isGenerating) return;
+    if (!input.trim()) return;
+    
+    // If AI is generating, stop it first then send
+    if (isGenerating) {
+      const currentInput = input;
+      setInput(''); // Clear input immediately for better UX
+      
+      // Stop and send in background (non-blocking)
+      (async () => {
+        try {
+          // Stop AI first
+          if (stopGeneration) {
+            await stopGeneration();
+          }
+          
+          // Small delay to let state settle
+          await new Promise(resolve => setTimeout(resolve, 100));
+          
+          // Send new message
+          await sendPrompt(currentInput);
+        } catch (e) {
+          console.error('[ChatInput] Error in stop-and-send:', e);
+        }
+      })();
+      
+      return;
+    }
+    
+    // Normal send
     const currentInput = input;
     setInput('');
     await sendPrompt(currentInput);

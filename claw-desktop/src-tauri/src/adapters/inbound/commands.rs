@@ -651,57 +651,103 @@ pub async fn reload_api_client(state: State<'_, AppState>) -> Result<(), String>
     rx.await.map_err(|e| format!("Failed to receive response: {}", e))?
 }
 
-/// Open external terminal at current working directory
+/// Open external terminal at current working directory with optional command
 #[tauri::command]
-pub fn open_external_terminal() -> Result<(), String> {
+pub fn open_external_terminal(command: Option<String>) -> Result<(), String> {
     let cwd = std::env::current_dir()
         .map_err(|e| format!("Failed to get current directory: {}", e))?;
     
     eprintln!("[COMMAND] Opening external terminal at: {}", cwd.display());
+    if let Some(ref cmd) = command {
+        eprintln!("[COMMAND] With command: {}", cmd);
+    }
     
     #[cfg(target_os = "windows")]
     {
         // Windows: Use 'start' command to open new terminal window
-        // This works more reliably than spawning powershell/cmd directly
         let cwd_str = cwd.to_string_lossy().to_string();
         
-        // Try Windows Terminal first (modern Windows 10/11)
-        let wt_result = std::process::Command::new("cmd")
-            .arg("/C")
-            .arg("start")
-            .arg("wt")
-            .arg("-d")
-            .arg(&cwd_str)
-            .spawn();
-        
-        if wt_result.is_ok() {
-            eprintln!("[COMMAND] Opened Windows Terminal");
-        } else {
-            // Fallback to PowerShell
-            eprintln!("[COMMAND] Windows Terminal not found, trying PowerShell...");
-            let ps_result = std::process::Command::new("cmd")
+        if let Some(cmd) = command {
+            // Open terminal and run command
+            // Try Windows Terminal first
+            let wt_result = std::process::Command::new("cmd")
                 .arg("/C")
                 .arg("start")
-                .arg("powershell")
-                .arg("-NoExit")
-                .arg("-Command")
-                .arg(format!("Set-Location '{}'", cwd_str))
+                .arg("wt")
+                .arg("-d")
+                .arg(&cwd_str)
+                .arg("cmd")
+                .arg("/K")
+                .arg(&cmd)
                 .spawn();
             
-            if ps_result.is_ok() {
-                eprintln!("[COMMAND] Opened PowerShell");
+            if wt_result.is_ok() {
+                eprintln!("[COMMAND] Opened Windows Terminal with command");
             } else {
-                // Final fallback to CMD
-                eprintln!("[COMMAND] PowerShell failed, trying CMD...");
-                std::process::Command::new("cmd")
+                // Fallback to PowerShell
+                eprintln!("[COMMAND] Windows Terminal not found, trying PowerShell...");
+                let ps_result = std::process::Command::new("cmd")
                     .arg("/C")
                     .arg("start")
-                    .arg("cmd")
-                    .arg("/K")
-                    .arg(format!("cd /d \"{}\"", cwd_str))
-                    .spawn()
-                    .map_err(|e| format!("Failed to open CMD: {}", e))?;
-                eprintln!("[COMMAND] Opened CMD");
+                    .arg("powershell")
+                    .arg("-NoExit")
+                    .arg("-Command")
+                    .arg(format!("Set-Location '{}'; {}", cwd_str, cmd))
+                    .spawn();
+                
+                if ps_result.is_ok() {
+                    eprintln!("[COMMAND] Opened PowerShell with command");
+                } else {
+                    // Final fallback to CMD
+                    eprintln!("[COMMAND] PowerShell failed, trying CMD...");
+                    std::process::Command::new("cmd")
+                        .arg("/C")
+                        .arg("start")
+                        .arg("cmd")
+                        .arg("/K")
+                        .arg(format!("cd /d \"{}\" && {}", cwd_str, cmd))
+                        .spawn()
+                        .map_err(|e| format!("Failed to open CMD: {}", e))?;
+                    eprintln!("[COMMAND] Opened CMD with command");
+                }
+            }
+        } else {
+            // Open terminal without command (original behavior)
+            let wt_result = std::process::Command::new("cmd")
+                .arg("/C")
+                .arg("start")
+                .arg("wt")
+                .arg("-d")
+                .arg(&cwd_str)
+                .spawn();
+            
+            if wt_result.is_ok() {
+                eprintln!("[COMMAND] Opened Windows Terminal");
+            } else {
+                eprintln!("[COMMAND] Windows Terminal not found, trying PowerShell...");
+                let ps_result = std::process::Command::new("cmd")
+                    .arg("/C")
+                    .arg("start")
+                    .arg("powershell")
+                    .arg("-NoExit")
+                    .arg("-Command")
+                    .arg(format!("Set-Location '{}'", cwd_str))
+                    .spawn();
+                
+                if ps_result.is_ok() {
+                    eprintln!("[COMMAND] Opened PowerShell");
+                } else {
+                    eprintln!("[COMMAND] PowerShell failed, trying CMD...");
+                    std::process::Command::new("cmd")
+                        .arg("/C")
+                        .arg("start")
+                        .arg("cmd")
+                        .arg("/K")
+                        .arg(format!("cd /d \"{}\"", cwd_str))
+                        .spawn()
+                        .map_err(|e| format!("Failed to open CMD: {}", e))?;
+                    eprintln!("[COMMAND] Opened CMD");
+                }
             }
         }
     }
@@ -709,12 +755,25 @@ pub fn open_external_terminal() -> Result<(), String> {
     #[cfg(target_os = "macos")]
     {
         // macOS: Open Terminal.app
-        std::process::Command::new("open")
-            .arg("-a")
-            .arg("Terminal")
-            .arg(cwd)
-            .spawn()
-            .map_err(|e| format!("Failed to open Terminal: {}", e))?;
+        if let Some(cmd) = command {
+            // Open terminal and run command
+            std::process::Command::new("osascript")
+                .arg("-e")
+                .arg(format!(
+                    "tell application \"Terminal\" to do script \"cd '{}' && {}\"",
+                    cwd.display(),
+                    cmd
+                ))
+                .spawn()
+                .map_err(|e| format!("Failed to open Terminal: {}", e))?;
+        } else {
+            std::process::Command::new("open")
+                .arg("-a")
+                .arg("Terminal")
+                .arg(cwd)
+                .spawn()
+                .map_err(|e| format!("Failed to open Terminal: {}", e))?;
+        }
     }
     
     #[cfg(target_os = "linux")]
@@ -724,11 +783,23 @@ pub fn open_external_terminal() -> Result<(), String> {
         let mut success = false;
         
         for terminal in &terminals {
-            if let Ok(_) = std::process::Command::new(terminal)
-                .arg("--working-directory")
-                .arg(&cwd)
-                .spawn()
-            {
+            let result = if let Some(ref cmd) = command {
+                std::process::Command::new(terminal)
+                    .arg("--working-directory")
+                    .arg(&cwd)
+                    .arg("-e")
+                    .arg("bash")
+                    .arg("-c")
+                    .arg(format!("{}; exec bash", cmd))
+                    .spawn()
+            } else {
+                std::process::Command::new(terminal)
+                    .arg("--working-directory")
+                    .arg(&cwd)
+                    .spawn()
+            };
+            
+            if result.is_ok() {
                 success = true;
                 break;
             }

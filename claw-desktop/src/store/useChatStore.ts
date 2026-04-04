@@ -127,7 +127,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   },
 
   stopGeneration: async () => {
-    const { gateway, dispatch, flushAssistantMessage } = get();
+    const { gateway, dispatch, flushAssistantMessage, autoSaveCurrentSession } = get();
     
     console.log('[STORE] stopGeneration called - updating UI first');
     
@@ -140,6 +140,13 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     try {
       await gateway.cancelPrompt();
       console.log('[STORE] Backend cancelled successfully');
+      
+      // Save session in background (non-blocking)
+      autoSaveCurrentSession().then(() => {
+        console.log('[STORE] Session saved after stop');
+      }).catch(e => {
+        console.error('[STORE] Failed to save session after stop:', e);
+      });
     } catch (e) {
       console.error("[STORE] Failed to cancel backend prompt:", e);
     }
