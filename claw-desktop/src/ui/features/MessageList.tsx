@@ -8,6 +8,44 @@ import { renderToolBlock, ThinkingBlock } from '../blocks';
 import { parseThinkingTags, cleanSystemReminders } from '../../lib/parseThinking';
 import { MarkdownContent } from '../../components/MarkdownContent';
 import { useTextMeasurement } from '../../lib/useTextMeasurement';
+import { ChevronDown, ChevronUp } from 'lucide-react';
+
+const COLLAPSE_THRESHOLD = 300;
+
+function UserMessage({ text }: { text: string }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const shouldCollapse = text.length > COLLAPSE_THRESHOLD;
+  
+  const displayText = shouldCollapse && !isExpanded 
+    ? text.slice(0, COLLAPSE_THRESHOLD) + '...'
+    : text;
+
+  return (
+    <div className="space-y-2">
+      <div className="whitespace-pre-wrap break-words">
+        {displayText}
+      </div>
+      {shouldCollapse && (
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="flex items-center gap-1 text-xs opacity-70 hover:opacity-100 transition-opacity"
+        >
+          {isExpanded ? (
+            <>
+              <ChevronUp className="w-3 h-3" />
+              <span>Thu gọn</span>
+            </>
+          ) : (
+            <>
+              <ChevronDown className="w-3 h-3" />
+              <span>Xem thêm</span>
+            </>
+          )}
+        </button>
+      )}
+    </div>
+  );
+}
 
 function fixIncompleteCodeBlocks(text: string): string {
   const openingCount = (text.match(/^```/gm) || []).length;
@@ -161,7 +199,7 @@ export function MessageList() {
                     className={cn(
                       'text-sm sm:text-base leading-[1.7] sm:leading-[1.8]',
                       message.role === 'user'
-                        ? 'max-w-[85%] sm:max-w-md lg:max-w-lg rounded-xl sm:rounded-2xl bg-secondary text-secondary-foreground px-4 sm:px-5 lg:px-6 py-2.5 sm:py-3 lg:py-3.5'
+                        ? 'max-w-[85%] rounded-xl sm:rounded-2xl bg-secondary text-secondary-foreground px-4 sm:px-5 lg:px-6 py-2.5 sm:py-3 lg:py-3.5'
                         : 'w-full'
                     )}
                   >
@@ -170,7 +208,11 @@ export function MessageList() {
                         if (block.type === 'text') {
                           return (
                             <div key={blockIdx}>
-                              <MarkdownContent content={cleanSystemReminders(block.text || '')} />
+                              {message.role === 'user' ? (
+                                <UserMessage text={block.text || ''} />
+                              ) : (
+                                <MarkdownContent content={cleanSystemReminders(block.text || '')} />
+                              )}
                             </div>
                           );
                         }
