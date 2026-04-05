@@ -97,6 +97,7 @@ pub struct ChatSessionActor {
     current_session_id: Option<String>,
     settings_manager: Arc<crate::core::domain::settings::SettingsManager>,
     cancel_flag: Arc<std::sync::atomic::AtomicBool>, // Shared cancel flag
+    cumulative_usage: Option<runtime::TokenUsage>, // Track cumulative usage for Antigravity
 }
 
 impl ChatSessionActor {
@@ -121,6 +122,21 @@ impl ChatSessionActor {
             current_session_id: None,
             settings_manager,
             cancel_flag,
+            cumulative_usage: None,
+        }
+    }
+
+    /// Check if current provider is Antigravity (needs token accumulation)
+    fn is_antigravity_provider(&self) -> bool {
+        match self.settings_manager.load() {
+            Ok(settings) => {
+                if let Some(selected) = &settings.selected_model {
+                    selected.provider_id == "antigravity"
+                } else {
+                    false
+                }
+            }
+            Err(_) => false,
         }
     }
 
@@ -231,7 +247,12 @@ impl ChatSessionActor {
     async fn handle_prompt(&mut self, text: String) -> Result<TurnSummary, RuntimeError> {
         // Reset cancel flag at the START of new prompt (prevent race condition)
         self.cancel_flag.store(false, std::sync::atomic::Ordering::Relaxed);
-        eprintln!("[ACTOR] Starting new prompt, cancel_flag reset to false");
+        
+        // Check if Antigravity provider (needs token accumulation)
+        let is_antigravity = self.is_antigravity_provider();
+        
+        // Shared cumulative usage for Antigravity (use existing or start new)
+        let cumulative_usage_shared = Arc::new(std::sync::Mutex::new(self.cumulative_usage));
         
         let event_publisher = self.event_publisher.clone();
         
@@ -267,6 +288,9 @@ impl ChatSessionActor {
         let estimated_tokens_shared = Arc::new(std::sync::atomic::AtomicUsize::new(0));
         let estimated_tokens_clone = estimated_tokens_shared.clone();
         
+        // Clone for usage callback
+        let cumulative_usage_clone = cumulative_usage_shared.clone();
+        
         // Use extension's run_turn_with_callback for real-time tool event emission
         let summary = tokio::task::block_in_place(|| {
             self.runtime.run_turn_with_callback(
@@ -297,15 +321,40 @@ impl ChatSessionActor {
                     }
                 },
                 |usage| {
-                    // Emit usage NGAY SAU mỗi API call trong vòng lặp tool
+                    // For Antigravity: accumulate tokens, for others: use directly
+                    let usage_to_emit = if is_antigravity {
+                        let mut cumulative = cumulative_usage_clone.lock().unwrap();
+                        
+                        if let Some(prev) = cumulative.as_ref() {
+                            // Accumulate
+                            let accumulated = runtime::TokenUsage {
+                                input_tokens: prev.input_tokens + usage.input_tokens,
+                                output_tokens: prev.output_tokens + usage.output_tokens,
+                                cache_creation_input_tokens: prev.cache_creation_input_tokens + usage.cache_creation_input_tokens,
+                                cache_read_input_tokens: prev.cache_read_input_tokens + usage.cache_read_input_tokens,
+                            };
+                            *cumulative = Some(accumulated);
+                            accumulated
+                        } else {
+                            // First usage in turn
+                            let first_usage = *usage;
+                            *cumulative = Some(first_usage);
+                            first_usage
+                        }
+                    } else {
+                        // Other providers send cumulative usage directly
+                        *usage
+                    };
+                    
+                    // Emit accumulated/direct usage
                     event_publisher.publish_stream_event(
                         crate::core::domain::types::StreamEvent::Usage {
-                            usage: usage.clone(),
+                            usage: usage_to_emit.clone(),
                         },
                     );
                     
                     // Update estimated tokens (rough estimate from usage)
-                    let current_estimate = (usage.input_tokens + usage.output_tokens) as usize;
+                    let current_estimate = (usage_to_emit.input_tokens + usage_to_emit.output_tokens) as usize;
                     estimated_tokens_clone.store(current_estimate, std::sync::atomic::Ordering::Relaxed);
                 },
                 || {
@@ -313,8 +362,6 @@ impl ChatSessionActor {
                     let estimated_tokens = estimated_tokens_shared.load(std::sync::atomic::Ordering::Relaxed);
                     
                     if estimated_tokens >= threshold {
-                        eprintln!("[ACTOR] 🛑 Token threshold reached: {} >= {} - stopping AI and triggering compact", 
-                            estimated_tokens, threshold);
                         should_stop_clone.store(true, std::sync::atomic::Ordering::Relaxed);
                         
                         // KHÔNG emit MessageStop ở đây - sẽ emit sau khi compact xong
@@ -420,19 +467,28 @@ impl ChatSessionActor {
         
         // Emit final estimated usage for models that don't provide usage (like Gemini)
         // This ensures UI always has token count to display
-        let estimated_tokens = self.runtime.estimated_tokens();
-        if estimated_tokens > 0 {
-            let estimated_usage = runtime::TokenUsage {
-                input_tokens: estimated_tokens as u32,
-                output_tokens: 0,
-                cache_creation_input_tokens: 0,
-                cache_read_input_tokens: 0,
-            };
-            self.event_publisher.publish_stream_event(
-                crate::core::domain::types::StreamEvent::Usage {
-                    usage: estimated_usage,
-                }
-            );
+        // SKIP for Antigravity - it already emitted cumulative usage in callback
+        if !is_antigravity {
+            let estimated_tokens = self.runtime.estimated_tokens();
+            if estimated_tokens > 0 {
+                let estimated_usage = runtime::TokenUsage {
+                    input_tokens: estimated_tokens as u32,
+                    output_tokens: 0,
+                    cache_creation_input_tokens: 0,
+                    cache_read_input_tokens: 0,
+                };
+                self.event_publisher.publish_stream_event(
+                    crate::core::domain::types::StreamEvent::Usage {
+                        usage: estimated_usage,
+                    }
+                );
+            }
+        }
+        
+        // Save cumulative usage for Antigravity (persists across turns in session)
+        if is_antigravity {
+            let final_cumulative = *cumulative_usage_shared.lock().unwrap();
+            self.cumulative_usage = final_cumulative;
         }
 
         Ok(summary)
@@ -469,11 +525,7 @@ impl ChatSessionActor {
         
         let estimated_tokens = self.runtime.estimated_tokens();
         
-        eprintln!("[AUTO-COMPACT] Estimated tokens: {} / {} (threshold: {} at {:.0}%)", 
-            estimated_tokens, max_tokens, threshold, threshold_ratio * 100.0);
-        
         if estimated_tokens >= threshold {
-            eprintln!("[AUTO-COMPACT] Threshold reached, starting compaction...");
             self.perform_compact();
         }
     }
@@ -527,9 +579,6 @@ impl ChatSessionActor {
             
             let new_estimated_tokens = self.runtime.estimated_tokens();
             
-            eprintln!("[COMPACT] Compaction completed: removed {} messages, tokens: {} -> {}",
-                result.removed_message_count, estimated_tokens, new_estimated_tokens);
-            
             // Emit CompactCompleted event
             self.event_publisher.publish_stream_event(
                 crate::core::domain::types::StreamEvent::CompactCompleted {
@@ -540,21 +589,53 @@ impl ChatSessionActor {
                 }
             );
             
-            // Emit updated usage after compact (estimate based on new token count)
-            // This allows frontend to update token counter immediately
-            let estimated_usage = runtime::TokenUsage {
-                input_tokens: new_estimated_tokens as u32,
-                output_tokens: 0, // We don't track output separately in estimates
-                cache_creation_input_tokens: 0,
-                cache_read_input_tokens: 0,
-            };
-            self.event_publisher.publish_stream_event(
-                crate::core::domain::types::StreamEvent::Usage {
-                    usage: estimated_usage,
+            // Emit updated usage after compact
+            // For Antigravity: recalculate cumulative from remaining messages
+            // For others: use estimated tokens
+            if self.is_antigravity_provider() {
+                let session = self.runtime.session();
+                let mut total_usage = runtime::TokenUsage::default();
+                
+                for msg in &session.messages {
+                    if msg.role == runtime::MessageRole::Assistant {
+                        if let Some(usage) = msg.usage {
+                            total_usage.input_tokens += usage.input_tokens;
+                            total_usage.output_tokens += usage.output_tokens;
+                            total_usage.cache_creation_input_tokens += usage.cache_creation_input_tokens;
+                            total_usage.cache_read_input_tokens += usage.cache_read_input_tokens;
+                        }
+                    }
                 }
-            );
+                
+                // Update cumulative usage after compact
+                self.cumulative_usage = Some(total_usage);
+                
+                self.event_publisher.publish_stream_event(
+                    crate::core::domain::types::StreamEvent::Usage {
+                        usage: crate::core::domain::types::TokenUsage {
+                            input_tokens: total_usage.input_tokens,
+                            output_tokens: total_usage.output_tokens,
+                            cache_creation_input_tokens: total_usage.cache_creation_input_tokens,
+                            cache_read_input_tokens: total_usage.cache_read_input_tokens,
+                        },
+                    }
+                );
+            } else {
+                // For non-Antigravity: emit estimated usage
+                let estimated_usage = runtime::TokenUsage {
+                    input_tokens: new_estimated_tokens as u32,
+                    output_tokens: 0,
+                    cache_creation_input_tokens: 0,
+                    cache_read_input_tokens: 0,
+                };
+                self.event_publisher.publish_stream_event(
+                    crate::core::domain::types::StreamEvent::Usage {
+                        usage: estimated_usage,
+                    }
+                );
+            }
         } else {
-            eprintln!("[COMPACT] No compaction needed (should_compact returned false)");
+            eprintln!("[COMPACT] No compaction needed");
         }
     }
 
@@ -582,11 +663,73 @@ impl ChatSessionActor {
         // Update current session ID
         self.current_session_id = Some(session_id);
         
+        let session = self.runtime.session();
+        
+        // For Antigravity: recalculate cumulative usage from all assistant messages in session
+        if self.is_antigravity_provider() {
+            let mut total_usage = runtime::TokenUsage::default();
+            
+            for (_idx, msg) in session.messages.iter().enumerate() {
+                if msg.role == runtime::MessageRole::Assistant {
+                    if let Some(usage) = msg.usage {
+                        total_usage.input_tokens += usage.input_tokens;
+                        total_usage.output_tokens += usage.output_tokens;
+                        total_usage.cache_creation_input_tokens += usage.cache_creation_input_tokens;
+                        total_usage.cache_read_input_tokens += usage.cache_read_input_tokens;
+                    }
+                }
+            }
+            
+            // Only set if there's actual usage data
+            if total_usage.input_tokens > 0 || total_usage.output_tokens > 0 {
+                self.cumulative_usage = Some(total_usage);
+                
+                // Emit usage event to frontend so TokenCounter displays correct value
+                self.event_publisher.publish_stream_event(
+                    crate::core::domain::types::StreamEvent::Usage {
+                        usage: crate::core::domain::types::TokenUsage {
+                            input_tokens: total_usage.input_tokens,
+                            output_tokens: total_usage.output_tokens,
+                            cache_creation_input_tokens: total_usage.cache_creation_input_tokens,
+                            cache_read_input_tokens: total_usage.cache_read_input_tokens,
+                        },
+                    },
+                );
+            } else {
+                self.cumulative_usage = None;
+            }
+        } else {
+            // Other providers: reset cumulative usage (they send cumulative in each response)
+            self.cumulative_usage = None;
+            
+            // Find last assistant message and emit its usage to frontend
+            for msg in session.messages.iter().rev() {
+                if msg.role == runtime::MessageRole::Assistant {
+                    if let Some(usage) = msg.usage {
+                        self.event_publisher.publish_stream_event(
+                            crate::core::domain::types::StreamEvent::Usage {
+                                usage: crate::core::domain::types::TokenUsage {
+                                    input_tokens: usage.input_tokens,
+                                    output_tokens: usage.output_tokens,
+                                    cache_creation_input_tokens: usage.cache_creation_input_tokens,
+                                    cache_read_input_tokens: usage.cache_read_input_tokens,
+                                },
+                            },
+                        );
+                    } else {
+                        eprintln!("[ACTOR] Last assistant message has no usage data");
+                    }
+                    break;
+                }
+            }
+        }
+        
         Ok(())
     }
 
     fn handle_save_session(&mut self, session_id: String, work_mode: String, workspace_path: Option<String>) -> Result<(), String> {
         let session = self.runtime.session();
+        
         self.session_repository.save_with_work_context(&session_id, session, work_mode, workspace_path)?;
         self.current_session_id = Some(session_id);
         Ok(())
@@ -624,6 +767,9 @@ impl ChatSessionActor {
 
         // Set as current
         self.current_session_id = Some(session_id.clone());
+        
+        // Reset cumulative usage for new session
+        self.cumulative_usage = None;
 
         Ok(session_id)
     }
