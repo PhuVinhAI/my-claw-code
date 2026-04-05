@@ -1,17 +1,21 @@
 // Settings Screen - Styled like SessionList
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { AISettingsTab } from '../features/settings/AISettingsTab';
-import { ArrowLeft, Settings as SettingsIcon } from 'lucide-react';
+import { ContextSettingsTab } from '../features/settings/ContextSettingsTab';
+import { ArrowLeft, Settings as SettingsIcon, Bot, MessageSquare } from 'lucide-react';
 
 interface SettingsScreenProps {
   onBack: () => void;
 }
 
+type TabType = 'ai' | 'context';
+
 export function SettingsScreen({ onBack }: SettingsScreenProps) {
   const { t } = useTranslation();
   const { loadSettings } = useSettingsStore();
+  const [activeTab, setActiveTab] = useState<TabType>('ai');
 
   useEffect(() => {
     loadSettings();
@@ -36,11 +40,38 @@ export function SettingsScreen({ onBack }: SettingsScreenProps) {
             </span>
           </div>
         </div>
+
+        {/* Tabs */}
+        <div className="flex gap-1">
+          <button
+            onClick={() => setActiveTab('ai')}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm transition-colors ${
+              activeTab === 'ai'
+                ? 'bg-primary text-primary-foreground'
+                : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+            }`}
+          >
+            <Bot className="w-4 h-4" />
+            {t('settings.aiSettings')}
+          </button>
+          <button
+            onClick={() => setActiveTab('context')}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm transition-colors ${
+              activeTab === 'context'
+                ? 'bg-primary text-primary-foreground'
+                : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+            }`}
+          >
+            <MessageSquare className="w-4 h-4" />
+            {t('compact.settings.title')}
+          </button>
+        </div>
       </div>
 
       {/* Content */}
       <div className="flex-1 overflow-hidden">
-        <AISettingsTab />
+        {activeTab === 'ai' && <AISettingsTab />}
+        {activeTab === 'context' && <ContextSettingsTab />}
       </div>
     </div>
   );

@@ -27,5 +27,5 @@ export interface CompactConfig {
 export interface Settings {
   providers: Provider[];
   selected_model: SelectedModel | null;
-  compact_config?: CompactConfig;
+  compact_config: CompactConfig;
 }
