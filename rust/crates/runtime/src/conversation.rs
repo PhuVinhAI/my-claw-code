@@ -485,7 +485,16 @@ where
 
     #[must_use]
     pub fn estimated_tokens(&self) -> usize {
-        estimate_session_tokens(&self.session)
+        // Estimate tokens for system prompt
+        let system_prompt_tokens: usize = self.system_prompt
+            .iter()
+            .map(|s| s.len() / 4 + 1)
+            .sum();
+        
+        // Estimate tokens for session messages
+        let session_tokens = estimate_session_tokens(&self.session);
+        
+        system_prompt_tokens + session_tokens
     }
 
     #[must_use]

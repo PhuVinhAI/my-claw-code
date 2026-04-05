@@ -161,15 +161,26 @@ impl ApiClient for TauriApiClient {
                                     }
                                 }
                                 ApiStreamEvent::MessageDelta(delta) => {
-                                    let token_usage = runtime::TokenUsage {
-                                        input_tokens: delta.usage.input_tokens,
-                                        output_tokens: delta.usage.output_tokens,
-                                        cache_creation_input_tokens: delta
-                                            .usage
-                                            .cache_creation_input_tokens,
-                                        cache_read_input_tokens: delta.usage.cache_read_input_tokens,
-                                    };
-                                    assistant_events.push(AssistantEvent::Usage(token_usage));
+                                    // If usage is 0 (Gemini doesn't provide usage in streaming),
+                                    // skip emitting Usage event - will use estimated tokens instead
+                                    if delta.usage.input_tokens > 0 || delta.usage.output_tokens > 0 {
+                                        let token_usage = runtime::TokenUsage {
+                                            input_tokens: delta.usage.input_tokens,
+                                            output_tokens: delta.usage.output_tokens,
+                                            cache_creation_input_tokens: delta
+                                                .usage
+                                                .cache_creation_input_tokens,
+                                            cache_read_input_tokens: delta.usage.cache_read_input_tokens,
+                                        };
+                                        
+                                        event_publisher.publish_stream_event(
+                                            crate::core::domain::types::StreamEvent::Usage {
+                                                usage: token_usage.clone(),
+                                            },
+                                        );
+                                        
+                                        assistant_events.push(AssistantEvent::Usage(token_usage));
+                                    }
                                 }
                                 ApiStreamEvent::MessageStop(_) => {
                                     event_publisher.publish_stream_event(

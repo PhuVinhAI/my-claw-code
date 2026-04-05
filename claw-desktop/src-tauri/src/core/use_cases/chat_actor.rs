@@ -415,6 +415,23 @@ impl ChatSessionActor {
             // Normal auto-compact check (fallback nếu chưa compact)
             self.check_and_auto_compact();
         }
+        
+        // Emit final estimated usage for models that don't provide usage (like Gemini)
+        // This ensures UI always has token count to display
+        let estimated_tokens = self.runtime.estimated_tokens();
+        if estimated_tokens > 0 {
+            let estimated_usage = runtime::TokenUsage {
+                input_tokens: estimated_tokens as u32,
+                output_tokens: 0,
+                cache_creation_input_tokens: 0,
+                cache_read_input_tokens: 0,
+            };
+            self.event_publisher.publish_stream_event(
+                crate::core::domain::types::StreamEvent::Usage {
+                    usage: estimated_usage,
+                }
+            );
+        }
 
         Ok(summary)
     }

@@ -851,6 +851,7 @@ fn parse_sse_frame(frame: &str) -> Result<Option<ChatCompletionChunk>, ApiError>
     if payload == "[DONE]" {
         return Ok(None);
     }
+    
     serde_json::from_str(&payload)
         .map(Some)
         .map_err(ApiError::from)
