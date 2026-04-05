@@ -238,7 +238,13 @@
   "search": {
     "grepSearch": "Tìm nội dung",
     "globSearch": "Tìm file",
+    "listDirectory": "Liệt kê thư mục",
     "results": "{{count}} kết quả",
+    "items": "{{count}} mục",
+    "folders": "{{count}} thư mục",
+    "files": "{{count}} file",
+    "emptyDirectory": "Thư mục trống",
+    "readingDirectory": "Đang đọc thư mục...",
     "stopped": "Đã dừng",
     "error": "Lỗi"
   },

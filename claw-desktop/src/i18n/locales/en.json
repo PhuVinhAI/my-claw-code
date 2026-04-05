@@ -238,7 +238,13 @@
   "search": {
     "grepSearch": "Search content",
     "globSearch": "Search files",
+    "listDirectory": "List directory",
     "results": "{{count}} results",
+    "items": "{{count}} items",
+    "folders": "{{count}} folders",
+    "files": "{{count}} files",
+    "emptyDirectory": "Empty directory",
+    "readingDirectory": "Reading directory...",
     "stopped": "Stopped",
     "error": "Error"
   },

@@ -129,6 +129,24 @@ pub struct GrepSearchOutput {
     pub applied_offset: Option<usize>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct DirectoryEntry {
+    pub name: String,
+    #[serde(rename = "type")]
+    pub entry_type: String, // "file" | "dir"
+    pub size: Option<u64>,
+    pub modified: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ListDirectoryOutput {
+    #[serde(rename = "type")]
+    pub kind: String,
+    pub path: String,
+    pub entries: Vec<DirectoryEntry>,
+    pub total: usize,
+}
+
 pub fn read_file(
     path: &str,
     offset: Option<usize>,
@@ -366,6 +384,77 @@ pub fn grep_search(input: &GrepSearchInput) -> io::Result<GrepSearchOutput> {
         num_matches: (output_mode == "count").then_some(total_matches),
         applied_limit,
         applied_offset,
+    })
+}
+
+pub fn list_directory(path: &str) -> io::Result<ListDirectoryOutput> {
+    let absolute_path = normalize_path(path)?;
+    
+    if !absolute_path.is_dir() {
+        return Err(io::Error::new(
+            io::ErrorKind::NotFound,
+            format!("Path is not a directory: {}", path),
+        ));
+    }
+
+    let mut entries = Vec::new();
+    
+    for entry in fs::read_dir(&absolute_path)? {
+        let entry = entry?;
+        let metadata = entry.metadata()?;
+        let name = entry.file_name().to_string_lossy().into_owned();
+        
+        let entry_type = if metadata.is_dir() {
+            "dir".to_string()
+        } else {
+            "file".to_string()
+        };
+        
+        let size = if metadata.is_file() {
+            Some(metadata.len())
+        } else {
+            None
+        };
+        
+        let modified = metadata
+            .modified()
+            .ok()
+            .and_then(|time| {
+                time.duration_since(std::time::UNIX_EPOCH)
+                    .ok()
+                    .map(|d| d.as_secs())
+            })
+            .map(|timestamp| {
+                // Format as ISO 8601
+                use std::time::{SystemTime, UNIX_EPOCH};
+                let datetime = UNIX_EPOCH + std::time::Duration::from_secs(timestamp);
+                format!("{:?}", datetime) // Simple format, can be improved
+            });
+        
+        entries.push(DirectoryEntry {
+            name,
+            entry_type,
+            size,
+            modified,
+        });
+    }
+    
+    // Sort: directories first, then files, alphabetically
+    entries.sort_by(|a, b| {
+        match (&a.entry_type[..], &b.entry_type[..]) {
+            ("dir", "file") => std::cmp::Ordering::Less,
+            ("file", "dir") => std::cmp::Ordering::Greater,
+            _ => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
+        }
+    });
+    
+    let total = entries.len();
+    
+    Ok(ListDirectoryOutput {
+        kind: "directory".to_string(),
+        path: absolute_path.to_string_lossy().into_owned(),
+        entries,
+        total,
     })
 }
 

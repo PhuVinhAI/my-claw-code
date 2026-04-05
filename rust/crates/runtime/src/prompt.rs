@@ -284,6 +284,108 @@ fn read_git_output(cwd: &Path, args: &[&str]) -> Option<String> {
     String::from_utf8(output.stdout).ok()
 }
 
+fn generate_directory_tree(root: &Path, max_depth: usize) -> std::io::Result<String> {
+    use std::collections::BTreeSet;
+    
+    let mut lines = Vec::new();
+    let mut visited = BTreeSet::new();
+    
+    // Helper to check if path should be ignored
+    let should_ignore = |name: &str| -> bool {
+        matches!(
+            name,
+            "node_modules" | ".git" | "target" | "dist" | "build" | ".next" | 
+            ".cache" | "__pycache__" | ".venv" | "venv" | ".idea" | ".vscode"
+        )
+    };
+    
+    fn walk_dir(
+        path: &Path,
+        prefix: &str,
+        depth: usize,
+        max_depth: usize,
+        lines: &mut Vec<String>,
+        visited: &mut BTreeSet<String>,
+        should_ignore: &dyn Fn(&str) -> bool,
+    ) -> std::io::Result<()> {
+        if depth > max_depth {
+            return Ok(());
+        }
+        
+        let mut entries: Vec<_> = fs::read_dir(path)?
+            .filter_map(|e| e.ok())
+            .collect();
+        
+        // Sort: directories first, then files, alphabetically
+        entries.sort_by(|a, b| {
+            let a_is_dir = a.path().is_dir();
+            let b_is_dir = b.path().is_dir();
+            match (a_is_dir, b_is_dir) {
+                (true, false) => std::cmp::Ordering::Less,
+                (false, true) => std::cmp::Ordering::Greater,
+                _ => a.file_name().cmp(&b.file_name()),
+            }
+        });
+        
+        let total = entries.len();
+        for (idx, entry) in entries.iter().enumerate() {
+            let name = entry.file_name().to_string_lossy().into_owned();
+            
+            // Skip ignored directories
+            if should_ignore(&name) {
+                continue;
+            }
+            
+            let is_last = idx == total - 1;
+            let connector = if is_last { "└── " } else { "├── " };
+            let path_str = entry.path().display().to_string();
+            
+            // Avoid infinite loops with symlinks
+            if visited.contains(&path_str) {
+                continue;
+            }
+            visited.insert(path_str.clone());
+            
+            let is_dir = entry.path().is_dir();
+            let display_name = if is_dir {
+                format!("{}/", name)
+            } else {
+                name.clone()
+            };
+            
+            lines.push(format!("{}{}{}", prefix, connector, display_name));
+            
+            // Recurse into directories
+            if is_dir && depth < max_depth {
+                let new_prefix = format!("{}{}   ", prefix, if is_last { " " } else { "│" });
+                walk_dir(
+                    &entry.path(),
+                    &new_prefix,
+                    depth + 1,
+                    max_depth,
+                    lines,
+                    visited,
+                    should_ignore,
+                )?;
+            }
+        }
+        
+        Ok(())
+    }
+    
+    // Add root
+    lines.push(format!("{}/", root.file_name().unwrap_or_default().to_string_lossy()));
+    walk_dir(root, "", 0, max_depth, &mut lines, &mut visited, &should_ignore)?;
+    
+    // Limit output size
+    if lines.len() > 200 {
+        lines.truncate(200);
+        lines.push("... (truncated, use list_directory tool for more)".to_string());
+    }
+    
+    Ok(lines.join("\n"))
+}
+
 fn render_project_context(project_context: &ProjectContext) -> String {
     let mut lines = vec!["# Project context".to_string()];
     let mut bullets = vec![
@@ -297,6 +399,14 @@ fn render_project_context(project_context: &ProjectContext) -> String {
         ));
     }
     lines.extend(prepend_bullets(bullets));
+    
+    // Auto-inject directory structure for workspace mode
+    if let Ok(dir_structure) = generate_directory_tree(&project_context.cwd, 2) {
+        lines.push(String::new());
+        lines.push("Directory structure (top 2 levels):".to_string());
+        lines.push(dir_structure);
+    }
+    
     if let Some(status) = &project_context.git_status {
         lines.push(String::new());
         lines.push("Git status snapshot:".to_string());

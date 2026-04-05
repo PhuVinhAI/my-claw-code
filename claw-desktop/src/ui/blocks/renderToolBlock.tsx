@@ -8,6 +8,7 @@ import { FileOperationBlock } from './FileOperationBlock';
 import { SearchResultBlock } from './SearchResultBlock';
 import { WebSearchBlock } from './WebSearchBlock';
 import { DelegationBlock } from './DelegationBlock';
+import { DirectoryListBlock } from './DirectoryListBlock';
 
 interface RenderToolBlockProps {
   toolUseBlock: ContentBlock;
@@ -102,6 +103,19 @@ export function renderToolBlock({ toolUseBlock, toolResultBlock, detachedTools }
         toolName={toolName as 'read_file' | 'write_file' | 'edit_file'}
         filePath={parsedInput.path || parsedInput.file_path || 'unknown'}
         toolInput={toolInput}
+        isError={isError}
+        isPending={isPending}
+        isCancelled={isCancelledState}
+      />
+    );
+  }
+
+  // Directory listing
+  if (toolName === 'list_directory') {
+    return (
+      <DirectoryListBlock
+        path={parsedInput.path || 'unknown'}
+        output={toolOutput}
         isError={isError}
         isPending={isPending}
         isCancelled={isCancelledState}

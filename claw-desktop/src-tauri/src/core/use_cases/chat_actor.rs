@@ -828,7 +828,6 @@ impl ChatSessionActor {
         // Update runtime's system prompt
         self.runtime.update_system_prompt(system_prompt);
         
-        eprintln!("[ACTOR] System prompt reloaded (mode: {}, cwd: {:?})", work_mode, cwd);
         Ok(())
     }
 

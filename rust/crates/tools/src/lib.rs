@@ -11,10 +11,10 @@ use api::{
 use plugins::PluginTool;
 use reqwest::blocking::Client;
 use runtime::{
-    edit_file, execute_bash, glob_search, grep_search, load_system_prompt, read_file, write_file,
-    ApiClient, ApiRequest, AssistantEvent, BashCommandInput, ContentBlock, ConversationMessage,
-    ConversationRuntime, GrepSearchInput, MessageRole, PermissionMode, PermissionPolicy,
-    RuntimeError, Session, TokenUsage, ToolError, ToolExecutor,
+    edit_file, execute_bash, glob_search, grep_search, list_directory, load_system_prompt,
+    read_file, write_file, ApiClient, ApiRequest, AssistantEvent, BashCommandInput, ContentBlock,
+    ConversationMessage, ConversationRuntime, GrepSearchInput, MessageRole, PermissionMode,
+    PermissionPolicy, RuntimeError, Session, TokenUsage, ToolError, ToolExecutor,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -399,6 +399,19 @@ pub fn mvp_tool_specs() -> Vec<ToolSpec> {
             required_permission: PermissionMode::ReadOnly,
         },
         ToolSpec {
+            name: "list_directory",
+            description: "List files and directories in a given path (non-recursive, direct children only).",
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "path": { "type": "string" }
+                },
+                "required": ["path"],
+                "additionalProperties": false
+            }),
+            required_permission: PermissionMode::ReadOnly,
+        },
+        ToolSpec {
             name: "WebFetch",
             description:
                 "Fetch a URL, convert it into readable text, and answer a prompt about it.",
@@ -625,6 +638,7 @@ pub fn execute_tool(name: &str, input: &Value) -> Result<String, String> {
         "edit_file" => from_value::<EditFileInput>(input).and_then(run_edit_file),
         "glob_search" => from_value::<GlobSearchInputValue>(input).and_then(run_glob_search),
         "grep_search" => from_value::<GrepSearchInput>(input).and_then(run_grep_search),
+        "list_directory" => from_value::<ListDirectoryInput>(input).and_then(run_list_directory),
         "WebFetch" => from_value::<WebFetchInput>(input).and_then(run_web_fetch),
         "WebSearch" => from_value::<WebSearchInput>(input).and_then(run_web_search),
         "TodoWrite" => from_value::<TodoWriteInput>(input).and_then(run_todo_write),
@@ -684,6 +698,16 @@ fn run_glob_search(input: GlobSearchInputValue) -> Result<String, String> {
 #[allow(clippy::needless_pass_by_value)]
 fn run_grep_search(input: GrepSearchInput) -> Result<String, String> {
     to_pretty_json(grep_search(&input).map_err(io_to_string)?)
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct ListDirectoryInput {
+    path: String,
+}
+
+#[allow(clippy::needless_pass_by_value)]
+fn run_list_directory(input: ListDirectoryInput) -> Result<String, String> {
+    to_pretty_json(list_directory(&input.path).map_err(io_to_string)?)
 }
 
 #[allow(clippy::needless_pass_by_value)]
