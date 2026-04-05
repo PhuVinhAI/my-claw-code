@@ -14,6 +14,7 @@ interface ChatStore {
   gateway: IChatGateway;
   detachedTools: Set<string>; // Track detached tool IDs
   currentTokenUsage: TokenUsage | null; // Current turn token usage
+  cumulativeTokenUsage: TokenUsage | null; // Cumulative token usage for Antigravity (resets each turn)
   errorMessage: string | null; // Error message to display to user
   lastUserText: string | null; // Last user message text (for restore on error)
 
@@ -63,6 +64,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   gateway: new TauriChatGateway(),
   detachedTools: new Set(),
   currentTokenUsage: null,
+  cumulativeTokenUsage: null,
   errorMessage: null,
   lastUserText: null,
   sessions: [],
@@ -92,6 +94,9 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     const { gateway, dispatch, currentSessionId } = get();
 
     console.log('[STORE] sendPrompt called with text:', text.substring(0, 50) + '...');
+
+    // Reset cumulative token usage at start of new turn
+    set({ cumulativeTokenUsage: null });
 
     // Create new session ONLY if none exists AND this is the first message
     if (!currentSessionId) {
@@ -395,6 +400,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         currentSessionId: sessionId,
         currentAssistantText: '',
         currentTokenUsage: lastTokenUsage, // Set token usage from last assistant message
+        cumulativeTokenUsage: null, // Reset cumulative for new session
         lastUserText: null, // Clear last user text
         state: { status: 'IDLE' },
       });
@@ -427,6 +433,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         currentSessionId: newSessionId,
         currentAssistantText: '',
         currentTokenUsage: null, // Reset token usage
+        cumulativeTokenUsage: null, // Reset cumulative
         lastUserText: null, // Clear last user text
         state: { status: 'IDLE' },
       });
@@ -529,6 +536,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         messages: [],
         currentAssistantText: '',
         currentTokenUsage: null, // Reset token usage when changing work mode
+        cumulativeTokenUsage: null, // Reset cumulative
         lastUserText: null, // Clear last user text
         state: { status: 'IDLE' },
       });
@@ -677,8 +685,44 @@ export function initializeChatStore() {
         dispatch({ type: 'STREAM_TOOL_RESULT' });
         break;
       case 'usage':
-        // Update current token usage
-        useChatStore.setState({ currentTokenUsage: event.usage });
+        // Update token usage
+        // For Antigravity: accumulate tokens across turns (they only send incremental usage)
+        // For other providers: use the usage directly (they send cumulative usage)
+        useChatStore.setState((prev) => {
+          const newUsage = event.usage;
+          
+          // Check if current provider is Antigravity by checking settings
+          // We'll use a simple heuristic: if input_tokens is small relative to conversation length,
+          // it's likely incremental (Antigravity), otherwise it's cumulative (other providers)
+          const isLikelyAntigravity = prev.messages.length > 2 && newUsage.input_tokens < 1000;
+          
+          if (isLikelyAntigravity && prev.cumulativeTokenUsage) {
+            // Accumulate tokens for Antigravity
+            const accumulated: TokenUsage = {
+              input_tokens: prev.cumulativeTokenUsage.input_tokens + newUsage.input_tokens,
+              output_tokens: prev.cumulativeTokenUsage.output_tokens + newUsage.output_tokens,
+              cache_creation_input_tokens: 
+                (prev.cumulativeTokenUsage.cache_creation_input_tokens || 0) + 
+                (newUsage.cache_creation_input_tokens || 0),
+              cache_read_input_tokens: 
+                (prev.cumulativeTokenUsage.cache_read_input_tokens || 0) + 
+                (newUsage.cache_read_input_tokens || 0),
+            };
+            return { 
+              currentTokenUsage: accumulated,
+              cumulativeTokenUsage: accumulated 
+            };
+          } else if (isLikelyAntigravity) {
+            // First usage event in turn for Antigravity
+            return { 
+              currentTokenUsage: newUsage,
+              cumulativeTokenUsage: newUsage 
+            };
+          } else {
+            // Other providers send cumulative usage directly
+            return { currentTokenUsage: newUsage };
+          }
+        });
         break;
       case 'tool_output_chunk':
         // Append chunk to existing tool_result or create new one
