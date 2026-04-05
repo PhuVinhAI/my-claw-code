@@ -104,14 +104,20 @@ async fn initialize_app_async(app_handle: AppHandle) -> Result<AppState, String>
     // Set environment variables for API client (only if we have an API key)
     let has_api_key = !api_key.is_empty();
     if has_api_key {
+        // Set for OpenAI-compatible providers
         std::env::set_var("OPENAI_API_KEY", &api_key);
         std::env::set_var("OPENAI_BASE_URL", &base_url);
+        // Set for Anthropic-compatible providers (Antigravity, etc.)
+        std::env::set_var("ANTHROPIC_API_KEY", &api_key);
+        std::env::set_var("ANTHROPIC_BASE_URL", &base_url);
         eprintln!("✓ API client configured with model: {}", model);
     } else {
         eprintln!("⚠ No API key configured. App will start in onboarding mode.");
         // Set dummy values to prevent panics during initialization
         std::env::set_var("OPENAI_API_KEY", "sk-dummy-key-for-onboarding-mode");
         std::env::set_var("OPENAI_BASE_URL", "https://api.openai.com/v1");
+        std::env::set_var("ANTHROPIC_API_KEY", "sk-dummy-key-for-onboarding-mode");
+        std::env::set_var("ANTHROPIC_BASE_URL", "https://api.anthropic.com");
     }
     
     // 4. Create cancel flag (shared)
@@ -143,13 +149,27 @@ async fn initialize_app_async(app_handle: AppHandle) -> Result<AppState, String>
     let tool_definitions = tool_executor.get_tool_definitions();
     let cancel_tx = tool_executor.get_cancel_sender();
 
-    // 9. Create API Client
-    let api_client = TauriApiClient::new(
-        &model,
-        event_publisher.clone(),
-        tool_definitions,
-        cancel_flag.clone(),
-    )
+    // 9. Create API Client with explicit base_url and api_key from settings
+    let api_client = if has_api_key {
+        TauriApiClient::new_with_base_url(
+            &model,
+            &base_url,
+            &api_key,
+            event_publisher.clone(),
+            tool_definitions,
+            cancel_flag.clone(),
+        )
+    } else {
+        // Onboarding mode - use dummy values
+        TauriApiClient::new_with_base_url(
+            &model,
+            "https://api.openai.com/v1",
+            "sk-dummy",
+            event_publisher.clone(),
+            tool_definitions,
+            cancel_flag.clone(),
+        )
+    }
     .map_err(|e| {
         if has_api_key {
             format!("Failed to create API client with configured credentials: {}", e)

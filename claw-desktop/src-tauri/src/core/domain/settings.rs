@@ -79,6 +79,8 @@ struct DefaultProviderConfig {
     id: String,
     name: String,
     base_url: String,
+    #[serde(default)]
+    api_key: String,
     models: Vec<Model>,
 }
 
@@ -108,7 +110,7 @@ impl Settings {
                 let providers = config.providers.into_iter().map(|p| Provider {
                     id: p.id,
                     name: p.name,
-                    api_key: String::new(), // Empty - user needs to fill
+                    api_key: p.api_key, // Use from JSON, or empty if not provided
                     base_url: p.base_url,
                     models: p.models,
                 }).collect();

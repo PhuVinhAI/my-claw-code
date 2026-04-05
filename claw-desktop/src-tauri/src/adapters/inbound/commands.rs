@@ -655,6 +655,8 @@ pub async fn reload_api_client(state: State<'_, AppState>) -> Result<(), String>
     let (tx, rx) = oneshot::channel();
     state.actor_tx.send(ActorCommand::ReloadApiClient {
         model,
+        base_url,
+        api_key,
         response_tx: tx,
     }).await.map_err(|e| format!("Failed to send reload command: {}", e))?;
     

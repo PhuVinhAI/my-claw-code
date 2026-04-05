@@ -277,5 +277,22 @@
       "preserveMessagesHint": "Số tin nhắn gần nhất sẽ được giữ nguyên sau khi compact",
       "saveChanges": "Lưu thay đổi"
     }
+  },
+  "antigravity": {
+    "title": "Antigravity Claude Proxy",
+    "subtitle": "Claude & Gemini miễn phí qua Google Cloud Code",
+    "warning": "Cảnh báo:",
+    "warningText": "Google có thể cấm tài khoản vi phạm ToS. Sử dụng tài khoản phụ.",
+    "setup": "Cài đặt:",
+    "step1": "Cài đặt:",
+    "step2": "Khởi động:",
+    "step3": "Thêm tài khoản Google:",
+    "step4": "Sử dụng Base URL:",
+    "step5": "API Key:",
+    "step5Note": "(bất kỳ giá trị nào)",
+    "docs": "Xem hướng dẫn đầy đủ",
+    "quickAdd": "Thêm nhanh models",
+    "added": "Đã thêm",
+    "add": "Thêm"
   }
 }

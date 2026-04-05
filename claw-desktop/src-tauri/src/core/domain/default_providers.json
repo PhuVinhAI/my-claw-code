@@ -12,6 +12,13 @@
       ]
     },
     {
+      "id": "antigravity",
+      "name": "Antigravity Claude Proxy",
+      "base_url": "http://localhost:8080",
+      "api_key": "test",
+      "models": []
+    },
+    {
       "id": "openrouter",
       "name": "OpenRouter",
       "base_url": "https://openrouter.ai/api/v1",

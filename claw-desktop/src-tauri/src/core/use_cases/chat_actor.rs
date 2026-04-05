@@ -77,6 +77,8 @@ pub enum ActorCommand {
     },
     ReloadApiClient {
         model: String,
+        base_url: String,
+        api_key: String,
         response_tx: oneshot::Sender<Result<(), String>>,
     },
 }
@@ -217,9 +219,9 @@ impl ChatSessionActor {
                     let result = self.handle_set_selected_tools(tools);
                     let _ = response_tx.send(result);
                 }
-                ActorCommand::ReloadApiClient { model, response_tx } => {
+                ActorCommand::ReloadApiClient { model, base_url, api_key, response_tx } => {
                     eprintln!("[ACTOR] Processing ReloadApiClient command with model: {}", model);
-                    let result = self.handle_reload_api_client(model);
+                    let result = self.handle_reload_api_client(model, base_url, api_key);
                     let _ = response_tx.send(result);
                 }
             }
@@ -796,7 +798,7 @@ impl ChatSessionActor {
         Ok(())
     }
     
-    fn handle_reload_api_client(&mut self, model: String) -> Result<(), String> {
+    fn handle_reload_api_client(&mut self, model: String, base_url: String, api_key: String) -> Result<(), String> {
         eprintln!("[ACTOR] Reloading API client with model: {}", model);
         
         // Get current tool definitions
@@ -804,9 +806,11 @@ impl ChatSessionActor {
         let event_publisher = self.event_publisher.clone();
         let cancel_flag = self.cancel_flag.clone(); // Use shared cancel flag
         
-        // Create new API client
-        let new_client = crate::adapters::outbound::api_client::TauriApiClient::new(
+        // Create new API client with explicit base_url and api_key
+        let new_client = crate::adapters::outbound::api_client::TauriApiClient::new_with_base_url(
             &model,
+            &base_url,
+            &api_key,
             event_publisher,
             tool_definitions,
             cancel_flag,

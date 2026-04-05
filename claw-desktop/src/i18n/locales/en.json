@@ -277,5 +277,22 @@
       "preserveMessagesHint": "Number of recent messages to preserve after compaction",
       "saveChanges": "Save changes"
     }
+  },
+  "antigravity": {
+    "title": "Antigravity Claude Proxy",
+    "subtitle": "Free Claude & Gemini models via Google Cloud Code",
+    "warning": "Warning:",
+    "warningText": "Google may ban accounts for ToS violations. Use a burner account.",
+    "setup": "Setup:",
+    "step1": "Install:",
+    "step2": "Start:",
+    "step3": "Add Google account:",
+    "step4": "Use Base URL:",
+    "step5": "API Key:",
+    "step5Note": "(any value)",
+    "docs": "View full documentation",
+    "quickAdd": "Quick add models",
+    "added": "Added",
+    "add": "Add"
   }
 }

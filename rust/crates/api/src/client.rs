@@ -49,6 +49,39 @@ impl ProviderClient {
         }
     }
 
+    /// Create provider client from model and base URL
+    /// This allows Desktop to explicitly specify which provider to use based on settings
+    pub fn from_model_and_base_url(
+        model: &str,
+        base_url: &str,
+        api_key: &str,
+    ) -> Result<Self, ApiError> {
+        let provider_kind = providers::detect_provider_kind_from_base_url(base_url);
+        
+        match provider_kind {
+            ProviderKind::ClawApi => {
+                let auth = if api_key.is_empty() {
+                    AuthSource::None
+                } else {
+                    AuthSource::ApiKey(api_key.to_string())
+                };
+                let mut client = ClawApiClient::from_auth(auth);
+                client = client.with_base_url(base_url);
+                Ok(Self::ClawApi(client))
+            }
+            ProviderKind::Xai => {
+                let client = OpenAiCompatClient::new(api_key, OpenAiCompatConfig::xai())
+                    .with_base_url(base_url.to_string());
+                Ok(Self::Xai(client))
+            }
+            ProviderKind::OpenAi => {
+                let client = OpenAiCompatClient::new(api_key, OpenAiCompatConfig::openai())
+                    .with_base_url(base_url.to_string());
+                Ok(Self::OpenAi(client))
+            }
+        }
+    }
+
     #[must_use]
     pub const fn provider_kind(&self) -> ProviderKind {
         match self {

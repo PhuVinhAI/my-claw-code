@@ -35,6 +35,26 @@ impl TauriApiClient {
         })
     }
     
+    /// Create API client with explicit base URL and API key (from Desktop settings)
+    pub fn new_with_base_url(
+        model: &str,
+        base_url: &str,
+        api_key: &str,
+        event_publisher: Arc<dyn IEventPublisher>,
+        tool_definitions: Vec<api::ToolDefinition>,
+        cancel_flag: Arc<AtomicBool>,
+    ) -> Result<Self, String> {
+        let client = ProviderClient::from_model_and_base_url(model, base_url, api_key)
+            .map_err(|e| format!("Failed to create API client: {}", e))?;
+        Ok(Self {
+            client,
+            event_publisher,
+            tool_definitions,
+            model: model.to_string(),
+            cancel_flag,
+        })
+    }
+    
     /// Update tool definitions (called when work mode changes)
     pub fn set_tool_definitions(&mut self, tool_definitions: Vec<api::ToolDefinition>) {
         self.tool_definitions = tool_definitions;
@@ -111,6 +131,7 @@ impl ApiClient for TauriApiClient {
                     match event_opt {
                         None => break,
                         Some(api_event) => {
+                            eprintln!("[API_CLIENT] Received stream event: {:?}", api_event);
                             match &api_event {
                                 ApiStreamEvent::ContentBlockDelta(delta) => {
                                     match &delta.delta {

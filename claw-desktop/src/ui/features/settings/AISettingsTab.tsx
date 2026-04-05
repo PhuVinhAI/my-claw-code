@@ -9,6 +9,7 @@ import { Plus, Trash2, X, Check, Bot, Sparkles, AlertCircle, Pencil, Eye, EyeOff
 import { ConfirmDeleteProviderDialog } from './ConfirmDeleteProviderDialog';
 import { KiloModelsBrowser, KiloModel } from './KiloModelsBrowser';
 import { fetchKiloModels } from './fetchKiloModels';
+import { AntigravitySetup } from './AntigravitySetup';
 import { cn } from '../../../lib/utils';
 
 export function AISettingsTab() {
@@ -28,6 +29,9 @@ export function AISettingsTab() {
   const [kiloBrowserOpen, setKiloBrowserOpen] = useState(false);
   const [kiloModels, setKiloModels] = useState<KiloModel[]>([]);
   const [kiloLoading, setKiloLoading] = useState(false);
+  
+  // Antigravity setup state
+  const [antigravitySetupOpen, setAntigravitySetupOpen] = useState(false);
 
   // Provider form state (for both add and edit)
   const [providerForm, setProviderForm] = useState<Partial<Provider>>({
@@ -171,6 +175,7 @@ export function AISettingsTab() {
   };
 
   const isKiloProvider = selectedProvider?.id === 'kilo' || selectedProvider?.base_url?.includes('kilo.ai');
+  const isAntigravityProvider = selectedProvider?.id === 'antigravity' || selectedProvider?.base_url?.includes('localhost:8080');
 
   return (
     <div className="flex h-full bg-background">
@@ -497,6 +502,17 @@ export function AISettingsTab() {
                       )}
                     </Button>
                   )}
+                  {isAntigravityProvider && (
+                    <Button 
+                      onClick={() => setAntigravitySetupOpen(!antigravitySetupOpen)}
+                      size="sm" 
+                      variant="outline"
+                      className="h-8 sm:h-9 text-xs sm:text-sm"
+                    >
+                      <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-1.5" />
+                      {t('antigravity.quickAdd', 'Thêm nhanh models')}
+                    </Button>
+                  )}
                   <Button onClick={() => setShowAddModel(true)} size="sm" className="h-8 sm:h-9 text-xs sm:text-sm">
                     <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-1.5" />
                     Thêm
@@ -512,6 +528,16 @@ export function AISettingsTab() {
                   onAddModel={(model) => addModel(selectedProvider.id, model)}
                   isOpen={kiloBrowserOpen}
                   onOpenChange={setKiloBrowserOpen}
+                />
+              )}
+              
+              {/* Antigravity Setup (inline) */}
+              {isAntigravityProvider && (
+                <AntigravitySetup
+                  existingModels={selectedProvider.models}
+                  onAddModel={(model) => addModel(selectedProvider.id, model)}
+                  isOpen={antigravitySetupOpen}
+                  onOpenChange={setAntigravitySetupOpen}
                 />
               )}
 

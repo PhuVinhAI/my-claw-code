@@ -201,6 +201,33 @@ pub fn detect_provider_kind(model: &str) -> ProviderKind {
     ProviderKind::ClawApi
 }
 
+/// Detect provider kind based on base URL
+/// If base_url is not the official Anthropic API, assume it's an Anthropic-compatible proxy
+#[must_use]
+pub fn detect_provider_kind_from_base_url(base_url: &str) -> ProviderKind {
+    let base_url_lower = base_url.to_lowercase();
+    
+    // Check for known OpenAI-compatible providers first
+    if base_url_lower.contains("openai.com") {
+        return ProviderKind::OpenAi;
+    }
+    if base_url_lower.contains("x.ai") {
+        return ProviderKind::Xai;
+    }
+    
+    // Check if it's an Anthropic-compatible endpoint (not official Anthropic)
+    // This covers Antigravity proxy and other Anthropic-compatible proxies
+    if !base_url_lower.contains("api.anthropic.com") && !base_url.is_empty() {
+        // Check if it looks like a local proxy or custom endpoint
+        if base_url_lower.contains("localhost") || base_url_lower.contains("127.0.0.1") {
+            return ProviderKind::ClawApi;
+        }
+    }
+    
+    // Default to OpenAI-compatible for unknown providers
+    ProviderKind::OpenAi
+}
+
 #[must_use]
 pub fn max_tokens_for_model(model: &str) -> u32 {
     let canonical = resolve_model_alias(model);
