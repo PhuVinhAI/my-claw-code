@@ -28,6 +28,7 @@ const WORKSPACE_EXCLUDED_TOOLS: &[&str] = &[
     "ToolSearch",      // Tool discovery - meta-operation
     "Config",          // System configuration - should be explicit
     "StructuredOutput", // Structured output formatting - specialized
+    "SendUserMessage", // User messaging - should be explicit, not auto-invoked
 ];
 
 /// Get OS-specific tool exclusions

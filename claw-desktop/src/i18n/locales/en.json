@@ -40,6 +40,13 @@
     "normal": "Normal Mode",
     "workspace": "Workspace Mode"
   },
+  "modelSelector": {
+    "selectModel": "Select model",
+    "noModels": "No models yet",
+    "searchPlaceholder": "Search models...",
+    "filterByProvider": "Filter by provider",
+    "noModelsFound": "No models found"
+  },
   "tools": {
     "webSearch": "Web Search",
     "webFetch": "Web Fetch",

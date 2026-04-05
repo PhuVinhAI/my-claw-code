@@ -40,6 +40,13 @@
     "normal": "Chế độ thường",
     "workspace": "Chế độ workspace"
   },
+  "modelSelector": {
+    "selectModel": "Chọn mô hình",
+    "noModels": "Chưa có mô hình",
+    "searchPlaceholder": "Tìm model...",
+    "filterByProvider": "Lọc theo provider",
+    "noModelsFound": "Không tìm thấy model"
+  },
   "tools": {
     "webSearch": "Tìm kiếm Web",
     "webFetch": "Truy cập Web",

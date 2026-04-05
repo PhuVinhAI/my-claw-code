@@ -1,12 +1,16 @@
 // Model Selector - Dropdown grouped by provider using CustomDropdown
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { CustomDropdown, DropdownOption } from '../../components/ui/custom-dropdown';
 import { Bot } from 'lucide-react';
 
 export function ModelSelector() {
+  const { t } = useTranslation();
   const { settings, loadSettings, setSelectedModel } = useSettingsStore();
   const [selectedValue, setSelectedValue] = useState<string>('');
+  const [searchTerm, setSearchTerm] = useState<string>('');
+  const [selectedProviders, setSelectedProviders] = useState<string[]>([]);
 
   useEffect(() => {
     loadSettings();
@@ -42,12 +46,12 @@ export function ModelSelector() {
   };
 
   const getSelectedModelName = () => {
-    if (!settings.selected_model) return 'Chọn mô hình';
+    if (!settings.selected_model) return t('modelSelector.selectModel');
     
     const provider = settings.providers.find(p => p.id === settings.selected_model?.provider_id);
     const model = provider?.models.find(m => m.id === settings.selected_model?.model_id);
     
-    if (!model) return 'Chọn mô hình';
+    if (!model) return t('modelSelector.selectModel');
     
     // Remove provider prefix from model name (e.g., "Qwen: Qwen3.6 Plus" -> "Qwen3.6 Plus")
     let displayName = model.name;
@@ -71,14 +75,38 @@ export function ModelSelector() {
         id: `${provider.id}:${model.id}`,
         label: model.name,
         group: provider.name,
+        providerId: provider.id, // Add provider ID for filtering
       }))
     );
+
+  // Get unique providers for filter buttons
+  const availableProviders = Array.from(
+    new Set(
+      settings.providers
+        .filter(p => p.api_key && p.api_key.trim() !== '')
+        .map(p => ({ id: p.id, name: p.name }))
+    )
+  );
+
+  // Filter options based on search term AND selected providers
+  const filteredOptions = options.filter(option => {
+    // Search filter
+    const matchesSearch = searchTerm.trim() === '' ||
+      option.label.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      option.group?.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    // Provider filter
+    const matchesProvider = selectedProviders.length === 0 ||
+      selectedProviders.includes((option as any).providerId);
+    
+    return matchesSearch && matchesProvider;
+  });
 
   if (options.length === 0) {
     return (
       <div className="flex items-center gap-1.5 sm:gap-2 rounded-lg px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm text-muted-foreground bg-muted/50">
         <Bot className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-        <span>Chưa có mô hình</span>
+        <span>{t('modelSelector.noModels')}</span>
       </div>
     );
   }
@@ -93,10 +121,18 @@ export function ModelSelector() {
           </span>
         </>
       }
-      options={options}
+      options={filteredOptions}
       value={selectedValue}
       onChange={handleValueChange}
       dropdownClassName="max-h-[350px] sm:max-h-[400px] overflow-y-auto"
+      searchTerm={searchTerm}
+      onSearchChange={setSearchTerm}
+      searchPlaceholder={t('modelSelector.searchPlaceholder')}
+      providers={availableProviders}
+      selectedProviders={selectedProviders}
+      onProviderFilterChange={setSelectedProviders}
+      filterByProviderLabel={t('modelSelector.filterByProvider')}
+      noModelsFoundLabel={t('modelSelector.noModelsFound')}
     />
   );
 }

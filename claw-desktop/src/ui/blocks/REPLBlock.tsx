@@ -6,7 +6,7 @@ import { WebLinksAddon } from '@xterm/addon-web-links';
 import { ClipboardAddon } from '@xterm/addon-clipboard';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import { Code, ChevronDown, ChevronRight, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
+import { Code, ChevronDown, ChevronRight, ChevronUp, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
 import { useChatStore } from '../../store/useChatStore';
@@ -38,6 +38,7 @@ export function REPLBlock({
 }: REPLBlockProps) {
   const { t } = useTranslation();
   const [isCodeExpanded, setIsCodeExpanded] = useState(false);
+  const [isOutputExpanded, setIsOutputExpanded] = useState(true);
   const terminalRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
@@ -235,13 +236,34 @@ export function REPLBlock({
       </div>
 
       {/* Output Terminal */}
-      <div className="px-3 sm:px-4 py-2.5 sm:py-3 bg-muted/5">
-        <div className="text-[10px] sm:text-xs text-muted-foreground/70 mb-1.5 sm:mb-2 font-mono">{t('repl.output')}:</div>
-        <div 
-          ref={terminalRef}
-          className="w-full xterm-container rounded-md overflow-hidden border border-border/20"
-          style={{ height: '300px' }}
-        />
+      <div className="border-t border-border/20">
+        {isOutputExpanded && (
+          <>
+            <div 
+              ref={terminalRef}
+              className="w-full xterm-container"
+              style={{ height: '300px', maxHeight: '500px' }}
+            />
+            
+            <button
+              onClick={() => setIsOutputExpanded(false)}
+              className="w-full px-3 sm:px-4 py-1.5 sm:py-2 text-[10px] sm:text-xs text-muted-foreground/60 hover:text-muted-foreground hover:bg-muted/20 text-center border-t border-border/10 transition-colors cursor-pointer flex items-center justify-center gap-1.5 sm:gap-2"
+            >
+              <ChevronUp className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+              <span>{t('terminal.clickToCollapse')}</span>
+            </button>
+          </>
+        )}
+        
+        {!isOutputExpanded && (
+          <button
+            onClick={() => setIsOutputExpanded(true)}
+            className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-[10px] sm:text-xs text-muted-foreground/60 hover:text-muted-foreground hover:bg-muted/20 text-center border-t border-border/10 transition-colors cursor-pointer flex items-center justify-center gap-1.5 sm:gap-2"
+          >
+            <ChevronDown className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+            <span>{t('terminal.clickToExpand')}</span>
+          </button>
+        )}
       </div>
     </div>
   );
