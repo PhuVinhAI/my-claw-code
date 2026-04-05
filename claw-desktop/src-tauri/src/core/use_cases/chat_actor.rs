@@ -257,30 +257,31 @@ impl ChatSessionActor {
         let event_publisher = self.event_publisher.clone();
         
         // Load settings để lấy threshold config
-        let (threshold_ratio, max_tokens) = match self.settings_manager.load() {
+        let (threshold_ratio, max_tokens_opt) = match self.settings_manager.load() {
             Ok(settings) => {
-                let max_tokens = if let Some(selected) = &settings.selected_model {
+                let max_tokens_opt = if let Some(selected) = &settings.selected_model {
                     if let Some(provider) = settings.get_provider(&selected.provider_id) {
                         if let Some(model) = provider.models.iter().find(|m| m.id == selected.model_id) {
-                            model.max_context.unwrap_or(64_000) as usize
+                            model.max_context.map(|mc| mc as usize)
                         } else {
-                            64_000
+                            None
                         }
                     } else {
-                        64_000
+                        None
                     }
                 } else {
-                    64_000
+                    None
                 };
-                (settings.compact_config.threshold_ratio, max_tokens)
+                (settings.compact_config.threshold_ratio, max_tokens_opt)
             }
             Err(e) => {
                 eprintln!("[ACTOR] Failed to load settings for threshold check: {}", e);
-                (0.80, 64_000) // Fallback
+                (0.80, None)
             }
         };
         
-        let threshold = (max_tokens as f64 * threshold_ratio) as usize;
+        // Only setup compression if model has max_tokens
+        let threshold_opt = max_tokens_opt.map(|max_tokens| (max_tokens as f64 * threshold_ratio) as usize);
         let should_stop_for_compact = Arc::new(std::sync::atomic::AtomicBool::new(false));
         let should_stop_clone = should_stop_for_compact.clone();
         
@@ -359,14 +360,17 @@ impl ChatSessionActor {
                 },
                 || {
                     // Check threshold NGAY SAU mỗi API call - return false để break loop
-                    let estimated_tokens = estimated_tokens_shared.load(std::sync::atomic::Ordering::Relaxed);
-                    
-                    if estimated_tokens >= threshold {
-                        should_stop_clone.store(true, std::sync::atomic::Ordering::Relaxed);
+                    // Skip check if model doesn't have max_tokens
+                    if let Some(threshold) = threshold_opt {
+                        let estimated_tokens = estimated_tokens_shared.load(std::sync::atomic::Ordering::Relaxed);
                         
-                        // KHÔNG emit MessageStop ở đây - sẽ emit sau khi compact xong
-                        
-                        return false; // Break loop
+                        if estimated_tokens >= threshold {
+                            should_stop_clone.store(true, std::sync::atomic::Ordering::Relaxed);
+                            
+                            // KHÔNG emit MessageStop ở đây - sẽ emit sau khi compact xong
+                            
+                            return false; // Break loop
+                        }
                     }
                     
                     true // Continue
@@ -505,19 +509,25 @@ impl ChatSessionActor {
             }
         };
         
-        // Get max_tokens từ selected model
+        // Get max_tokens từ selected model - skip if model doesn't have max_context
         let max_tokens = if let Some(selected) = &settings.selected_model {
             if let Some(provider) = settings.get_provider(&selected.provider_id) {
                 if let Some(model) = provider.models.iter().find(|m| m.id == selected.model_id) {
-                    model.max_context.unwrap_or(64_000) as usize
+                    match model.max_context {
+                        Some(mc) => mc as usize,
+                        None => {
+                            // Model không có max_context → skip compression
+                            return;
+                        }
+                    }
                 } else {
-                    64_000 // Fallback
+                    return; // Model not found
                 }
             } else {
-                64_000 // Fallback
+                return; // Provider not found
             }
         } else {
-            64_000 // Fallback
+            return; // No selected model
         };
         
         let threshold_ratio = settings.compact_config.threshold_ratio;
@@ -541,18 +551,29 @@ impl ChatSessionActor {
             }
         };
         
+        // Get max_tokens từ selected model - skip if model doesn't have max_context
         let max_tokens = if let Some(selected) = &settings.selected_model {
             if let Some(provider) = settings.get_provider(&selected.provider_id) {
                 if let Some(model) = provider.models.iter().find(|m| m.id == selected.model_id) {
-                    model.max_context.unwrap_or(64_000) as usize
+                    match model.max_context {
+                        Some(mc) => mc as usize,
+                        None => {
+                            // Model không có max_context → skip compression
+                            eprintln!("[COMPACT] Model doesn't have max_context, skipping compression");
+                            return;
+                        }
+                    }
                 } else {
-                    64_000
+                    eprintln!("[COMPACT] Model not found, skipping compression");
+                    return;
                 }
             } else {
-                64_000
+                eprintln!("[COMPACT] Provider not found, skipping compression");
+                return;
             }
         } else {
-            64_000
+            eprintln!("[COMPACT] No selected model, skipping compression");
+            return;
         };
         
         let estimated_tokens = self.runtime.estimated_tokens();

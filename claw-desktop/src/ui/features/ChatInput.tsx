@@ -340,8 +340,8 @@ export function ChatInput() {
           {/* Model Selector */}
           <ModelSelector />
 
-          {/* Token Counter */}
-          {currentTokenUsage && (
+          {/* Token Counter - Only show if model has max_context */}
+          {maxContext && currentTokenUsage && (
             <>
               <div className="h-3 sm:h-4 w-px bg-border" />
               <TokenCounter usage={currentTokenUsage} maxContext={maxContext} />
