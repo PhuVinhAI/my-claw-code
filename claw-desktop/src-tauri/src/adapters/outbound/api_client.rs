@@ -40,6 +40,7 @@ impl TauriApiClient {
         model: &str,
         base_url: &str,
         api_key: &str,
+        provider_id: Option<&str>,
         event_publisher: Arc<dyn IEventPublisher>,
         tool_definitions: Vec<api::ToolDefinition>,
         cancel_flag: Arc<AtomicBool>,
@@ -47,7 +48,8 @@ impl TauriApiClient {
         let client = ProviderClient::from_model_and_base_url(
             model,
             base_url.to_string(),
-            api_key.to_string()
+            api_key.to_string(),
+            provider_id,
         )
             .map_err(|e| format!("Failed to create API client: {}", e))?;
         Ok(Self {

@@ -79,6 +79,7 @@ pub enum ActorCommand {
         model: String,
         base_url: String,
         api_key: String,
+        provider_id: String,
         response_tx: oneshot::Sender<Result<(), String>>,
     },
 }
@@ -242,9 +243,9 @@ impl ChatSessionActor {
                     let result = self.handle_set_selected_tools(tools);
                     let _ = response_tx.send(result);
                 }
-                ActorCommand::ReloadApiClient { model, base_url, api_key, response_tx } => {
+                ActorCommand::ReloadApiClient { model, base_url, api_key, provider_id, response_tx } => {
                     tracing::info!(model = %model, "Processing ReloadApiClient command");
-                    let result = self.handle_reload_api_client(model, base_url, api_key);
+                    let result = self.handle_reload_api_client(model, base_url, api_key, provider_id);
                     let _ = response_tx.send(result);
                 }
             }
@@ -1001,7 +1002,7 @@ impl ChatSessionActor {
         Ok(())
     }
     
-    fn handle_reload_api_client(&mut self, model: String, base_url: String, api_key: String) -> Result<(), String> {
+    fn handle_reload_api_client(&mut self, model: String, base_url: String, api_key: String, provider_id: String) -> Result<(), String> {
         eprintln!("[ACTOR] Reloading API client with model: {}", model);
         
         // Get current tool definitions from tool_executor
@@ -1014,6 +1015,7 @@ impl ChatSessionActor {
             &model,
             &base_url,
             &api_key,
+            Some(&provider_id),
             event_publisher,
             tool_definitions,
             cancel_flag,

@@ -630,7 +630,7 @@ pub async fn reload_api_client(state: State<'_, AppState>) -> Result<(), String>
     let settings = state.settings_manager.load()?;
     
     // Get selected model
-    let (model, api_key, base_url) = if let Some(ref selected) = settings.selected_model {
+    let (model, api_key, base_url, provider_id) = if let Some(ref selected) = settings.selected_model {
         let provider = settings.get_provider(&selected.provider_id)
             .ok_or_else(|| format!("Provider '{}' not found", selected.provider_id))?;
         
@@ -639,7 +639,12 @@ pub async fn reload_api_client(state: State<'_, AppState>) -> Result<(), String>
             .ok_or_else(|| format!("Model '{}' not found in provider '{}'", selected.model_id, selected.provider_id))?;
         
         eprintln!("[COMMAND] Reloading with model: {} ({})", model_obj.name, model_obj.id);
-        (model_obj.id.clone(), provider.api_key.clone(), provider.base_url.clone())
+        (
+            model_obj.id.clone(),
+            provider.api_key.clone(),
+            provider.base_url.clone(),
+            selected.provider_id.clone()
+        )
     } else {
         return Err("No model selected in settings".to_string());
     };
@@ -654,6 +659,7 @@ pub async fn reload_api_client(state: State<'_, AppState>) -> Result<(), String>
         model,
         base_url,
         api_key,
+        provider_id,
         response_tx: tx,
     }).await.map_err(|e| format!("Failed to send reload command: {}", e))?;
     

@@ -695,7 +695,7 @@ where
         mut prompter: Option<&mut dyn PermissionPrompter>,
         mut on_tool_result: F1,
         mut on_usage: F2,
-        mut should_stop: F3,
+        mut should_continue: F3,
     ) -> Result<TurnSummary, RuntimeError>
     where
         F1: FnMut(&ConversationMessage),
@@ -723,8 +723,8 @@ where
                 return Err(error);
             }
 
-            // Check if should stop (for compaction)
-            if should_stop() {
+            // Check if should continue (for compaction)
+            if !should_continue() {
                 break;
             }
 

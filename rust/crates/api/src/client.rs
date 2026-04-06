@@ -42,14 +42,23 @@ impl ProviderClient {
         model: &str,
         base_url: String,
         api_key: String,
+        provider_id: Option<&str>,
     ) -> Result<Self, ApiError> {
+        // Special case: antigravity uses Anthropic format but bypasses API key
+        if provider_id == Some("antigravity") {
+            return Ok(Self::Anthropic(
+                AnthropicClient::from_auth(AuthSource::None).with_base_url(base_url)
+            ));
+        }
+
         let resolved_model = providers::resolve_model_alias(model);
         match providers::detect_provider_kind(&resolved_model) {
             ProviderKind::Anthropic => {
                 // Custom Anthropic-compatible endpoint
-                Ok(Self::Anthropic(AnthropicClient::from_auth(
-                    AuthSource::ApiKey(api_key),
-                )))
+                Ok(Self::Anthropic(
+                    AnthropicClient::from_auth(AuthSource::ApiKey(api_key))
+                        .with_base_url(base_url)
+                ))
             }
             _ => {
                 // OpenAI-compatible endpoint with custom base URL

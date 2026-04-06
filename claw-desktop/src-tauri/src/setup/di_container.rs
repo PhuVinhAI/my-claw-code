@@ -83,22 +83,30 @@ async fn initialize_app_async(app_handle: AppHandle) -> Result<AppState, String>
     });
     
     // Get model configuration from settings or fallback to env
-    let (model, api_key, base_url) = if let Some(ref selected) = settings.selected_model {
+    let (model, api_key, base_url, provider_id) = if let Some(ref selected) = settings.selected_model {
         if let Some(provider) = settings.get_provider(&selected.provider_id) {
             if let Some(model_obj) = provider.models.iter().find(|m| m.id == selected.model_id) {
                 eprintln!("✓ Using model from settings: {} ({})", model_obj.name, model_obj.id);
-                (model_obj.id.clone(), provider.api_key.clone(), provider.base_url.clone())
+                (
+                    model_obj.id.clone(),
+                    provider.api_key.clone(),
+                    provider.base_url.clone(),
+                    Some(selected.provider_id.clone())
+                )
             } else {
                 eprintln!("Warning: Model not found in settings, falling back to env");
-                get_model_from_env()
+                let (m, k, u) = get_model_from_env();
+                (m, k, u, None)
             }
         } else {
             eprintln!("Warning: Provider not found in settings, falling back to env");
-            get_model_from_env()
+            let (m, k, u) = get_model_from_env();
+            (m, k, u, None)
         }
     } else {
         eprintln!("Warning: No model selected in settings, falling back to env");
-        get_model_from_env()
+        let (m, k, u) = get_model_from_env();
+        (m, k, u, None)
     };
 
     // Set environment variables for API client (only if we have an API key)
@@ -155,6 +163,7 @@ async fn initialize_app_async(app_handle: AppHandle) -> Result<AppState, String>
             &model,
             &base_url,
             &api_key,
+            provider_id.as_deref(),
             event_publisher.clone(),
             tool_definitions,
             cancel_flag.clone(),
@@ -165,6 +174,7 @@ async fn initialize_app_async(app_handle: AppHandle) -> Result<AppState, String>
             &model,
             "https://api.openai.com/v1",
             "sk-dummy",
+            None,
             event_publisher.clone(),
             tool_definitions,
             cancel_flag.clone(),
