@@ -14,6 +14,7 @@ use crate::sandbox::{
 };
 use crate::ConfigLoader;
 
+/// Input schema for the built-in bash execution tool.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct BashCommandInput {
     pub command: String,
@@ -33,6 +34,7 @@ pub struct BashCommandInput {
     pub allowed_mounts: Option<Vec<String>>,
 }
 
+/// Output returned from a bash tool invocation.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct BashCommandOutput {
     pub stdout: String,
@@ -64,18 +66,8 @@ pub struct BashCommandOutput {
     pub sandbox_status: Option<SandboxStatus>,
 }
 
+/// Executes a shell command with the requested sandbox settings.
 pub fn execute_bash(input: BashCommandInput) -> io::Result<BashCommandOutput> {
-    execute_bash_with_callback(input, |_chunk| {}, None)
-}
-
-pub fn execute_bash_with_callback<F>(
-    input: BashCommandInput,
-    on_output: F,
-    stdin_rx: Option<crossbeam_channel::Receiver<String>>,
-) -> io::Result<BashCommandOutput>
-where
-    F: FnMut(&str) + Send + 'static,
-{
     let cwd = env::current_dir()?;
     let sandbox_status = sandbox_status_for_input(&input, &cwd);
 
@@ -107,142 +99,23 @@ where
     }
 
     let runtime = Builder::new_current_thread().enable_all().build()?;
-    runtime.block_on(execute_bash_async(input, sandbox_status, cwd, on_output, stdin_rx))
+    runtime.block_on(execute_bash_async(input, sandbox_status, cwd))
 }
 
-async fn execute_bash_async<F>(
+async fn execute_bash_async(
     input: BashCommandInput,
     sandbox_status: SandboxStatus,
     cwd: std::path::PathBuf,
-    mut on_output: F,
-    stdin_rx: Option<crossbeam_channel::Receiver<String>>,
-) -> io::Result<BashCommandOutput>
-where
-    F: FnMut(&str) + Send,
-{
-    use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-    
+) -> io::Result<BashCommandOutput> {
     let mut command = prepare_tokio_command(&input.command, &cwd, &sandbox_status, true);
-    command.stdout(Stdio::piped());
-    command.stderr(Stdio::piped());
-    command.stdin(Stdio::piped()); // Enable stdin for interactive commands
-
-    let mut child = command.spawn()?;
-    
-    let stdout = child.stdout.take().expect("stdout not captured");
-    let stderr = child.stderr.take().expect("stderr not captured");
-    let mut stdin = child.stdin.take().expect("stdin not captured");
-    
-    let mut stdout_reader = BufReader::new(stdout).lines();
-    let mut stderr_reader = BufReader::new(stderr).lines();
-    
-    let mut stdout_lines = Vec::new();
-    let mut stderr_lines = Vec::new();
-    
-    // Stream output line by line + handle stdin input
-    let stream_task = async {
-        let mut last_output_time = tokio::time::Instant::now();
-        let input_timeout = tokio::time::Duration::from_secs(3); // 3s no output = might be waiting for input
-        
-        loop {
-            tokio::select! {
-                result = stdout_reader.next_line() => {
-                    match result {
-                        Ok(Some(line)) => {
-                            last_output_time = tokio::time::Instant::now();
-                            on_output(&format!("{}\n", line));
-                            stdout_lines.push(line);
-                        }
-                        Ok(None) => break,
-                        Err(e) => {
-                            eprintln!("[BASH] Error reading stdout: {}", e);
-                            break;
-                        }
-                    }
-                }
-                result = stderr_reader.next_line() => {
-                    match result {
-                        Ok(Some(line)) => {
-                            last_output_time = tokio::time::Instant::now();
-                            on_output(&format!("{}\n", line));
-                            stderr_lines.push(line);
-                        }
-                        Ok(None) => {},
-                        Err(e) => {
-                            eprintln!("[BASH] Error reading stderr: {}", e);
-                        }
-                    }
-                }
-                // Check for stdin input from UI
-                _ = tokio::time::sleep(tokio::time::Duration::from_millis(50)) => {
-                    if let Some(ref rx) = stdin_rx {
-                        if let Ok(input_line) = rx.try_recv() {
-                            last_output_time = tokio::time::Instant::now();
-                            
-                            // Check if input is a control sequence (starts with ESC)
-                            let is_control_seq = input_line.starts_with('\x1b');
-                            
-                            // Write input to process stdin
-                            let input_bytes = if is_control_seq {
-                                // Control sequences don't need newline
-                                input_line.as_bytes().to_vec()
-                            } else {
-                                // Regular input needs newline
-                                format!("{}\n", input_line).into_bytes()
-                            };
-                            
-                            if let Err(e) = stdin.write_all(&input_bytes).await {
-                                eprintln!("[BASH] Error writing to stdin: {}", e);
-                            } else if !is_control_seq {
-                                // Echo regular input to output (not control sequences)
-                                on_output(&format!("{}\n", input_line));
-                                stdout_lines.push(input_line);
-                            }
-                        }
-                    }
-                    
-                    // Check if process might be waiting for input
-                    // Reduced timeout to 1s for faster detection
-                    if last_output_time.elapsed() > tokio::time::Duration::from_secs(1) && !stdout_lines.is_empty() {
-                        // Check last few lines for input patterns
-                        let last_lines: Vec<&str> = stdout_lines.iter().rev().take(3).map(|s| s.as_str()).collect();
-                        let combined = last_lines.join(" ").to_lowercase();
-                        
-                        // Detect common interactive patterns
-                        if combined.contains("? ") 
-                            || combined.contains("(y/n)")
-                            || combined.contains("»")
-                            || combined.contains("›")
-                            || combined.contains("select")
-                            || combined.contains("choose")
-                            || combined.contains("enter")
-                            || combined.contains("input")
-                            || combined.contains("continue")
-                            || combined.ends_with('?')
-                            || combined.ends_with(':') {
-                            // Likely waiting for input - emit signal via callback
-                            on_output("\n[WAITING_FOR_INPUT]\n");
-                            last_output_time = tokio::time::Instant::now(); // Reset timer to avoid spam
-                        }
-                    }
-                }
-            }
-        }
-    };
 
     let output_result = if let Some(timeout_ms) = input.timeout {
-        match timeout(Duration::from_millis(timeout_ms), stream_task).await {
-            Ok(_) => {
-                // Wait for process to finish
-                let status = child.wait().await?;
-                (status, false)
-            }
+        match timeout(Duration::from_millis(timeout_ms), command.output()).await {
+            Ok(result) => (result?, false),
             Err(_) => {
-                // Timeout - kill process
-                let _ = child.kill().await;
                 return Ok(BashCommandOutput {
-                    stdout: stdout_lines.join("\n"),
-                    stderr: format!("Command exceeded timeout of {timeout_ms} ms\n{}", stderr_lines.join("\n")),
+                    stdout: String::new(),
+                    stderr: format!("Command exceeded timeout of {timeout_ms} ms"),
                     raw_output_path: None,
                     interrupted: true,
                     is_image: None,
@@ -260,16 +133,14 @@ where
             }
         }
     } else {
-        stream_task.await;
-        let status = child.wait().await?;
-        (status, false)
+        (command.output().await?, false)
     };
 
-    let (status, interrupted) = output_result;
-    let stdout = stdout_lines.join("\n");
-    let stderr = stderr_lines.join("\n");
+    let (output, interrupted) = output_result;
+    let stdout = truncate_output(&String::from_utf8_lossy(&output.stdout));
+    let stderr = truncate_output(&String::from_utf8_lossy(&output.stderr));
     let no_output_expected = Some(stdout.trim().is_empty() && stderr.trim().is_empty());
-    let return_code_interpretation = status.code().and_then(|code| {
+    let return_code_interpretation = output.status.code().and_then(|code| {
         if code == 0 {
             None
         } else {
@@ -329,30 +200,8 @@ fn prepare_command(
         return prepared;
     }
 
-    // Tự động chọn shell phù hợp với OS
-    let mut prepared = if cfg!(target_os = "windows") {
-        let mut cmd = Command::new("powershell");
-        cmd.arg("-NoProfile")
-            .arg("-NonInteractive")
-            .arg("-Command")
-            .arg(command);
-        
-        // CRITICAL: Ẩn console window trên Windows (tránh cmd nhảy ra)
-        #[cfg(windows)]
-        {
-            use std::os::windows::process::CommandExt;
-            const CREATE_NO_WINDOW: u32 = 0x08000000;
-            cmd.creation_flags(CREATE_NO_WINDOW);
-        }
-        
-        cmd
-    } else {
-        let mut cmd = Command::new("sh");
-        cmd.arg("-lc").arg(command);
-        cmd
-    };
-
-    prepared.current_dir(cwd);
+    let mut prepared = Command::new("sh");
+    prepared.arg("-lc").arg(command).current_dir(cwd);
     if sandbox_status.filesystem_active {
         prepared.env("HOME", cwd.join(".sandbox-home"));
         prepared.env("TMPDIR", cwd.join(".sandbox-tmp"));
@@ -378,30 +227,8 @@ fn prepare_tokio_command(
         return prepared;
     }
 
-    // Tự động chọn shell phù hợp với OS
-    let mut prepared = if cfg!(target_os = "windows") {
-        let mut cmd = TokioCommand::new("powershell");
-        cmd.arg("-NoProfile")
-            .arg("-NonInteractive")
-            .arg("-Command")
-            .arg(command);
-        
-        // CRITICAL: Ẩn console window trên Windows (tránh cmd nhảy ra)
-        #[cfg(windows)]
-        {
-            use std::os::windows::process::CommandExt;
-            const CREATE_NO_WINDOW: u32 = 0x08000000;
-            cmd.creation_flags(CREATE_NO_WINDOW);
-        }
-        
-        cmd
-    } else {
-        let mut cmd = TokioCommand::new("sh");
-        cmd.arg("-lc").arg(command);
-        cmd
-    };
-
-    prepared.current_dir(cwd);
+    let mut prepared = TokioCommand::new("sh");
+    prepared.arg("-lc").arg(command).current_dir(cwd);
     if sandbox_status.filesystem_active {
         prepared.env("HOME", cwd.join(".sandbox-home"));
         prepared.env("TMPDIR", cwd.join(".sandbox-tmp"));
@@ -412,6 +239,104 @@ fn prepare_tokio_command(
 fn prepare_sandbox_dirs(cwd: &std::path::Path) {
     let _ = std::fs::create_dir_all(cwd.join(".sandbox-home"));
     let _ = std::fs::create_dir_all(cwd.join(".sandbox-tmp"));
+}
+
+/// Execute bash command with streaming callback for desktop UI
+/// Callback receives (stdout_chunk, stderr_chunk) as command runs
+pub fn execute_bash_with_callback<F>(
+    input: BashCommandInput,
+    mut callback: F,
+) -> io::Result<BashCommandOutput>
+where
+    F: FnMut(String, String) + Send + 'static,
+{
+    use std::io::{BufRead, BufReader};
+    use std::sync::{Arc, Mutex};
+    use std::thread;
+
+    let cwd = env::current_dir()?;
+    let sandbox_status = sandbox_status_for_input(&input, &cwd);
+
+    if input.run_in_background.unwrap_or(false) {
+        // Background tasks don't stream
+        return execute_bash(input);
+    }
+
+    let mut command = prepare_command(&input.command, &cwd, &sandbox_status, true);
+    command.stdout(Stdio::piped()).stderr(Stdio::piped());
+
+    let mut child = command.spawn()?;
+    let stdout = child.stdout.take().expect("stdout piped");
+    let stderr = child.stderr.take().expect("stderr piped");
+
+    let stdout_buffer = Arc::new(Mutex::new(String::new()));
+    let stderr_buffer = Arc::new(Mutex::new(String::new()));
+
+    let stdout_buf_clone = Arc::clone(&stdout_buffer);
+    let stderr_buf_clone = Arc::clone(&stderr_buffer);
+    let callback = Arc::new(Mutex::new(callback));
+    let callback_clone = Arc::clone(&callback);
+
+    // Stream stdout
+    let stdout_thread = thread::spawn(move || {
+        let reader = BufReader::new(stdout);
+        for line in reader.lines() {
+            if let Ok(line) = line {
+                let line_with_newline = format!("{}\n", line);
+                stdout_buf_clone.lock().unwrap().push_str(&line_with_newline);
+                if let Ok(mut cb) = callback.lock() {
+                    cb(line_with_newline, String::new());
+                }
+            }
+        }
+    });
+
+    // Stream stderr
+    let stderr_thread = thread::spawn(move || {
+        let reader = BufReader::new(stderr);
+        for line in reader.lines() {
+            if let Ok(line) = line {
+                let line_with_newline = format!("{}\n", line);
+                stderr_buf_clone.lock().unwrap().push_str(&line_with_newline);
+                if let Ok(mut cb) = callback_clone.lock() {
+                    cb(String::new(), line_with_newline);
+                }
+            }
+        }
+    });
+
+    let status = child.wait()?;
+    stdout_thread.join().ok();
+    stderr_thread.join().ok();
+
+    let stdout = truncate_output(&stdout_buffer.lock().unwrap());
+    let stderr = truncate_output(&stderr_buffer.lock().unwrap());
+    let no_output_expected = Some(stdout.trim().is_empty() && stderr.trim().is_empty());
+    let return_code_interpretation = status.code().and_then(|code| {
+        if code == 0 {
+            None
+        } else {
+            Some(format!("exit_code:{code}"))
+        }
+    });
+
+    Ok(BashCommandOutput {
+        stdout,
+        stderr,
+        raw_output_path: None,
+        interrupted: false,
+        is_image: None,
+        background_task_id: None,
+        backgrounded_by_user: None,
+        assistant_auto_backgrounded: None,
+        dangerously_disable_sandbox: input.dangerously_disable_sandbox,
+        return_code_interpretation,
+        no_output_expected,
+        structured_content: None,
+        persisted_output_path: None,
+        persisted_output_size: None,
+        sandbox_status: Some(sandbox_status),
+    })
 }
 
 #[cfg(test)]
@@ -455,5 +380,55 @@ mod tests {
         .expect("bash command should execute");
 
         assert!(!output.sandbox_status.expect("sandbox status").enabled);
+    }
+}
+
+/// Maximum output bytes before truncation (16 KiB, matching upstream).
+const MAX_OUTPUT_BYTES: usize = 16_384;
+
+/// Truncate output to `MAX_OUTPUT_BYTES`, appending a marker when trimmed.
+fn truncate_output(s: &str) -> String {
+    if s.len() <= MAX_OUTPUT_BYTES {
+        return s.to_string();
+    }
+    // Find the last valid UTF-8 boundary at or before MAX_OUTPUT_BYTES
+    let mut end = MAX_OUTPUT_BYTES;
+    while end > 0 && !s.is_char_boundary(end) {
+        end -= 1;
+    }
+    let mut truncated = s[..end].to_string();
+    truncated.push_str("\n\n[output truncated — exceeded 16384 bytes]");
+    truncated
+}
+
+#[cfg(test)]
+mod truncation_tests {
+    use super::*;
+
+    #[test]
+    fn short_output_unchanged() {
+        let s = "hello world";
+        assert_eq!(truncate_output(s), s);
+    }
+
+    #[test]
+    fn long_output_truncated() {
+        let s = "x".repeat(20_000);
+        let result = truncate_output(&s);
+        assert!(result.len() < 20_000);
+        assert!(result.ends_with("[output truncated — exceeded 16384 bytes]"));
+    }
+
+    #[test]
+    fn exact_boundary_unchanged() {
+        let s = "a".repeat(MAX_OUTPUT_BYTES);
+        assert_eq!(truncate_output(&s), s);
+    }
+
+    #[test]
+    fn one_over_boundary_truncated() {
+        let s = "a".repeat(MAX_OUTPUT_BYTES + 1);
+        let result = truncate_output(&s);
+        assert!(result.contains("[output truncated"));
     }
 }

@@ -31,6 +31,7 @@ fn provider_client_reports_missing_xai_credentials_for_grok_models() {
 }
 
 #[test]
+<<<<<<< HEAD
 fn provider_client_uses_explicit_auth_without_env_lookup() {
     let _lock = env_lock();
     let _api_key = EnvVarGuard::set("ANTHROPIC_API_KEY", None);
@@ -43,6 +44,20 @@ fn provider_client_uses_explicit_auth_without_env_lookup() {
     .expect("explicit auth should avoid env lookup");
 
     assert_eq!(client.provider_kind(), ProviderKind::ClawApi);
+=======
+fn provider_client_uses_explicit_anthropic_auth_without_env_lookup() {
+    let _lock = env_lock();
+    let _anthropic_api_key = EnvVarGuard::set("ANTHROPIC_API_KEY", None);
+    let _anthropic_auth_token = EnvVarGuard::set("ANTHROPIC_AUTH_TOKEN", None);
+
+    let client = ProviderClient::from_model_with_anthropic_auth(
+        "claude-sonnet-4-6",
+        Some(AuthSource::ApiKey("anthropic-test-key".to_string())),
+    )
+    .expect("explicit anthropic auth should avoid env lookup");
+
+    assert_eq!(client.provider_kind(), ProviderKind::Anthropic);
+>>>>>>> upstream/main
 }
 
 #[test]
@@ -57,7 +72,11 @@ fn env_lock() -> std::sync::MutexGuard<'static, ()> {
     static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
     LOCK.get_or_init(|| Mutex::new(()))
         .lock()
+<<<<<<< HEAD
         .unwrap_or_else(|poisoned| poisoned.into_inner())
+=======
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+>>>>>>> upstream/main
 }
 
 struct EnvVarGuard {

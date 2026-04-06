@@ -6,6 +6,9 @@
 .claw/
 /.codex
 /.omx
+.omx/
+.clawd-agents/
+
 # Build artifacts
 target/
 *.exe
@@ -23,3 +26,11 @@ target/
 # OS
 .DS_Store
 Thumbs.db
+
+# Python
+__pycache__/
+archive/
+
+# Claude Code local artifacts
+.claude/settings.local.json
+.claude/sessions/

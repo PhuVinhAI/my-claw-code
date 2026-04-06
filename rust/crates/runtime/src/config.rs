@@ -6,8 +6,10 @@ use std::path::{Path, PathBuf};
 use crate::json::JsonValue;
 use crate::sandbox::{FilesystemIsolationMode, SandboxConfig};
 
+/// Schema name advertised by generated settings files.
 pub const CLAW_SETTINGS_SCHEMA_NAME: &str = "SettingsSchema";
 
+/// Origin of a loaded settings file in the configuration precedence chain.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ConfigSource {
     User,
@@ -15,6 +17,7 @@ pub enum ConfigSource {
     Local,
 }
 
+/// Effective permission mode after decoding config values.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ResolvedPermissionMode {
     ReadOnly,
@@ -22,12 +25,14 @@ pub enum ResolvedPermissionMode {
     DangerFullAccess,
 }
 
+/// A discovered config file and the scope it contributes to.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ConfigEntry {
     pub source: ConfigSource,
     pub path: PathBuf,
 }
 
+/// Fully merged runtime configuration plus parsed feature-specific views.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RuntimeConfig {
     merged: BTreeMap<String, JsonValue>,
@@ -35,6 +40,7 @@ pub struct RuntimeConfig {
     feature_config: RuntimeFeatureConfig,
 }
 
+/// Parsed plugin-related settings extracted from runtime config.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct RuntimePluginConfig {
     enabled_plugins: BTreeMap<String, bool>,
@@ -44,6 +50,7 @@ pub struct RuntimePluginConfig {
     bundled_root: Option<String>,
 }
 
+/// Structured feature configuration consumed by runtime subsystems.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct RuntimeFeatureConfig {
     hooks: RuntimeHookConfig,
@@ -52,26 +59,40 @@ pub struct RuntimeFeatureConfig {
     oauth: Option<OAuthConfig>,
     model: Option<String>,
     permission_mode: Option<ResolvedPermissionMode>,
+    permission_rules: RuntimePermissionRuleConfig,
     sandbox: SandboxConfig,
 }
 
+/// Hook command lists grouped by lifecycle stage.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct RuntimeHookConfig {
     pre_tool_use: Vec<String>,
     post_tool_use: Vec<String>,
+    post_tool_use_failure: Vec<String>,
 }
 
+/// Raw permission rule lists grouped by allow, deny, and ask behavior.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct RuntimePermissionRuleConfig {
+    allow: Vec<String>,
+    deny: Vec<String>,
+    ask: Vec<String>,
+}
+
+/// Collection of configured MCP servers after scope-aware merging.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct McpConfigCollection {
     servers: BTreeMap<String, ScopedMcpServerConfig>,
 }
 
+/// MCP server config paired with the scope that defined it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ScopedMcpServerConfig {
     pub scope: ConfigSource,
     pub config: McpServerConfig,
 }
 
+/// Transport families supported by configured MCP servers.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum McpTransport {
     Stdio,
@@ -82,6 +103,7 @@ pub enum McpTransport {
     ManagedProxy,
 }
 
+/// Scope-normalized MCP server configuration variants.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum McpServerConfig {
     Stdio(McpStdioServerConfig),
@@ -92,13 +114,16 @@ pub enum McpServerConfig {
     ManagedProxy(McpManagedProxyServerConfig),
 }
 
+/// Configuration for an MCP server launched as a local stdio process.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct McpStdioServerConfig {
     pub command: String,
     pub args: Vec<String>,
     pub env: BTreeMap<String, String>,
+    pub tool_call_timeout_ms: Option<u64>,
 }
 
+/// Configuration for an MCP server reached over HTTP or SSE.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct McpRemoteServerConfig {
     pub url: String,
@@ -107,6 +132,7 @@ pub struct McpRemoteServerConfig {
     pub oauth: Option<McpOAuthConfig>,
 }
 
+/// Configuration for an MCP server reached over WebSocket.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct McpWebSocketServerConfig {
     pub url: String,
@@ -114,17 +140,20 @@ pub struct McpWebSocketServerConfig {
     pub headers_helper: Option<String>,
 }
 
+/// Configuration for an MCP server addressed through an SDK name.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct McpSdkServerConfig {
     pub name: String,
 }
 
+/// Configuration for an MCP managed-proxy endpoint.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct McpManagedProxyServerConfig {
     pub url: String,
     pub id: String,
 }
 
+/// OAuth overrides associated with a remote MCP server.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct McpOAuthConfig {
     pub client_id: Option<String>,
@@ -133,6 +162,7 @@ pub struct McpOAuthConfig {
     pub xaa: Option<bool>,
 }
 
+/// OAuth client configuration used by the main Claw runtime.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct OAuthConfig {
     pub client_id: String,
@@ -143,6 +173,7 @@ pub struct OAuthConfig {
     pub scopes: Vec<String>,
 }
 
+/// Errors raised while reading or parsing runtime configuration files.
 #[derive(Debug)]
 pub enum ConfigError {
     Io(std::io::Error),
@@ -166,6 +197,7 @@ impl From<std::io::Error> for ConfigError {
     }
 }
 
+/// Discovers config files and merges them into a [`RuntimeConfig`].
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ConfigLoader {
     cwd: PathBuf,
@@ -232,6 +264,7 @@ impl ConfigLoader {
             let Some(value) = read_optional_json_object(&entry.path)? else {
                 continue;
             };
+            validate_optional_hooks_config(&value, &entry.path)?;
             merge_mcp_servers(&mut mcp_servers, entry.source, &value, &entry.path)?;
             deep_merge_objects(&mut merged, &value);
             loaded_entries.push(entry);
@@ -248,6 +281,7 @@ impl ConfigLoader {
             oauth: parse_optional_oauth_config(&merged_value, "merged settings.oauth")?,
             model: parse_optional_model(&merged_value),
             permission_mode: parse_optional_permission_mode(&merged_value)?,
+            permission_rules: parse_optional_permission_rules(&merged_value)?,
             sandbox: parse_optional_sandbox_config(&merged_value)?,
         };
 
@@ -325,6 +359,11 @@ impl RuntimeConfig {
     }
 
     #[must_use]
+    pub fn permission_rules(&self) -> &RuntimePermissionRuleConfig {
+        &self.feature_config.permission_rules
+    }
+
+    #[must_use]
     pub fn sandbox(&self) -> &SandboxConfig {
         &self.feature_config.sandbox
     }
@@ -374,6 +413,11 @@ impl RuntimeFeatureConfig {
     }
 
     #[must_use]
+    pub fn permission_rules(&self) -> &RuntimePermissionRuleConfig {
+        &self.permission_rules
+    }
+
+    #[must_use]
     pub fn sandbox(&self) -> &SandboxConfig {
         &self.sandbox
     }
@@ -419,6 +463,7 @@ impl RuntimePluginConfig {
 }
 
 #[must_use]
+/// Returns the default per-user config directory used by the runtime.
 pub fn default_config_home() -> PathBuf {
     std::env::var_os("CLAW_CONFIG_HOME")
         .map(PathBuf::from)
@@ -428,10 +473,15 @@ pub fn default_config_home() -> PathBuf {
 
 impl RuntimeHookConfig {
     #[must_use]
-    pub fn new(pre_tool_use: Vec<String>, post_tool_use: Vec<String>) -> Self {
+    pub fn new(
+        pre_tool_use: Vec<String>,
+        post_tool_use: Vec<String>,
+        post_tool_use_failure: Vec<String>,
+    ) -> Self {
         Self {
             pre_tool_use,
             post_tool_use,
+            post_tool_use_failure,
         }
     }
 
@@ -455,6 +505,37 @@ impl RuntimeHookConfig {
     pub fn extend(&mut self, other: &Self) {
         extend_unique(&mut self.pre_tool_use, other.pre_tool_use());
         extend_unique(&mut self.post_tool_use, other.post_tool_use());
+        extend_unique(
+            &mut self.post_tool_use_failure,
+            other.post_tool_use_failure(),
+        );
+    }
+
+    #[must_use]
+    pub fn post_tool_use_failure(&self) -> &[String] {
+        &self.post_tool_use_failure
+    }
+}
+
+impl RuntimePermissionRuleConfig {
+    #[must_use]
+    pub fn new(allow: Vec<String>, deny: Vec<String>, ask: Vec<String>) -> Self {
+        Self { allow, deny, ask }
+    }
+
+    #[must_use]
+    pub fn allow(&self) -> &[String] {
+        &self.allow
+    }
+
+    #[must_use]
+    pub fn deny(&self) -> &[String] {
+        &self.deny
+    }
+
+    #[must_use]
+    pub fn ask(&self) -> &[String] {
+        &self.ask
     }
 }
 
@@ -507,7 +588,7 @@ fn read_optional_json_object(
 
     let parsed = match JsonValue::parse(&contents) {
         Ok(parsed) => parsed,
-        Err(error) if is_legacy_config => return Ok(None),
+        Err(_error) if is_legacy_config => return Ok(None),
         Err(error) => return Err(ConfigError::Parse(format!("{}: {error}", path.display()))),
     };
     let Some(object) = parsed.as_object() else {
@@ -560,14 +641,48 @@ fn parse_optional_hooks_config(root: &JsonValue) -> Result<RuntimeHookConfig, Co
     let Some(object) = root.as_object() else {
         return Ok(RuntimeHookConfig::default());
     };
+    parse_optional_hooks_config_object(object, "merged settings.hooks")
+}
+
+fn parse_optional_hooks_config_object(
+    object: &BTreeMap<String, JsonValue>,
+    context: &str,
+) -> Result<RuntimeHookConfig, ConfigError> {
     let Some(hooks_value) = object.get("hooks") else {
         return Ok(RuntimeHookConfig::default());
     };
-    let hooks = expect_object(hooks_value, "merged settings.hooks")?;
+    let hooks = expect_object(hooks_value, context)?;
     Ok(RuntimeHookConfig {
-        pre_tool_use: optional_string_array(hooks, "PreToolUse", "merged settings.hooks")?
+        pre_tool_use: optional_string_array(hooks, "PreToolUse", context)?.unwrap_or_default(),
+        post_tool_use: optional_string_array(hooks, "PostToolUse", context)?.unwrap_or_default(),
+        post_tool_use_failure: optional_string_array(hooks, "PostToolUseFailure", context)?
             .unwrap_or_default(),
-        post_tool_use: optional_string_array(hooks, "PostToolUse", "merged settings.hooks")?
+    })
+}
+
+fn validate_optional_hooks_config(
+    root: &BTreeMap<String, JsonValue>,
+    path: &Path,
+) -> Result<(), ConfigError> {
+    parse_optional_hooks_config_object(root, &format!("{}: hooks", path.display())).map(|_| ())
+}
+
+fn parse_optional_permission_rules(
+    root: &JsonValue,
+) -> Result<RuntimePermissionRuleConfig, ConfigError> {
+    let Some(object) = root.as_object() else {
+        return Ok(RuntimePermissionRuleConfig::default());
+    };
+    let Some(permissions) = object.get("permissions").and_then(JsonValue::as_object) else {
+        return Ok(RuntimePermissionRuleConfig::default());
+    };
+
+    Ok(RuntimePermissionRuleConfig {
+        allow: optional_string_array(permissions, "allow", "merged settings.permissions")?
+            .unwrap_or_default(),
+        deny: optional_string_array(permissions, "deny", "merged settings.permissions")?
+            .unwrap_or_default(),
+        ask: optional_string_array(permissions, "ask", "merged settings.permissions")?
             .unwrap_or_default(),
     })
 }
@@ -703,12 +818,14 @@ fn parse_mcp_server_config(
     context: &str,
 ) -> Result<McpServerConfig, ConfigError> {
     let object = expect_object(value, context)?;
-    let server_type = optional_string(object, "type", context)?.unwrap_or("stdio");
+    let server_type =
+        optional_string(object, "type", context)?.unwrap_or_else(|| infer_mcp_server_type(object));
     match server_type {
         "stdio" => Ok(McpServerConfig::Stdio(McpStdioServerConfig {
             command: expect_string(object, "command", context)?.to_string(),
             args: optional_string_array(object, "args", context)?.unwrap_or_default(),
             env: optional_string_map(object, "env", context)?.unwrap_or_default(),
+            tool_call_timeout_ms: optional_u64(object, "toolCallTimeoutMs", context)?,
         })),
         "sse" => Ok(McpServerConfig::Sse(parse_mcp_remote_server_config(
             object, context,
@@ -731,6 +848,14 @@ fn parse_mcp_server_config(
         other => Err(ConfigError::Parse(format!(
             "{context}: unsupported MCP server type for {server_name}: {other}"
         ))),
+    }
+}
+
+fn infer_mcp_server_type(object: &BTreeMap<String, JsonValue>) -> &'static str {
+    if object.contains_key("url") {
+        "http"
+    } else {
+        "stdio"
     }
 }
 
@@ -824,6 +949,27 @@ fn optional_u16(
                 )));
             };
             let number = u16::try_from(number).map_err(|_| {
+                ConfigError::Parse(format!("{context}: field {key} is out of range"))
+            })?;
+            Ok(Some(number))
+        }
+        None => Ok(None),
+    }
+}
+
+fn optional_u64(
+    object: &BTreeMap<String, JsonValue>,
+    key: &str,
+    context: &str,
+) -> Result<Option<u64>, ConfigError> {
+    match object.get(key) {
+        Some(value) => {
+            let Some(number) = value.as_i64() else {
+                return Err(ConfigError::Parse(format!(
+                    "{context}: field {key} must be a non-negative integer"
+                )));
+            };
+            let number = u64::try_from(number).map_err(|_| {
                 ConfigError::Parse(format!("{context}: field {key} is out of range"))
             })?;
             Ok(Some(number))
@@ -939,8 +1085,9 @@ fn push_unique(target: &mut Vec<String>, value: String) {
 #[cfg(test)]
 mod tests {
     use super::{
-        ConfigLoader, ConfigSource, McpServerConfig, McpTransport, ResolvedPermissionMode,
-        CLAW_SETTINGS_SCHEMA_NAME,
+        deep_merge_objects, parse_permission_mode_label, ConfigLoader, ConfigSource,
+        McpServerConfig, McpTransport, ResolvedPermissionMode, RuntimeHookConfig,
+        RuntimePluginConfig, CLAW_SETTINGS_SCHEMA_NAME,
     };
     use crate::json::JsonValue;
     use crate::sandbox::FilesystemIsolationMode;
@@ -971,11 +1118,13 @@ mod tests {
             .to_string()
             .contains("top-level settings value must be a JSON object"));
 
-        fs::remove_dir_all(root).expect("cleanup temp dir");
+        if root.exists() {
+            fs::remove_dir_all(root).expect("cleanup temp dir");
+        }
     }
 
     #[test]
-    fn loads_and_merges_claw_code_config_files_by_precedence() {
+    fn loads_and_merges_claude_code_config_files_by_precedence() {
         let root = temp_dir();
         let cwd = root.join("project");
         let home = root.join("home").join(".claw");
@@ -989,7 +1138,7 @@ mod tests {
         .expect("write user compat config");
         fs::write(
             home.join("settings.json"),
-            r#"{"model":"sonnet","env":{"A2":"1"},"hooks":{"PreToolUse":["base"]},"permissions":{"defaultMode":"plan"}}"#,
+            r#"{"model":"sonnet","env":{"A2":"1"},"hooks":{"PreToolUse":["base"]},"permissions":{"defaultMode":"plan","allow":["Read"],"deny":["Bash(rm -rf)"]}}"#,
         )
         .expect("write user settings");
         fs::write(
@@ -999,7 +1148,7 @@ mod tests {
         .expect("write project compat config");
         fs::write(
             cwd.join(".claw").join("settings.json"),
-            r#"{"env":{"C":"3"},"hooks":{"PostToolUse":["project"]},"mcpServers":{"project":{"command":"uvx","args":["project"]}}}"#,
+            r#"{"env":{"C":"3"},"hooks":{"PostToolUse":["project"],"PostToolUseFailure":["project-failure"]},"permissions":{"ask":["Edit"]},"mcpServers":{"project":{"command":"uvx","args":["project"]}}}"#,
         )
         .expect("write project settings");
         fs::write(
@@ -1044,6 +1193,16 @@ mod tests {
             .contains_key("PostToolUse"));
         assert_eq!(loaded.hooks().pre_tool_use(), &["base".to_string()]);
         assert_eq!(loaded.hooks().post_tool_use(), &["project".to_string()]);
+        assert_eq!(
+            loaded.hooks().post_tool_use_failure(),
+            &["project-failure".to_string()]
+        );
+        assert_eq!(loaded.permission_rules().allow(), &["Read".to_string()]);
+        assert_eq!(
+            loaded.permission_rules().deny(),
+            &["Bash(rm -rf)".to_string()]
+        );
+        assert_eq!(loaded.permission_rules().ask(), &["Edit".to_string()]);
         assert!(loaded.mcp().get("home").is_some());
         assert!(loaded.mcp().get("project").is_some());
 
@@ -1180,6 +1339,44 @@ mod tests {
     }
 
     #[test]
+    fn infers_http_mcp_servers_from_url_only_config() {
+        let root = temp_dir();
+        let cwd = root.join("project");
+        let home = root.join("home").join(".claw");
+        fs::create_dir_all(&home).expect("home config dir");
+        fs::create_dir_all(&cwd).expect("project dir");
+        fs::write(
+            home.join("settings.json"),
+            r#"{
+              "mcpServers": {
+                "remote": {
+                  "url": "https://example.test/mcp"
+                }
+              }
+            }"#,
+        )
+        .expect("write mcp settings");
+
+        let loaded = ConfigLoader::new(&cwd, &home)
+            .load()
+            .expect("config should load");
+
+        let remote_server = loaded
+            .mcp()
+            .get("remote")
+            .expect("remote server should exist");
+        assert_eq!(remote_server.transport(), McpTransport::Http);
+        match &remote_server.config {
+            McpServerConfig::Http(config) => {
+                assert_eq!(config.url, "https://example.test/mcp");
+            }
+            other => panic!("expected http config, got {other:?}"),
+        }
+
+        fs::remove_dir_all(root).expect("cleanup temp dir");
+    }
+
+    #[test]
     fn parses_plugin_config_from_enabled_plugins() {
         let root = temp_dir();
         let cwd = root.join("project");
@@ -1271,6 +1468,7 @@ mod tests {
 
     #[test]
     fn rejects_invalid_mcp_server_shapes() {
+        // given
         let root = temp_dir();
         let cwd = root.join("project");
         let home = root.join("home").join(".claw");
@@ -1282,13 +1480,169 @@ mod tests {
         )
         .expect("write broken settings");
 
+        // when
         let error = ConfigLoader::new(&cwd, &home)
             .load()
             .expect_err("config should fail");
+
+        // then
         assert!(error
             .to_string()
             .contains("mcpServers.broken: missing string field url"));
 
         fs::remove_dir_all(root).expect("cleanup temp dir");
+    }
+
+    #[test]
+    fn empty_settings_file_loads_defaults() {
+        // given
+        let root = temp_dir();
+        let cwd = root.join("project");
+        let home = root.join("home").join(".claw");
+        fs::create_dir_all(&home).expect("home config dir");
+        fs::create_dir_all(&cwd).expect("project dir");
+        fs::write(home.join("settings.json"), "").expect("write empty settings");
+
+        // when
+        let loaded = ConfigLoader::new(&cwd, &home)
+            .load()
+            .expect("empty settings should still load");
+
+        // then
+        assert_eq!(loaded.loaded_entries().len(), 1);
+        assert_eq!(loaded.permission_mode(), None);
+        assert_eq!(loaded.plugins().enabled_plugins().len(), 0);
+
+        fs::remove_dir_all(root).expect("cleanup temp dir");
+    }
+
+    #[test]
+    fn deep_merge_objects_merges_nested_maps() {
+        // given
+        let mut target = JsonValue::parse(r#"{"env":{"A":"1","B":"2"},"model":"haiku"}"#)
+            .expect("target JSON should parse")
+            .as_object()
+            .expect("target should be an object")
+            .clone();
+        let source =
+            JsonValue::parse(r#"{"env":{"B":"override","C":"3"},"sandbox":{"enabled":true}}"#)
+                .expect("source JSON should parse")
+                .as_object()
+                .expect("source should be an object")
+                .clone();
+
+        // when
+        deep_merge_objects(&mut target, &source);
+
+        // then
+        let env = target
+            .get("env")
+            .and_then(JsonValue::as_object)
+            .expect("env should remain an object");
+        assert_eq!(env.get("A"), Some(&JsonValue::String("1".to_string())));
+        assert_eq!(
+            env.get("B"),
+            Some(&JsonValue::String("override".to_string()))
+        );
+        assert_eq!(env.get("C"), Some(&JsonValue::String("3".to_string())));
+        assert!(target.contains_key("sandbox"));
+    }
+
+    #[test]
+    fn rejects_invalid_hook_entries_before_merge() {
+        // given
+        let root = temp_dir();
+        let cwd = root.join("project");
+        let home = root.join("home").join(".claw");
+        let project_settings = cwd.join(".claw").join("settings.json");
+        fs::create_dir_all(cwd.join(".claw")).expect("project config dir");
+        fs::create_dir_all(&home).expect("home config dir");
+
+        fs::write(
+            home.join("settings.json"),
+            r#"{"hooks":{"PreToolUse":["base"]}}"#,
+        )
+        .expect("write user settings");
+        fs::write(
+            &project_settings,
+            r#"{"hooks":{"PreToolUse":["project",42]}}"#,
+        )
+        .expect("write invalid project settings");
+
+        // when
+        let error = ConfigLoader::new(&cwd, &home)
+            .load()
+            .expect_err("config should fail");
+
+        // then
+        let rendered = error.to_string();
+        assert!(rendered.contains(&format!(
+            "{}: hooks: field PreToolUse must contain only strings",
+            project_settings.display()
+        )));
+        assert!(!rendered.contains("merged settings.hooks"));
+
+        fs::remove_dir_all(root).expect("cleanup temp dir");
+    }
+
+    #[test]
+    fn permission_mode_aliases_resolve_to_expected_modes() {
+        // given / when / then
+        assert_eq!(
+            parse_permission_mode_label("plan", "test").expect("plan should resolve"),
+            ResolvedPermissionMode::ReadOnly
+        );
+        assert_eq!(
+            parse_permission_mode_label("acceptEdits", "test").expect("acceptEdits should resolve"),
+            ResolvedPermissionMode::WorkspaceWrite
+        );
+        assert_eq!(
+            parse_permission_mode_label("dontAsk", "test").expect("dontAsk should resolve"),
+            ResolvedPermissionMode::DangerFullAccess
+        );
+    }
+
+    #[test]
+    fn hook_config_merge_preserves_uniques() {
+        // given
+        let base = RuntimeHookConfig::new(
+            vec!["pre-a".to_string()],
+            vec!["post-a".to_string()],
+            vec!["failure-a".to_string()],
+        );
+        let overlay = RuntimeHookConfig::new(
+            vec!["pre-a".to_string(), "pre-b".to_string()],
+            vec!["post-a".to_string(), "post-b".to_string()],
+            vec!["failure-b".to_string()],
+        );
+
+        // when
+        let merged = base.merged(&overlay);
+
+        // then
+        assert_eq!(
+            merged.pre_tool_use(),
+            &["pre-a".to_string(), "pre-b".to_string()]
+        );
+        assert_eq!(
+            merged.post_tool_use(),
+            &["post-a".to_string(), "post-b".to_string()]
+        );
+        assert_eq!(
+            merged.post_tool_use_failure(),
+            &["failure-a".to_string(), "failure-b".to_string()]
+        );
+    }
+
+    #[test]
+    fn plugin_state_falls_back_to_default_for_unknown_plugin() {
+        // given
+        let mut config = RuntimePluginConfig::default();
+        config.set_plugin_state("known".to_string(), true);
+
+        // when / then
+        assert!(config.state_for("known", false));
+        assert!(config.state_for("missing", true));
+        assert!(!config.state_for("missing", false));
     }
 }
