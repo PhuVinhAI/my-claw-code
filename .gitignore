@@ -4,7 +4,8 @@
 
 # Claw runtime data
 .claw/
-
+/.codex
+/.omx
 # Build artifacts
 target/
 *.exe
