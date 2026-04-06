@@ -123,6 +123,7 @@ pub fn compact_session(session: &Session, config: CompactionConfig) -> Compactio
         role: MessageRole::System,
         blocks: vec![ContentBlock::Text { text: continuation }],
         usage: None,
+        model_name: None,
     }];
     compacted_messages.extend(preserved);
 

@@ -803,7 +803,10 @@ export function initializeChatStore() {
               const session = await gateway.getSession();
               const lastMessage = session.messages[session.messages.length - 1];
               
-              if (lastMessage && lastMessage.role === 'assistant') {
+              // Normalize role to lowercase for comparison
+              const normalizedRole = lastMessage?.role?.toLowerCase();
+              
+              if (lastMessage && normalizedRole === 'assistant') {
                 // Update last assistant message with full data from backend
                 useChatStore.setState((prev) => {
                   const messages = [...prev.messages];
@@ -811,7 +814,8 @@ export function initializeChatStore() {
                   for (let i = messages.length - 1; i >= 0; i--) {
                     if (messages[i].role === 'assistant') {
                       // Backend uses snake_case (model_name), frontend uses camelCase (modelName)
-                      messages[i] = { ...messages[i], modelName: (lastMessage as any).model_name || lastMessage.modelName };
+                      const modelName = (lastMessage as any).model_name || lastMessage.modelName;
+                      messages[i] = { ...messages[i], modelName };
                       break;
                     }
                   }

@@ -343,8 +343,9 @@ where
                     return Err(error);
                 }
             };
+            let model_name = self.api_client.model_name();
             let (assistant_message, usage, turn_prompt_cache_events) =
-                match build_assistant_message(events) {
+                match build_assistant_message(events, model_name) {
                     Ok(result) => result,
                     Err(error) => {
                         self.record_turn_failed(iterations, &error);
@@ -756,8 +757,9 @@ where
                     return Err(error);
                 }
             };
+            let model_name = self.api_client.model_name();
             let (assistant_message, usage, turn_prompt_cache_events) =
-                match build_assistant_message(events) {
+                match build_assistant_message(events, model_name) {
                     Ok(result) => result,
                     Err(error) => {
                         self.record_turn_failed(iterations, &error);
@@ -956,6 +958,7 @@ fn parse_auto_compaction_threshold(value: Option<&str>) -> u32 {
 
 fn build_assistant_message(
     events: Vec<AssistantEvent>,
+    model_name: Option<String>,
 ) -> Result<
     (
         ConversationMessage,
@@ -997,7 +1000,7 @@ fn build_assistant_message(
     }
 
     Ok((
-        ConversationMessage::assistant_with_usage(blocks, usage),
+        ConversationMessage::assistant_with_model(blocks, usage, model_name),
         usage,
         prompt_cache_events,
     ))
@@ -1867,7 +1870,7 @@ mod tests {
         let events = vec![AssistantEvent::TextDelta("hello".to_string())];
 
         // when
-        let error = build_assistant_message(events)
+        let error = build_assistant_message(events, None)
             .expect_err("assistant messages should require a stop event");
 
         // then
@@ -1883,7 +1886,7 @@ mod tests {
 
         // when
         let error =
-            build_assistant_message(events).expect_err("assistant messages should require content");
+            build_assistant_message(events, None).expect_err("assistant messages should require content");
 
         // then
         assert!(error

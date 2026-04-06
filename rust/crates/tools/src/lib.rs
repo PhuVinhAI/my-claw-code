@@ -12,7 +12,7 @@ use plugins::PluginTool;
 use reqwest::blocking::Client;
 use runtime::{
     check_freshness, dedupe_superseded_commit_events, edit_file, execute_bash, glob_search,
-    grep_search, load_system_prompt,
+    grep_search, list_directory, load_system_prompt,
     lsp_client::LspRegistry,
     mcp_tool_bridge::McpToolRegistry,
     permission_enforcer::{EnforcementResult, PermissionEnforcer},
@@ -29,6 +29,36 @@ use runtime::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+
+/// Tools excluded from Workspace mode by default
+/// These tools are considered too specialized or potentially disruptive for general work mode
+const WORKSPACE_EXCLUDED_TOOLS: &[&str] = &[
+    "NotebookEdit",     // Jupyter notebook editing - specialized use case
+    "Agent",            // Sub-agent spawning - can cause complexity
+    "Skill",            // Skill loading - meta-operation
+    "ToolSearch",       // Tool discovery - meta-operation
+    "Config",           // System configuration - should be explicit
+    "StructuredOutput", // Structured output formatting - specialized
+];
+
+/// Get OS-specific tool exclusions
+/// Windows: exclude bash, keep PowerShell
+/// Linux/macOS: exclude PowerShell, keep bash
+fn get_os_specific_exclusions() -> Vec<String> {
+    let mut exclusions = Vec::new();
+    
+    #[cfg(target_os = "windows")]
+    {
+        exclusions.push("bash".to_string());
+    }
+    
+    #[cfg(not(target_os = "windows"))]
+    {
+        exclusions.push("PowerShell".to_string());
+    }
+    
+    exclusions
+}
 
 /// Global task registry shared across tool invocations within a session.
 fn global_lsp_registry() -> &'static LspRegistry {
@@ -277,24 +307,86 @@ impl GlobalToolRegistry {
     }
 
     /// Desktop helper: get definitions with exclusions
+    /// 
+    /// # Arguments
+    /// * `allowed_tools` - Whitelist of allowed tools (None = all tools)
+    /// * `excluded_tools` - Blacklist of excluded tools (None = no exclusions)
+    /// 
+    /// # Logic
+    /// 1. If `allowed_tools` is Some, only those tools are included
+    /// 2. Then, if `excluded_tools` is Some, those tools are removed
+    /// 3. This allows fine-grained control: whitelist + blacklist
     #[must_use]
     pub fn definitions_with_exclusions(
         &self,
         allowed_tools: Option<&BTreeSet<String>>,
         excluded_tools: Option<&BTreeSet<String>>,
     ) -> Vec<ToolDefinition> {
-        self.definitions(allowed_tools)
+        let builtin = mvp_tool_specs()
             .into_iter()
-            .filter(|def| {
-                excluded_tools.is_none_or(|excluded| !excluded.contains(&def.name))
+            .filter(|spec| {
+                // First check whitelist
+                let allowed = allowed_tools.is_none_or(|allowed| allowed.contains(spec.name));
+                // Then check blacklist
+                let not_excluded = excluded_tools.is_none_or(|excluded| !excluded.contains(spec.name));
+                allowed && not_excluded
             })
-            .collect()
+            .map(|spec| ToolDefinition {
+                name: spec.name.to_string(),
+                description: Some(spec.description.to_string()),
+                input_schema: spec.input_schema,
+            });
+        let runtime = self
+            .runtime_tools
+            .iter()
+            .filter(|tool| {
+                let name = tool.name.as_str();
+                let allowed = allowed_tools.is_none_or(|allowed| allowed.contains(name));
+                let not_excluded = excluded_tools.is_none_or(|excluded| !excluded.contains(name));
+                allowed && not_excluded
+            })
+            .map(|tool| ToolDefinition {
+                name: tool.name.clone(),
+                description: tool.description.clone(),
+                input_schema: tool.input_schema.clone(),
+            });
+        let plugin = self
+            .plugin_tools
+            .iter()
+            .filter(|tool| {
+                let name = tool.definition().name.as_str();
+                let allowed = allowed_tools.is_none_or(|allowed| allowed.contains(name));
+                let not_excluded = excluded_tools.is_none_or(|excluded| !excluded.contains(name));
+                allowed && not_excluded
+            })
+            .map(|tool| ToolDefinition {
+                name: tool.definition().name.clone(),
+                description: tool.definition().description.clone(),
+                input_schema: tool.definition().input_schema.clone(),
+            });
+        builtin.chain(runtime).chain(plugin).collect()
     }
 
     /// Desktop helper: default workspace exclusions
     #[must_use]
     pub fn default_workspace_exclusions() -> BTreeSet<String> {
-        BTreeSet::new() // Desktop can customize this
+        let mut exclusions: BTreeSet<String> = WORKSPACE_EXCLUDED_TOOLS
+            .iter()
+            .map(|&s| s.to_string())
+            .collect();
+        
+        // Add OS-specific exclusions
+        for tool in get_os_specific_exclusions() {
+            exclusions.insert(tool);
+        }
+        
+        exclusions
+    }
+    
+    /// Get OS-specific exclusions only (for testing/debugging)
+    #[must_use]
+    pub fn os_specific_exclusions() -> BTreeSet<String> {
+        get_os_specific_exclusions().into_iter().collect()
     }
 
     pub fn permission_specs(
@@ -506,6 +598,19 @@ pub fn mvp_tool_specs() -> Vec<ToolSpec> {
                     "multiline": { "type": "boolean" }
                 },
                 "required": ["pattern"],
+                "additionalProperties": false
+            }),
+            required_permission: PermissionMode::ReadOnly,
+        },
+        ToolSpec {
+            name: "list_directory",
+            description: "List files and directories in a given path (non-recursive, direct children only).",
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "path": { "type": "string" }
+                },
+                "required": ["path"],
                 "additionalProperties": false
             }),
             required_permission: PermissionMode::ReadOnly,
@@ -1209,6 +1314,10 @@ fn execute_tool_with_enforcer(
         "grep_search" => {
             maybe_enforce_permission_check(enforcer, name, input)?;
             from_value::<GrepSearchInput>(input).and_then(run_grep_search)
+        }
+        "list_directory" => {
+            maybe_enforce_permission_check(enforcer, name, input)?;
+            from_value::<ListDirectoryInput>(input).and_then(run_list_directory)
         }
         "WebFetch" => from_value::<WebFetchInput>(input).and_then(run_web_fetch),
         "WebSearch" => from_value::<WebSearchInput>(input).and_then(run_web_search),
@@ -1955,6 +2064,16 @@ fn run_glob_search(input: GlobSearchInputValue) -> Result<String, String> {
 #[allow(clippy::needless_pass_by_value)]
 fn run_grep_search(input: GrepSearchInput) -> Result<String, String> {
     to_pretty_json(grep_search(&input).map_err(io_to_string)?)
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct ListDirectoryInput {
+    path: String,
+}
+
+#[allow(clippy::needless_pass_by_value)]
+fn run_list_directory(input: ListDirectoryInput) -> Result<String, String> {
+    to_pretty_json(list_directory(&input.path).map_err(io_to_string)?)
 }
 
 #[allow(clippy::needless_pass_by_value)]

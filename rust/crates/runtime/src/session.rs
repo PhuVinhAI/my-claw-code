@@ -51,6 +51,8 @@ pub struct ConversationMessage {
     pub role: MessageRole,
     pub blocks: Vec<ContentBlock>,
     pub usage: Option<TokenUsage>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub model_name: Option<String>,
 }
 
 /// Metadata describing the latest compaction that summarized a session.
@@ -473,6 +475,7 @@ impl ConversationMessage {
             role: MessageRole::User,
             blocks: vec![ContentBlock::Text { text: text.into() }],
             usage: None,
+            model_name: None,
         }
     }
 
@@ -482,6 +485,7 @@ impl ConversationMessage {
             role: MessageRole::Assistant,
             blocks,
             usage: None,
+            model_name: None,
         }
     }
 
@@ -491,6 +495,17 @@ impl ConversationMessage {
             role: MessageRole::Assistant,
             blocks,
             usage,
+            model_name: None,
+        }
+    }
+
+    #[must_use]
+    pub fn assistant_with_model(blocks: Vec<ContentBlock>, usage: Option<TokenUsage>, model_name: Option<String>) -> Self {
+        Self {
+            role: MessageRole::Assistant,
+            blocks,
+            usage,
+            model_name,
         }
     }
 
@@ -512,6 +527,7 @@ impl ConversationMessage {
                 is_timed_out: false,
             }],
             usage: None,
+            model_name: None,
         }
     }
 
@@ -535,6 +551,7 @@ impl ConversationMessage {
                 is_timed_out,
             }],
             usage: None,
+            model_name: None,
         }
     }
 
@@ -559,6 +576,9 @@ impl ConversationMessage {
         );
         if let Some(usage) = self.usage {
             object.insert("usage".to_string(), usage_to_json(usage));
+        }
+        if let Some(ref model_name) = self.model_name {
+            object.insert("model_name".to_string(), JsonValue::String(model_name.clone()));
         }
         JsonValue::Object(object)
     }
@@ -590,10 +610,12 @@ impl ConversationMessage {
             .map(ContentBlock::from_json)
             .collect::<Result<Vec<_>, _>>()?;
         let usage = object.get("usage").map(usage_from_json).transpose()?;
+        let model_name = object.get("model_name").and_then(JsonValue::as_str).map(ToOwned::to_owned);
         Ok(Self {
             role,
             blocks,
             usage,
+            model_name,
         })
     }
 }
