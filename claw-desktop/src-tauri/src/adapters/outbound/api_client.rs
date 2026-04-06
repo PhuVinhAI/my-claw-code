@@ -44,7 +44,11 @@ impl TauriApiClient {
         tool_definitions: Vec<api::ToolDefinition>,
         cancel_flag: Arc<AtomicBool>,
     ) -> Result<Self, String> {
-        let client = ProviderClient::from_model_and_base_url(model, base_url, api_key)
+        let client = ProviderClient::from_model_and_base_url(
+            model,
+            base_url.to_string(),
+            api_key.to_string()
+        )
             .map_err(|e| format!("Failed to create API client: {}", e))?;
         Ok(Self {
             client,

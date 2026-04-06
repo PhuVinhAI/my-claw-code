@@ -192,8 +192,6 @@ async fn initialize_app_async(app_handle: AppHandle) -> Result<AppState, String>
         chrono::Local::now().format("%Y-%m-%d").to_string(),
         std::env::consts::OS,
         "claw-desktop",
-        Some("normal"),
-        None,
     )
     .map_err(|e| format!("Failed to load system prompt: {}", e))?;
 
@@ -204,7 +202,7 @@ async fn initialize_app_async(app_handle: AppHandle) -> Result<AppState, String>
         tool_executor,
         permission_policy,
         system_prompt,
-        RuntimeFeatureConfig::default(),
+        &RuntimeFeatureConfig::default(),
     );
 
     // 13. Create MPSC channel
@@ -221,9 +219,13 @@ async fn initialize_app_async(app_handle: AppHandle) -> Result<AppState, String>
         cancel_flag.clone(), // Pass shared cancel_flag to actor
     );
 
-    // 15. Spawn Actor task
-    tokio::spawn(async move {
-        actor.run().await;
+    // 15. Spawn Actor task in background thread (actor is !Send due to HookProgressReporter)
+    // Use std::thread instead of tokio::spawn
+    std::thread::spawn(move || {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(async {
+            actor.run().await;
+        });
     });
 
     // 16. Return AppState

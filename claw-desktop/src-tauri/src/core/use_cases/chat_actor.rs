@@ -331,10 +331,12 @@ impl ChatSessionActor {
                             tool_name,
                             output,
                             is_error,
-                            is_cancelled,
-                            is_timed_out,
                         } = block
                         {
+                            // Detect cancelled/timed_out from output
+                            let is_cancelled = output.contains("cancelled by user") || output.contains("Tool execution cancelled");
+                            let is_timed_out = output.contains("TIMEOUT") || output.contains("timed out");
+                            
                             // Log tool result for AI
                             log_tool_execution_for_ai(
                                 tool_use_id,
@@ -350,8 +352,8 @@ impl ChatSessionActor {
                                     tool_use_id: tool_use_id.clone(),
                                     output: output.clone(),
                                     is_error: *is_error,
-                                    is_cancelled: *is_cancelled,
-                                    is_timed_out: *is_timed_out,
+                                    is_cancelled,
+                                    is_timed_out,
                                 },
                             );
                         }
@@ -474,17 +476,19 @@ impl ChatSessionActor {
                                 tool_name: _,
                                 output,
                                 is_error,
-                                is_cancelled,
-                                is_timed_out,
                             } = block
                             {
+                                // Detect cancelled/timed_out from output
+                                let is_cancelled = output.contains("cancelled by user") || output.contains("Tool execution cancelled");
+                                let is_timed_out = output.contains("TIMEOUT") || output.contains("timed out");
+                                
                                 event_publisher.publish_stream_event(
                                     crate::core::domain::types::StreamEvent::ToolResult {
                                         tool_use_id: tool_use_id.clone(),
                                         output: output.clone(),
                                         is_error: *is_error,
-                                        is_cancelled: *is_cancelled,
-                                        is_timed_out: *is_timed_out,
+                                        is_cancelled,
+                                        is_timed_out,
                                     },
                                 );
                             }
@@ -856,8 +860,6 @@ impl ChatSessionActor {
             date, 
             os_name, 
             os_version,
-            Some(&work_mode),
-            workspace_path.as_deref(),
         )
         .map_err(|e| format!("Failed to load system prompt: {}", e))?;
         
@@ -976,7 +978,6 @@ impl ChatSessionActor {
                 role: runtime::MessageRole::System,
                 blocks: vec![runtime::ContentBlock::Text { text: notification.clone() }],
                 usage: None,
-                model_name: None,
             };
             
             // Add to session messages
@@ -1003,8 +1004,8 @@ impl ChatSessionActor {
     fn handle_reload_api_client(&mut self, model: String, base_url: String, api_key: String) -> Result<(), String> {
         eprintln!("[ACTOR] Reloading API client with model: {}", model);
         
-        // Get current tool definitions
-        let tool_definitions = self.runtime.api_client().get_tool_definitions();
+        // Get current tool definitions from tool_executor
+        let tool_definitions = self.runtime.tool_executor_mut().get_tool_definitions();
         let event_publisher = self.event_publisher.clone();
         let cancel_flag = self.cancel_flag.clone(); // Use shared cancel flag
         

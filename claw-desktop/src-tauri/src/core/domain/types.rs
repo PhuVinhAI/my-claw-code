@@ -4,8 +4,30 @@ use serde::{Deserialize, Serialize};
 // Re-export types từ runtime crate
 pub use runtime::{
     ContentBlock, ConversationMessage, MessageRole, PermissionMode, PermissionRequest,
-    Session, TokenUsage, TurnSummary,
+    TokenUsage, TurnSummary,
 };
+
+/// Serializable wrapper for Session (runtime::Session doesn't have Serialize)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SessionDto {
+    pub version: u32,
+    pub session_id: String,
+    pub created_at_ms: u64,
+    pub updated_at_ms: u64,
+    pub messages: Vec<ConversationMessage>,
+}
+
+impl From<&runtime::Session> for SessionDto {
+    fn from(session: &runtime::Session) -> Self {
+        Self {
+            version: session.version,
+            session_id: session.session_id.clone(),
+            created_at_ms: session.created_at_ms,
+            updated_at_ms: session.updated_at_ms,
+            messages: session.messages.clone(),
+        }
+    }
+}
 
 /// Stream event được emit về Frontend
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -658,6 +658,248 @@ where
         attributes.insert("error".to_string(), Value::String(error.to_string()));
         session_tracer.record("turn_failed", attributes);
     }
+
+    // ========== Desktop-specific methods ==========
+    
+    /// Replace entire session (for desktop session management)
+    pub fn replace_session(&mut self, session: Session) {
+        self.session = session;
+        self.usage_tracker = UsageTracker::from_session(&self.session);
+    }
+
+    /// Update system prompt (for desktop settings changes)
+    pub fn update_system_prompt(&mut self, system_prompt: Vec<String>) {
+        self.system_prompt = system_prompt;
+    }
+
+    /// Get mutable reference to tool executor (for desktop tool management)
+    pub fn tool_executor_mut(&mut self) -> &mut T {
+        &mut self.tool_executor
+    }
+
+    /// Get mutable reference to API client (for desktop provider switching)
+    pub fn api_client_mut(&mut self) -> &mut C {
+        &mut self.api_client
+    }
+
+    /// Replace API client (for desktop provider switching)
+    pub fn replace_api_client(&mut self, api_client: C) {
+        self.api_client = api_client;
+    }
+
+    /// Desktop-specific: run turn with callbacks for real-time events
+    /// This is a wrapper around run_turn that emits events during execution
+    pub fn run_turn_with_callback<F1, F2, F3>(
+        &mut self,
+        user_input: impl Into<String>,
+        mut prompter: Option<&mut dyn PermissionPrompter>,
+        mut on_tool_result: F1,
+        mut on_usage: F2,
+        mut should_stop: F3,
+    ) -> Result<TurnSummary, RuntimeError>
+    where
+        F1: FnMut(&ConversationMessage),
+        F2: FnMut(&TokenUsage),
+        F3: FnMut() -> bool,
+    {
+        let user_input = user_input.into();
+        self.record_turn_started(&user_input);
+        self.session
+            .push_user_text(user_input)
+            .map_err(|error| RuntimeError::new(error.to_string()))?;
+
+        let mut assistant_messages = Vec::new();
+        let mut tool_results = Vec::new();
+        let mut prompt_cache_events = Vec::new();
+        let mut iterations = 0;
+
+        loop {
+            iterations += 1;
+            if iterations > self.max_iterations {
+                let error = RuntimeError::new(
+                    "conversation loop exceeded the maximum number of iterations",
+                );
+                self.record_turn_failed(iterations, &error);
+                return Err(error);
+            }
+
+            // Check if should stop (for compaction)
+            if should_stop() {
+                break;
+            }
+
+            let request = ApiRequest {
+                system_prompt: self.system_prompt.clone(),
+                messages: self.session.messages.clone(),
+            };
+            let events = match self.api_client.stream(request) {
+                Ok(events) => events,
+                Err(error) => {
+                    self.record_turn_failed(iterations, &error);
+                    return Err(error);
+                }
+            };
+            let (assistant_message, usage, turn_prompt_cache_events) =
+                match build_assistant_message(events) {
+                    Ok(result) => result,
+                    Err(error) => {
+                        self.record_turn_failed(iterations, &error);
+                        return Err(error);
+                    }
+                };
+            
+            // Emit usage callback
+            if let Some(ref usage_val) = usage {
+                self.usage_tracker.record(*usage_val);
+                on_usage(usage_val);
+            }
+            
+            prompt_cache_events.extend(turn_prompt_cache_events);
+            let pending_tool_uses = assistant_message
+                .blocks
+                .iter()
+                .filter_map(|block| match block {
+                    ContentBlock::ToolUse { id, name, input } => {
+                        Some((id.clone(), name.clone(), input.clone()))
+                    }
+                    _ => None,
+                })
+                .collect::<Vec<_>>();
+            self.record_assistant_iteration(
+                iterations,
+                &assistant_message,
+                pending_tool_uses.len(),
+            );
+
+            self.session
+                .push_message(assistant_message.clone())
+                .map_err(|error| RuntimeError::new(error.to_string()))?;
+            assistant_messages.push(assistant_message);
+
+            if pending_tool_uses.is_empty() {
+                break;
+            }
+
+            for (tool_use_id, tool_name, input) in pending_tool_uses {
+                let pre_hook_result = self.run_pre_tool_use_hook(&tool_name, &input);
+                let effective_input = pre_hook_result
+                    .updated_input()
+                    .map_or_else(|| input.clone(), ToOwned::to_owned);
+                let permission_context = PermissionContext::new(
+                    pre_hook_result.permission_override(),
+                    pre_hook_result.permission_reason().map(ToOwned::to_owned),
+                );
+
+                let permission_outcome = if pre_hook_result.is_cancelled() {
+                    PermissionOutcome::Deny {
+                        reason: format_hook_message(
+                            &pre_hook_result,
+                            &format!("PreToolUse hook cancelled tool `{tool_name}`"),
+                        ),
+                    }
+                } else if pre_hook_result.is_failed() {
+                    PermissionOutcome::Deny {
+                        reason: format_hook_message(
+                            &pre_hook_result,
+                            &format!("PreToolUse hook failed for tool `{tool_name}`"),
+                        ),
+                    }
+                } else if pre_hook_result.is_denied() {
+                    PermissionOutcome::Deny {
+                        reason: format_hook_message(
+                            &pre_hook_result,
+                            &format!("PreToolUse hook denied tool `{tool_name}`"),
+                        ),
+                    }
+                } else if let Some(prompt) = prompter.as_mut() {
+                    self.permission_policy.authorize_with_context(
+                        &tool_name,
+                        &effective_input,
+                        &permission_context,
+                        Some(*prompt),
+                    )
+                } else {
+                    self.permission_policy.authorize_with_context(
+                        &tool_name,
+                        &effective_input,
+                        &permission_context,
+                        None,
+                    )
+                };
+
+                let result_message = match permission_outcome {
+                    PermissionOutcome::Allow => {
+                        self.record_tool_started(iterations, &tool_name);
+                        let (mut output, mut is_error) =
+                            match self.tool_executor.execute(&tool_name, &effective_input) {
+                                Ok(output) => (output, false),
+                                Err(error) => (error.to_string(), true),
+                            };
+                        output = merge_hook_feedback(pre_hook_result.messages(), output, false);
+
+                        let post_hook_result = if is_error {
+                            self.run_post_tool_use_failure_hook(
+                                &tool_name,
+                                &effective_input,
+                                &output,
+                            )
+                        } else {
+                            self.run_post_tool_use_hook(
+                                &tool_name,
+                                &effective_input,
+                                &output,
+                                false,
+                            )
+                        };
+                        if post_hook_result.is_denied()
+                            || post_hook_result.is_failed()
+                            || post_hook_result.is_cancelled()
+                        {
+                            is_error = true;
+                        }
+                        output = merge_hook_feedback(
+                            post_hook_result.messages(),
+                            output,
+                            post_hook_result.is_denied()
+                                || post_hook_result.is_failed()
+                                || post_hook_result.is_cancelled(),
+                        );
+
+                        ConversationMessage::tool_result(tool_use_id, tool_name, output, is_error)
+                    }
+                    PermissionOutcome::Deny { reason } => ConversationMessage::tool_result(
+                        tool_use_id,
+                        tool_name,
+                        merge_hook_feedback(pre_hook_result.messages(), reason, true),
+                        true,
+                    ),
+                };
+                
+                // Emit tool result callback
+                on_tool_result(&result_message);
+                
+                self.session
+                    .push_message(result_message.clone())
+                    .map_err(|error| RuntimeError::new(error.to_string()))?;
+                self.record_tool_finished(iterations, &result_message);
+                tool_results.push(result_message);
+            }
+        }
+
+        let auto_compaction = self.maybe_auto_compact();
+
+        let summary = TurnSummary {
+            assistant_messages,
+            tool_results,
+            prompt_cache_events,
+            iterations,
+            usage: self.usage_tracker.cumulative_usage(),
+            auto_compaction,
+        };
+        self.record_turn_completed(&summary);
+
+        Ok(summary)
+    }
 }
 
 /// Reads the automatic compaction threshold from the environment.

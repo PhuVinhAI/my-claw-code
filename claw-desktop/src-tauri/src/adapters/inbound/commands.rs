@@ -109,7 +109,7 @@ pub async fn save_session(session_id: String, state: State<'_, AppState>) -> Res
 
 /// Get current session command
 #[tauri::command]
-pub async fn get_session(state: State<'_, AppState>) -> Result<runtime::Session, String> {
+pub async fn get_session(state: State<'_, AppState>) -> Result<crate::core::domain::types::SessionDto, String> {
     let (tx, rx) = oneshot::channel();
 
     state
@@ -121,12 +121,7 @@ pub async fn get_session(state: State<'_, AppState>) -> Result<runtime::Session,
     let session = rx.await
         .map_err(|e| format!("Failed to receive response: {}", e))?;
     
-    // Debug: log first assistant message's model_name
-    if let Some(msg) = session.messages.iter().find(|m| m.role == runtime::MessageRole::Assistant) {
-        eprintln!("[GET_SESSION] First assistant message model_name: {:?}", msg.model_name);
-    }
-    
-    Ok(session)
+    Ok(crate::core::domain::types::SessionDto::from(&session))
 }
 
 /// Dừng quá trình tạo phản hồi của AI

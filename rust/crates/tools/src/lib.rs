@@ -276,6 +276,27 @@ impl GlobalToolRegistry {
         builtin.chain(runtime).chain(plugin).collect()
     }
 
+    /// Desktop helper: get definitions with exclusions
+    #[must_use]
+    pub fn definitions_with_exclusions(
+        &self,
+        allowed_tools: Option<&BTreeSet<String>>,
+        excluded_tools: Option<&BTreeSet<String>>,
+    ) -> Vec<ToolDefinition> {
+        self.definitions(allowed_tools)
+            .into_iter()
+            .filter(|def| {
+                excluded_tools.is_none_or(|excluded| !excluded.contains(&def.name))
+            })
+            .collect()
+    }
+
+    /// Desktop helper: default workspace exclusions
+    #[must_use]
+    pub fn default_workspace_exclusions() -> BTreeSet<String> {
+        BTreeSet::new() // Desktop can customize this
+    }
+
     pub fn permission_specs(
         &self,
         allowed_tools: Option<&BTreeSet<String>>,

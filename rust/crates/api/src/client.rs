@@ -37,6 +37,30 @@ impl ProviderClient {
         }
     }
 
+    /// Create client with custom base URL (for desktop custom providers)
+    pub fn from_model_and_base_url(
+        model: &str,
+        base_url: String,
+        api_key: String,
+    ) -> Result<Self, ApiError> {
+        let resolved_model = providers::resolve_model_alias(model);
+        match providers::detect_provider_kind(&resolved_model) {
+            ProviderKind::Anthropic => {
+                // Custom Anthropic-compatible endpoint
+                Ok(Self::Anthropic(AnthropicClient::from_auth(
+                    AuthSource::ApiKey(api_key),
+                )))
+            }
+            _ => {
+                // OpenAI-compatible endpoint with custom base URL
+                let config = OpenAiCompatConfig::openai(); // Use default config
+                Ok(Self::OpenAi(
+                    OpenAiCompatClient::new(api_key, config).with_base_url(base_url)
+                ))
+            }
+        }
+    }
+
     #[must_use]
     pub const fn provider_kind(&self) -> ProviderKind {
         match self {

@@ -2,6 +2,7 @@ mod client;
 mod error;
 mod prompt_cache;
 mod providers;
+pub mod runtime_helpers;
 mod sse;
 mod types;
 
@@ -19,6 +20,7 @@ pub use providers::openai_compat::{OpenAiCompatClient, OpenAiCompatConfig};
 pub use providers::{
     detect_provider_kind, max_tokens_for_model, resolve_model_alias, ProviderKind,
 };
+pub use runtime_helpers::convert_runtime_messages;
 pub use sse::{parse_frame, SseParser};
 pub use types::{
     ContentBlockDelta, ContentBlockDeltaEvent, ContentBlockStartEvent, ContentBlockStopEvent,
