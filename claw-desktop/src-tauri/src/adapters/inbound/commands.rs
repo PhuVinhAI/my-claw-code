@@ -854,3 +854,45 @@ pub async fn fetch_kilo_models() -> Result<String, String> {
     eprintln!("[COMMAND] Fetched {} bytes from Kilo API", body.len());
     Ok(body)
 }
+
+/// Test Antigravity proxy connection
+#[tauri::command]
+pub async fn test_antigravity_connection(base_url: String) -> Result<String, String> {
+    tracing::info!(base_url = %base_url, "Testing Antigravity connection");
+    
+    // Try to fetch models list from Antigravity proxy
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(5))
+        .build()
+        .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
+    
+    let url = format!("{}/v1/models", base_url);
+    
+    match client.get(&url).send().await {
+        Ok(response) => {
+            if response.status().is_success() {
+                match response.text().await {
+                    Ok(body) => {
+                        tracing::info!("Antigravity connection successful");
+                        Ok(body)
+                    }
+                    Err(e) => {
+                        let err = format!("Failed to read response: {}", e);
+                        tracing::error!("{}", err);
+                        Err(err)
+                    }
+                }
+            } else {
+                let status = response.status();
+                let err = format!("Antigravity returned error status: {}", status);
+                tracing::error!("{}", err);
+                Err(err)
+            }
+        }
+        Err(e) => {
+            let err = format!("Failed to connect to Antigravity: {}", e);
+            tracing::error!("{}", err);
+            Err(err)
+        }
+    }
+}

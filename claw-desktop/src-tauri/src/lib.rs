@@ -68,7 +68,8 @@ pub fn run() {
             set_selected_model,
             get_selected_model_info,
             reload_api_client,
-            fetch_kilo_models
+            fetch_kilo_models,
+            test_antigravity_connection
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

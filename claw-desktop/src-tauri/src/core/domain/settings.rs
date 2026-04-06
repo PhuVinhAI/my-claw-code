@@ -100,7 +100,7 @@ impl Settings {
     }
 
     /// Create default settings by loading providers from JSON file
-    /// Only Kilo has default model, others require manual model configuration
+    /// Only Antigravity provider is included by default
     pub fn default_settings() -> Self {
         // Load from embedded JSON file
         let json_data = include_str!("default_providers.json");
@@ -132,22 +132,16 @@ impl Settings {
 
     /// Fallback defaults in case JSON loading fails
     fn fallback_defaults() -> Self {
-        let kilo_provider = Provider {
-            id: "kilo".to_string(),
-            name: "Kilo AI Gateway".to_string(),
-            api_key: String::new(),
-            base_url: "https://api.kilo.ai/api/gateway".to_string(),
-            models: vec![
-                Model {
-                    id: "kilo-auto/free".to_string(),
-                    name: "Kilo Auto (Free)".to_string(),
-                    max_context: None,
-                },
-            ],
+        let antigravity_provider = Provider {
+            id: "antigravity".to_string(),
+            name: "Antigravity Claude Proxy".to_string(),
+            api_key: "test".to_string(),
+            base_url: "http://localhost:8080".to_string(),
+            models: vec![],
         };
 
         Self {
-            providers: vec![kilo_provider],
+            providers: vec![antigravity_provider],
             selected_model: None,
             compact_config: CompactConfig::default(),
             workspace_path: default_workspace_path(),
