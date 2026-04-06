@@ -142,17 +142,24 @@ impl ChatSessionActor {
 
     /// Main loop - Nhận messages từ inbox và xử lý
     pub async fn run(mut self) {
-        eprintln!("[ACTOR] ChatSessionActor started, waiting for commands...");
+        tracing::info!("ChatSessionActor started, waiting for commands");
         while let Some(command) = self.inbox.recv().await {
-            eprintln!("[ACTOR] Received command: {:?}", std::mem::discriminant(&command));
+            let command_type = format!("{:?}", std::mem::discriminant(&command));
+            tracing::debug!(command_type = %command_type, "Received actor command");
+            
             match command {
                 ActorCommand::Prompt { text, response_tx } => {
-                    eprintln!("[ACTOR] Processing Prompt command...");
+                    tracing::info!(text_len = text.len(), "Processing Prompt command");
                     let result = self.handle_prompt(text).await;
                     match &result {
-                        Ok(summary) => eprintln!("[ACTOR] Prompt completed successfully, iterations: {}", summary.iterations),
+                        Ok(summary) => {
+                            tracing::info!(
+                                iterations = summary.iterations,
+                                "Prompt completed successfully"
+                            );
+                        }
                         Err(e) => {
-                            eprintln!("[ACTOR] Prompt failed: {}", e);
+                            tracing::error!(error = %e, "Prompt failed");
                             // Emit error event to frontend
                             let error_msg = format!("{}", e);
                             self.event_publisher.publish_stream_event(StreamEvent::Error { message: error_msg });
@@ -161,7 +168,7 @@ impl ChatSessionActor {
                     let _ = response_tx.send(result);
                 }
                 ActorCommand::Cancel => {
-                    eprintln!("[ACTOR] Processing Cancel command");
+                    tracing::info!("Processing Cancel command");
                     self.handle_cancel();
                 }
                 ActorCommand::LoadSession {
@@ -236,7 +243,7 @@ impl ChatSessionActor {
                     let _ = response_tx.send(result);
                 }
                 ActorCommand::ReloadApiClient { model, base_url, api_key, response_tx } => {
-                    eprintln!("[ACTOR] Processing ReloadApiClient command with model: {}", model);
+                    tracing::info!(model = %model, "Processing ReloadApiClient command");
                     let result = self.handle_reload_api_client(model, base_url, api_key);
                     let _ = response_tx.send(result);
                 }
@@ -245,6 +252,16 @@ impl ChatSessionActor {
     }
 
     async fn handle_prompt(&mut self, text: String) -> Result<TurnSummary, RuntimeError> {
+        use crate::core::domain::logging_helpers::{log_turn_for_ai, log_tool_execution_for_ai, log_api_call_for_ai};
+        
+        let turn_id = uuid::Uuid::new_v4().to_string();
+        
+        tracing::info!(
+            turn_id = %turn_id,
+            text_len = text.len(),
+            "🎯 TURN_START"
+        );
+        
         // Reset cancel flag at the START of new prompt (prevent race condition)
         self.cancel_flag.store(false, std::sync::atomic::Ordering::Relaxed);
         
@@ -293,7 +310,16 @@ impl ChatSessionActor {
         let cumulative_usage_clone = cumulative_usage_shared.clone();
         
         // Use extension's run_turn_with_callback for real-time tool event emission
+        let turn_id_clone = turn_id.clone();
         let summary = tokio::task::block_in_place(|| {
+            // Log turn start with full context
+            log_turn_for_ai(
+                &turn_id_clone,
+                &text,
+                &self.runtime.session().messages,
+                0
+            );
+            
             self.runtime.run_turn_with_callback(
                 text,
                 Some(&mut self.prompter),
@@ -302,13 +328,23 @@ impl ChatSessionActor {
                     for block in &tool_result_message.blocks {
                         if let runtime::ContentBlock::ToolResult {
                             tool_use_id,
-                            tool_name: _,
+                            tool_name,
                             output,
                             is_error,
                             is_cancelled,
                             is_timed_out,
                         } = block
                         {
+                            // Log tool result for AI
+                            log_tool_execution_for_ai(
+                                tool_use_id,
+                                tool_name,
+                                "", // Input already logged when tool started
+                                Some(output),
+                                *is_error,
+                                None
+                            );
+                            
                             event_publisher.publish_stream_event(
                                 crate::core::domain::types::StreamEvent::ToolResult {
                                     tool_use_id: tool_use_id.clone(),
@@ -380,7 +416,7 @@ impl ChatSessionActor {
 
         // Check if cancelled during execution
         if self.cancel_flag.load(std::sync::atomic::Ordering::Relaxed) {
-            eprintln!("[ACTOR] Prompt was cancelled during execution");
+            tracing::warn!(turn_id = %turn_id, "🛑 TURN_CANCELLED");
             
             // Emit MessageStop to notify frontend
             event_publisher.publish_stream_event(

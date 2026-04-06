@@ -110,21 +110,59 @@ impl ToolExecutor for TauriToolExecutor {
     }
     
     fn execute_with_context(&mut self, tool_name: &str, input: &str, tool_use_id: &str) -> Result<String, ToolError> {
-        eprintln!("[TOOL EXECUTOR] Executing tool: {} (id: {})", tool_name, tool_use_id);
-        eprintln!("[TOOL EXECUTOR] Input: {}", input);
+        use crate::core::domain::logging_helpers::log_tool_execution_for_ai;
+        use std::time::Instant;
+        
+        let start_time = Instant::now();
+        
+        tracing::info!(
+            tool_name = %tool_name,
+            tool_use_id = %tool_use_id,
+            input_len = input.len(),
+            "🔧 TOOL_EXEC_START"
+        );
         
         // Parse input JSON
         let input_value: serde_json::Value = serde_json::from_str(input)
             .map_err(|e| {
-                eprintln!("[TOOL EXECUTOR] Failed to parse input JSON: {}", e);
+                tracing::error!(error = %e, "Failed to parse tool input JSON");
                 ToolError::new(format!("Invalid tool input JSON: {}", e))
             })?;
 
-        eprintln!("[TOOL EXECUTOR] Parsed input: {:?}", input_value);
-
         // Special handling for bash/PowerShell tools with PTY
         if tool_name == "bash" || tool_name == "PowerShell" {
-            return self.execute_bash_with_pty(tool_name, &input_value, tool_use_id);
+            tracing::debug!("Using PTY executor for bash/PowerShell");
+            let result = self.execute_bash_with_pty(tool_name, &input_value, tool_use_id);
+            
+            let duration_ms = start_time.elapsed().as_millis() as u64;
+            
+            // Log for AI
+            log_tool_execution_for_ai(
+                tool_use_id,
+                tool_name,
+                input,
+                result.as_ref().ok().map(|s| s.as_str()),
+                result.is_err(),
+                Some(duration_ms)
+            );
+            
+            if result.is_ok() {
+                tracing::info!(
+                    tool_name = %tool_name,
+                    tool_use_id = %tool_use_id,
+                    duration_ms = duration_ms,
+                    "✅ TOOL_EXEC_SUCCESS"
+                );
+            } else {
+                tracing::error!(
+                    tool_name = %tool_name,
+                    tool_use_id = %tool_use_id,
+                    duration_ms = duration_ms,
+                    "❌ TOOL_EXEC_FAILED"
+                );
+            }
+            
+            return result;
         }
 
         // Execute other tools in separate thread with channel-based cancellation
@@ -145,23 +183,70 @@ impl ToolExecutor for TauriToolExecutor {
         // Wait for EITHER result OR cancel event (true event-driven)
         crossbeam_channel::select! {
             recv(result_rx) -> result => {
+                let duration_ms = start_time.elapsed().as_millis() as u64;
+                
                 // Tool finished, return result
                 match result {
                     Ok(tool_result) => {
                         tool_result.map_err(|e| {
-                            eprintln!("[TOOL EXECUTOR] Tool execution failed: {}", e);
+                            tracing::error!(tool_name = %tool_name, error = %e, "Tool execution failed");
+                            
+                            // Log for AI
+                            log_tool_execution_for_ai(
+                                tool_use_id,
+                                tool_name,
+                                input,
+                                None,
+                                true,
+                                Some(duration_ms)
+                            );
+                            
                             ToolError::new(e)
+                        }).map(|output| {
+                            tracing::info!(
+                                tool_name = %tool_name,
+                                output_len = output.len(),
+                                duration_ms = duration_ms,
+                                "✅ TOOL_EXEC_SUCCESS"
+                            );
+                            
+                            // Log for AI
+                            log_tool_execution_for_ai(
+                                tool_use_id,
+                                tool_name,
+                                input,
+                                Some(&output),
+                                false,
+                                Some(duration_ms)
+                            );
+                            
+                            output
                         })
                     }
                     Err(_) => {
-                        eprintln!("[TOOL EXECUTOR] Tool execution thread disconnected");
+                        tracing::error!(tool_name = %tool_name, "Tool execution thread disconnected");
                         Err(ToolError::new("Tool execution failed unexpectedly".to_string()))
                     }
                 }
             }
             recv(self.cancel_rx) -> _ => {
-                // Cancel event received
-                eprintln!("[TOOL EXECUTOR] Tool execution cancelled via event");
+                let duration_ms = start_time.elapsed().as_millis() as u64;
+                tracing::warn!(
+                    tool_name = %tool_name,
+                    duration_ms = duration_ms,
+                    "🛑 TOOL_EXEC_CANCELLED"
+                );
+                
+                // Log for AI
+                log_tool_execution_for_ai(
+                    tool_use_id,
+                    tool_name,
+                    input,
+                    None,
+                    true,
+                    Some(duration_ms)
+                );
+                
                 Err(ToolError::new("Tool execution cancelled by user".to_string()))
             }
         }

@@ -197,9 +197,16 @@ where
         user_input: impl Into<String>,
         mut prompter: Option<&mut dyn PermissionPrompter>,
     ) -> Result<TurnSummary, RuntimeError> {
+        let user_text = user_input.into();
+        tracing::info!(
+            user_text_len = user_text.len(),
+            "Starting conversation turn"
+        );
+        tracing::debug!(user_text = %user_text.chars().take(200).collect::<String>(), "User input");
+        
         self.session
             .messages
-            .push(ConversationMessage::user_text(user_input.into()));
+            .push(ConversationMessage::user_text(user_text));
 
         let mut assistant_messages = Vec::new();
         let mut tool_results = Vec::new();
@@ -207,7 +214,14 @@ where
 
         loop {
             iterations += 1;
+            tracing::debug!(iteration = iterations, "Starting iteration");
+            
             if iterations > self.max_iterations {
+                tracing::error!(
+                    iterations = iterations,
+                    max_iterations = self.max_iterations,
+                    "Exceeded maximum iterations"
+                );
                 return Err(RuntimeError::new(
                     "conversation loop exceeded the maximum number of iterations",
                 ));
@@ -217,12 +231,26 @@ where
                 system_prompt: self.system_prompt.clone(),
                 messages: self.session.messages.clone(),
             };
+            
+            tracing::debug!(
+                message_count = request.messages.len(),
+                system_prompt_len = request.system_prompt.iter().map(|s| s.len()).sum::<usize>(),
+                "Sending API request"
+            );
+            
             let events = self.api_client.stream(request)?;
             let model_name = self.api_client.model_name();
             let (assistant_message, usage) = build_assistant_message(events, model_name)?;
+            
             if let Some(usage) = usage {
+                tracing::debug!(
+                    input_tokens = usage.input_tokens,
+                    output_tokens = usage.output_tokens,
+                    "Recording token usage"
+                );
                 self.usage_tracker.record(usage);
             }
+            
             let pending_tool_uses = assistant_message
                 .blocks
                 .iter()
@@ -234,14 +262,26 @@ where
                 })
                 .collect::<Vec<_>>();
 
+            tracing::debug!(
+                pending_tool_count = pending_tool_uses.len(),
+                "Assistant message processed"
+            );
+
             self.session.messages.push(assistant_message.clone());
             assistant_messages.push(assistant_message);
 
             if pending_tool_uses.is_empty() {
+                tracing::info!(iterations = iterations, "Turn completed - no more tools");
                 break;
             }
 
             for (tool_use_id, tool_name, input) in pending_tool_uses {
+                tracing::info!(
+                    tool_use_id = %tool_use_id,
+                    tool_name = %tool_name,
+                    "Processing tool use"
+                );
+                
                 let permission_outcome = if let Some(prompt) = prompter.as_mut() {
                     self.permission_policy
                         .authorize(&tool_name, &input, Some(*prompt))

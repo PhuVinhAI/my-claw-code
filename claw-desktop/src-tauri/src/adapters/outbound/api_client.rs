@@ -71,6 +71,20 @@ impl ApiClient for TauriApiClient {
         &mut self,
         request: ApiRequest,
     ) -> Result<Vec<AssistantEvent>, RuntimeError> {
+        use crate::core::domain::logging_helpers::log_api_call_for_ai;
+        
+        let message_count = request.messages.len();
+        let system_prompt_len = request.system_prompt.iter().map(|s| s.len()).sum::<usize>();
+        let tool_count = self.tool_definitions.len();
+        
+        tracing::info!(
+            model = %self.model,
+            message_count = message_count,
+            system_prompt_len = system_prompt_len,
+            tool_count = tool_count,
+            "🌐 API_REQUEST_START"
+        );
+        
         // Convert runtime messages to API messages using shared helper
         let api_messages = convert_runtime_messages(&request.messages);
 
@@ -96,6 +110,15 @@ impl ApiClient for TauriApiClient {
             },
             stream: true,
         };
+        
+        // Log API call for AI
+        log_api_call_for_ai(
+            &self.model,
+            message_count,
+            system_prompt_len,
+            tool_count,
+            "streaming"
+        );
 
         // Use block_in_place to allow blocking in async context
         let client = self.client.clone();
@@ -129,9 +152,12 @@ impl ApiClient for TauriApiClient {
                     };
 
                     match event_opt {
-                        None => break,
+                        None => {
+                            tracing::debug!("Stream ended");
+                            break;
+                        }
                         Some(api_event) => {
-                            eprintln!("[API_CLIENT] Received stream event: {:?}", api_event);
+                            tracing::trace!(event_type = ?api_event, "Received stream event");
                             match &api_event {
                                 ApiStreamEvent::ContentBlockDelta(delta) => {
                                     match &delta.delta {
@@ -157,6 +183,12 @@ impl ApiClient for TauriApiClient {
                                     if let api::OutputContentBlock::ToolUse { id, name, .. } =
                                         &start.content_block
                                     {
+                                        tracing::info!(
+                                            tool_id = %id,
+                                            tool_name = %name,
+                                            index = start.index,
+                                            "Tool use started"
+                                        );
                                         // Start tracking this tool use
                                         pending_tools.insert(
                                             start.index,
@@ -167,6 +199,12 @@ impl ApiClient for TauriApiClient {
                                 ApiStreamEvent::ContentBlockStop(stop) => {
                                     // Emit tool use with complete input
                                     if let Some((id, name, input)) = pending_tools.remove(&stop.index) {
+                                        tracing::info!(
+                                            tool_id = %id,
+                                            tool_name = %name,
+                                            input_len = input.len(),
+                                            "Tool use completed"
+                                        );
                                         event_publisher.publish_stream_event(
                                             crate::core::domain::types::StreamEvent::ToolUse {
                                                 id: id.clone(),
@@ -185,6 +223,13 @@ impl ApiClient for TauriApiClient {
                                     // If usage is 0 (Gemini doesn't provide usage in streaming),
                                     // skip emitting Usage event - will use estimated tokens instead
                                     if delta.usage.input_tokens > 0 || delta.usage.output_tokens > 0 {
+                                        tracing::debug!(
+                                            input_tokens = delta.usage.input_tokens,
+                                            output_tokens = delta.usage.output_tokens,
+                                            cache_creation = delta.usage.cache_creation_input_tokens,
+                                            cache_read = delta.usage.cache_read_input_tokens,
+                                            "Token usage received"
+                                        );
                                         let token_usage = runtime::TokenUsage {
                                             input_tokens: delta.usage.input_tokens,
                                             output_tokens: delta.usage.output_tokens,
@@ -221,7 +266,7 @@ impl ApiClient for TauriApiClient {
     }
     
     fn model_name(&self) -> Option<String> {
-        eprintln!("[API_CLIENT] model_name() called, returning: {}", self.model);
+        tracing::debug!(model = %self.model, "model_name() called");
         Some(self.model.clone())
     }
 }

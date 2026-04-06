@@ -9,7 +9,8 @@ use crate::setup::app_state::AppState;
 /// Send prompt command - Non-blocking (fire and forget)
 #[tauri::command]
 pub async fn send_prompt(text: String, state: State<'_, AppState>) -> Result<(), String> {
-    eprintln!("[COMMAND] send_prompt called with text: {}...", &text.chars().take(50).collect::<String>());
+    tracing::info!(text_len = text.len(), "send_prompt command called");
+    tracing::debug!(text_preview = %text.chars().take(100).collect::<String>(), "Prompt text preview");
     
     // DON'T reset cancel_flag here - Actor will reset it when starting new prompt
     // This prevents race condition where cancel_flag is reset before Actor checks it
@@ -19,23 +20,23 @@ pub async fn send_prompt(text: String, state: State<'_, AppState>) -> Result<(),
     tokio::spawn(async move {
         let (tx, rx) = oneshot::channel();
         
-        eprintln!("[COMMAND] Sending ActorCommand::Prompt to actor...");
+        tracing::debug!("Sending ActorCommand::Prompt to actor");
         if let Err(e) = actor_tx.send(ActorCommand::Prompt { text, response_tx: tx }).await {
-            eprintln!("[ERROR] Failed to send prompt to actor: {}", e);
+            tracing::error!(error = %e, "Failed to send prompt to actor");
             return;
         }
         
-        eprintln!("[COMMAND] Waiting for actor response...");
+        tracing::debug!("Waiting for actor response");
         // Await response trong background task (không block UI)
         match rx.await {
-            Ok(Ok(_summary)) => eprintln!("[COMMAND] Actor completed successfully"),
-            Ok(Err(e)) => eprintln!("[ERROR] Actor returned error: {}", e),
-            Err(e) => eprintln!("[ERROR] Failed to receive response: {}", e),
+            Ok(Ok(_summary)) => tracing::info!("Actor completed successfully"),
+            Ok(Err(e)) => tracing::error!(error = %e, "Actor returned error"),
+            Err(e) => tracing::error!(error = %e, "Failed to receive response"),
         }
     });
 
     // Return ngay lập tức (không đợi Actor xử lý)
-    eprintln!("[COMMAND] send_prompt returning immediately");
+    tracing::debug!("send_prompt returning immediately");
     Ok(())
 }
 
@@ -46,6 +47,7 @@ pub async fn answer_permission(
     allow: bool,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
+    tracing::info!(request_id = %request_id, allow = allow, "answer_permission command called");
     // Answer qua PermissionState
     state.permission_state.answer(request_id, allow)
 }
