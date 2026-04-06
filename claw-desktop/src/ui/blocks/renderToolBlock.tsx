@@ -23,9 +23,8 @@ export function renderToolBlock({ toolUseBlock, toolResultBlock, detachedTools }
   const isError = toolResultBlock?.is_error || false;
   const isCancelledFromBackend = toolResultBlock?.is_cancelled || false;
   const isTimedOutFromBackend = toolResultBlock?.is_timed_out || false;
-  const isStreaming = toolResultBlock?.isStreaming || false;
+  const isStreaming = toolResultBlock?.isStreaming ?? false; // Default to false if undefined
   const isPending = !toolResultBlock || isStreaming; // Pending if no result OR still streaming
-  // Use ONLY is_cancelled from backend (accurate), don't fallback to text detection
   const isCancelledState = isCancelledFromBackend;
   const toolUseId = toolUseBlock.id;
   

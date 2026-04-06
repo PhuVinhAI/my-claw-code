@@ -21,12 +21,11 @@ pub fn format_message_for_log(msg: &Message) -> String {
                 let input_preview = input.chars().take(50).collect::<String>();
                 format!("ToolUse(id={}, name={}, input={}...)", id, name, input_preview)
             }
-            ContentBlock::ToolResult { tool_use_id, output, is_error, .. } => {
+            ContentBlock::ToolResult { tool_use_id, output, is_error, is_cancelled, is_timed_out, .. } => {
                 let output_preview = output.chars().take(100).collect::<String>();
-                let is_cancelled = output.contains("cancelled by user") || output.contains("Tool execution cancelled");
                 format!(
-                    "ToolResult(id={}, error={}, cancelled={}, output={}...)",
-                    tool_use_id, is_error, is_cancelled, output_preview
+                    "ToolResult(id={}, error={}, cancelled={}, timed_out={}, output={}...)",
+                    tool_use_id, is_error, is_cancelled, is_timed_out, output_preview
                 )
             }
         }
@@ -75,9 +74,7 @@ pub fn format_message_as_json(msg: &Message) -> serde_json::Value {
                     "truncated": input.len() > 200
                 })
             }
-            ContentBlock::ToolResult { tool_use_id, output, is_error, .. } => {
-                let is_cancelled = output.contains("cancelled by user") || output.contains("Tool execution cancelled");
-                let is_timed_out = output.contains("TIMEOUT") || output.contains("timed out");
+            ContentBlock::ToolResult { tool_use_id, output, is_error, is_cancelled, is_timed_out, .. } => {
                 json!({
                     "type": "tool_result",
                     "tool_use_id": tool_use_id,

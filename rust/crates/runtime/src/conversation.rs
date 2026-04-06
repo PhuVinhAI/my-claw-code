@@ -465,13 +465,30 @@ where
                                 || post_hook_result.is_cancelled(),
                         );
 
-                        ConversationMessage::tool_result(tool_use_id, tool_name, output, is_error)
+                        // Detect cancelled/timed_out from output
+                        let is_cancelled = output.contains("cancelled by user") 
+                            || output.contains("Tool execution cancelled")
+                            || output.contains("CANCELLED");
+                        let is_timed_out = output.contains("TIMEOUT") 
+                            || output.contains("timed out")
+                            || output.contains("execution time limit");
+
+                        ConversationMessage::tool_result_with_status(
+                            tool_use_id, 
+                            tool_name, 
+                            output, 
+                            is_error,
+                            is_cancelled,
+                            is_timed_out,
+                        )
                     }
-                    PermissionOutcome::Deny { reason } => ConversationMessage::tool_result(
+                    PermissionOutcome::Deny { reason } => ConversationMessage::tool_result_with_status(
                         tool_use_id,
                         tool_name,
                         merge_hook_feedback(pre_hook_result.messages(), reason, true),
                         true,
+                        false,
+                        false,
                     ),
                 };
                 self.session
@@ -865,13 +882,30 @@ where
                                 || post_hook_result.is_cancelled(),
                         );
 
-                        ConversationMessage::tool_result(tool_use_id, tool_name, output, is_error)
+                        // Detect cancelled/timed_out from output
+                        let is_cancelled = output.contains("cancelled by user") 
+                            || output.contains("Tool execution cancelled")
+                            || output.contains("CANCELLED");
+                        let is_timed_out = output.contains("TIMEOUT") 
+                            || output.contains("timed out")
+                            || output.contains("execution time limit");
+
+                        ConversationMessage::tool_result_with_status(
+                            tool_use_id, 
+                            tool_name, 
+                            output, 
+                            is_error,
+                            is_cancelled,
+                            is_timed_out,
+                        )
                     }
-                    PermissionOutcome::Deny { reason } => ConversationMessage::tool_result(
+                    PermissionOutcome::Deny { reason } => ConversationMessage::tool_result_with_status(
                         tool_use_id,
                         tool_name,
                         merge_hook_feedback(pre_hook_result.messages(), reason, true),
                         true,
+                        false,
+                        false,
                     ),
                 };
                 

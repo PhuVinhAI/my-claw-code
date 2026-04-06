@@ -332,13 +332,26 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       for (let i = 0; i < session.messages.length; i++) {
         const msg = session.messages[i];
         
-        if (msg.role === 'tool') {
+        // Normalize role to lowercase for comparison (backend sends "Tool", "User", "Assistant")
+        const normalizedRole = (msg.role as string).toLowerCase() as 'user' | 'assistant' | 'tool' | 'system';
+        
+        if (normalizedRole === 'tool') {
           // Find the previous assistant message and merge tool_result into it
           const lastAssistant = mergedMessages[mergedMessages.length - 1];
           if (lastAssistant && lastAssistant.role === 'assistant') {
-            lastAssistant.blocks.push(...msg.blocks);
+            // Map tool blocks and ensure isStreaming is false (completed)
+            const toolBlocks = msg.blocks.map(block => {
+              if (block.type === 'tool_result') {
+                return {
+                  ...block,
+                  isStreaming: false, // Mark as completed when loading from history
+                };
+              }
+              return block;
+            });
+            lastAssistant.blocks.push(...toolBlocks);
           }
-        } else if (msg.role === 'assistant') {
+        } else if (normalizedRole === 'assistant') {
           // Parse thinking tags in text blocks
           const parsedBlocks: any[] = [];
           
@@ -366,9 +379,10 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           
           // Map model_name (snake_case from backend) to modelName (camelCase for frontend)
           const modelName = (msg as any).model_name || msg.modelName;
-          mergedMessages.push({ ...msg, blocks: parsedBlocks, modelName });
+          mergedMessages.push({ ...msg, role: 'assistant', blocks: parsedBlocks, modelName });
         } else {
-          mergedMessages.push({ ...msg });
+          // Normalize role to lowercase
+          mergedMessages.push({ ...msg, role: normalizedRole });
         }
       }
 

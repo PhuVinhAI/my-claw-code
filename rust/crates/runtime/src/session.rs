@@ -40,6 +40,8 @@ pub enum ContentBlock {
         tool_name: String,
         output: String,
         is_error: bool,
+        is_cancelled: bool,
+        is_timed_out: bool,
     },
 }
 
@@ -506,6 +508,31 @@ impl ConversationMessage {
                 tool_name: tool_name.into(),
                 output: output.into(),
                 is_error,
+                is_cancelled: false,
+                is_timed_out: false,
+            }],
+            usage: None,
+        }
+    }
+
+    #[must_use]
+    pub fn tool_result_with_status(
+        tool_use_id: impl Into<String>,
+        tool_name: impl Into<String>,
+        output: impl Into<String>,
+        is_error: bool,
+        is_cancelled: bool,
+        is_timed_out: bool,
+    ) -> Self {
+        Self {
+            role: MessageRole::Tool,
+            blocks: vec![ContentBlock::ToolResult {
+                tool_use_id: tool_use_id.into(),
+                tool_name: tool_name.into(),
+                output: output.into(),
+                is_error,
+                is_cancelled,
+                is_timed_out,
             }],
             usage: None,
         }
@@ -594,6 +621,8 @@ impl ContentBlock {
                 tool_name,
                 output,
                 is_error,
+                is_cancelled,
+                is_timed_out,
             } => {
                 object.insert(
                     "type".to_string(),
@@ -609,6 +638,8 @@ impl ContentBlock {
                 );
                 object.insert("output".to_string(), JsonValue::String(output.clone()));
                 object.insert("is_error".to_string(), JsonValue::Bool(*is_error));
+                object.insert("is_cancelled".to_string(), JsonValue::Bool(*is_cancelled));
+                object.insert("is_timed_out".to_string(), JsonValue::Bool(*is_timed_out));
             }
         }
         JsonValue::Object(object)
@@ -639,6 +670,14 @@ impl ContentBlock {
                     .get("is_error")
                     .and_then(JsonValue::as_bool)
                     .ok_or_else(|| SessionError::Format("missing is_error".to_string()))?,
+                is_cancelled: object
+                    .get("is_cancelled")
+                    .and_then(JsonValue::as_bool)
+                    .unwrap_or(false), // Default false for backward compatibility
+                is_timed_out: object
+                    .get("is_timed_out")
+                    .and_then(JsonValue::as_bool)
+                    .unwrap_or(false), // Default false for backward compatibility
             }),
             other => Err(SessionError::Format(format!(
                 "unsupported block type: {other}"

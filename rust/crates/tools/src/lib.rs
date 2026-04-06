@@ -5043,12 +5043,18 @@ fn detect_powershell_shell() -> std::io::Result<&'static str> {
 }
 
 fn command_exists(command: &str) -> bool {
-    std::process::Command::new("sh")
-        .arg("-lc")
-        .arg(format!("command -v {command} >/dev/null 2>&1"))
-        .status()
-        .map(|status| status.success())
-        .unwrap_or(false)
+    // Cross-platform: check if command exists in PATH
+    std::env::var_os("PATH")
+        .is_some_and(|paths| {
+            std::env::split_paths(&paths).any(|path| {
+                let cmd_path = path.join(command);
+                // On Windows, also check with .exe extension
+                cmd_path.exists() 
+                    || cmd_path.with_extension("exe").exists()
+                    || cmd_path.with_extension("cmd").exists()
+                    || cmd_path.with_extension("bat").exists()
+            })
+        })
 }
 
 #[allow(clippy::too_many_lines)]
