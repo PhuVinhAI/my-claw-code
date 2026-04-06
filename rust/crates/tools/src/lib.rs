@@ -3526,6 +3526,7 @@ fn build_agent_system_prompt(subagent_type: &str) -> Result<Vec<String>, String>
         DEFAULT_AGENT_SYSTEM_DATE.to_string(),
         std::env::consts::OS,
         "unknown",
+        true, // Subagents always use workspace context (they work on specific tasks)
     )
     .map_err(|error| error.to_string())?;
     prompt.push(format!(

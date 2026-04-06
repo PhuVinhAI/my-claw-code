@@ -57,6 +57,7 @@ pub struct ProjectContext {
     pub git_status: Option<String>,
     pub git_diff: Option<String>,
     pub instruction_files: Vec<ContextFile>,
+    pub is_workspace_mode: bool, // Flag to indicate if this is workspace-specific context
 }
 
 impl ProjectContext {
@@ -72,6 +73,7 @@ impl ProjectContext {
             git_status: None,
             git_diff: None,
             instruction_files,
+            is_workspace_mode: false, // Normal mode
         })
     }
 
@@ -82,6 +84,7 @@ impl ProjectContext {
         let mut context = Self::discover(cwd, current_date)?;
         context.git_status = read_git_status(&context.cwd);
         context.git_diff = read_git_diff(&context.cwd);
+        context.is_workspace_mode = true; // Workspace mode
         Ok(context)
     }
 }
@@ -169,7 +172,15 @@ impl SystemPromptBuilder {
     fn environment_section(&self) -> String {
         let cwd = self.project_context.as_ref().map_or_else(
             || "unknown".to_string(),
-            |context| context.cwd.display().to_string(),
+            |context| {
+                if context.is_workspace_mode {
+                    // Workspace mode: show full path
+                    context.cwd.display().to_string()
+                } else {
+                    // Normal mode: show generic "Home directory"
+                    "Home directory".to_string()
+                }
+            },
         );
         let date = self.project_context.as_ref().map_or_else(
             || "unknown".to_string(),
@@ -387,8 +398,13 @@ fn render_project_context(project_context: &ProjectContext) -> String {
     let mut lines = vec!["# Project context".to_string()];
     let mut bullets = vec![
         format!("Today's date is {}.", project_context.current_date),
-        format!("Working directory: {}", project_context.cwd.display()),
     ];
+    
+    // Only show working directory in workspace mode
+    if project_context.is_workspace_mode {
+        bullets.push(format!("Working directory: {}", project_context.cwd.display()));
+    }
+    
     if !project_context.instruction_files.is_empty() {
         bullets.push(format!(
             "Claude instruction files discovered: {}.",
@@ -397,11 +413,15 @@ fn render_project_context(project_context: &ProjectContext) -> String {
     }
     lines.extend(prepend_bullets(bullets));
     
-    // Auto-inject directory structure for workspace mode
-    if let Ok(dir_structure) = generate_directory_tree(&project_context.cwd, 2) {
-        lines.push(String::new());
-        lines.push("Directory structure (top 2 levels):".to_string());
-        lines.push(dir_structure);
+    // Auto-inject directory structure ONLY if git info is present (Workspace mode)
+    // Normal mode (no git) won't have directory structure
+    let has_git_info = project_context.git_status.is_some() || project_context.git_diff.is_some();
+    if has_git_info {
+        if let Ok(dir_structure) = generate_directory_tree(&project_context.cwd, 2) {
+            lines.push(String::new());
+            lines.push("Directory structure (top 2 levels):".to_string());
+            lines.push(dir_structure);
+        }
     }
     
     if let Some(status) = &project_context.git_status {
@@ -519,14 +539,23 @@ fn collapse_blank_lines(content: &str) -> String {
 }
 
 /// Loads config and project context, then renders the system prompt text.
+/// 
+/// # Parameters
+/// - `include_workspace_context`: If true, includes git info and directory structure (Workspace mode).
+///                                If false, uses minimal context without git/directory tree (Normal mode).
 pub fn load_system_prompt(
     cwd: impl Into<PathBuf>,
     current_date: impl Into<String>,
     os_name: impl Into<String>,
     os_version: impl Into<String>,
+    include_workspace_context: bool,
 ) -> Result<Vec<String>, PromptBuildError> {
     let cwd = cwd.into();
-    let project_context = ProjectContext::discover_with_git(&cwd, current_date.into())?;
+    let project_context = if include_workspace_context {
+        ProjectContext::discover_with_git(&cwd, current_date.into())?
+    } else {
+        ProjectContext::discover(&cwd, current_date.into())?
+    };
     let config = ConfigLoader::default_for(&cwd).load()?;
     Ok(SystemPromptBuilder::new()
         .with_os(os_name, os_version)
@@ -812,7 +841,7 @@ mod tests {
         std::env::set_var("HOME", &root);
         std::env::set_var("CLAW_CONFIG_HOME", root.join("missing-home"));
         std::env::set_current_dir(&root).expect("change cwd");
-        let prompt = super::load_system_prompt(&root, "2026-03-31", "linux", "6.8")
+        let prompt = super::load_system_prompt(&root, "2026-03-31", "linux", "6.8", true)
             .expect("system prompt should load")
             .join(
                 "

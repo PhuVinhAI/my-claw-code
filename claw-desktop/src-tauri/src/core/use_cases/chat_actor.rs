@@ -833,18 +833,20 @@ impl ChatSessionActor {
     }
 
     fn handle_reload_system_prompt(&mut self, work_mode: String, workspace_path: Option<String>) -> Result<(), String> {
-        // Determine CWD based on work mode
-        let cwd = if work_mode == "workspace" {
-            // Workspace mode: use workspace path or current dir
-            if let Some(ref path) = workspace_path {
+        // Determine CWD and workspace context based on work mode
+        let (cwd, include_workspace_context) = if work_mode == "workspace" {
+            // Workspace mode: use workspace path or current dir, include git + directory tree
+            let workspace_cwd = if let Some(ref path) = workspace_path {
                 std::path::PathBuf::from(path)
             } else {
                 std::env::current_dir()
                     .map_err(|e| format!("Failed to get current directory: {}", e))?
-            }
+            };
+            (workspace_cwd, true)
         } else {
-            // Normal mode: use home directory (generic context)
-            dirs::home_dir().unwrap_or_else(|| std::path::PathBuf::from("/"))
+            // Normal mode: use home directory (generic context), NO git/directory tree
+            let home_cwd = dirs::home_dir().unwrap_or_else(|| std::path::PathBuf::from("/"));
+            (home_cwd, false)
         };
         
         // Reload system prompt with work mode info
@@ -857,6 +859,7 @@ impl ChatSessionActor {
             date, 
             os_name, 
             os_version,
+            include_workspace_context,
         )
         .map_err(|e| format!("Failed to load system prompt: {}", e))?;
         
