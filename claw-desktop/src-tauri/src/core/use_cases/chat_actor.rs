@@ -663,9 +663,11 @@ impl ChatSessionActor {
         );
         
         // Perform compaction using core logic với config từ settings
+        // IMPORTANT: max_estimated_tokens phải <= estimated_tokens hiện tại
+        // để should_compact() return true (vì ta đã check threshold ở check_and_auto_compact)
         let config = runtime::CompactionConfig {
             preserve_recent_messages: settings.compact_config.preserve_recent_messages,
-            max_estimated_tokens: 10_000,
+            max_estimated_tokens: estimated_tokens, // Use current tokens, not hardcoded 10k
         };
         
         let result = self.runtime.compact(config);
@@ -735,7 +737,16 @@ impl ChatSessionActor {
                 );
             }
         } else {
-            eprintln!("[COMPACT] No compaction needed");
+            // IMPORTANT: Phải emit CompactCompleted để UI không bị treo
+            self.event_publisher.publish_stream_event(
+                crate::core::domain::types::StreamEvent::CompactCompleted {
+                    removed_count: 0,
+                    summary: String::new(),
+                    new_estimated_tokens: estimated_tokens,
+                    max_tokens,
+                    turn_id: turn_id.to_string(),
+                }
+            );
         }
     }
 

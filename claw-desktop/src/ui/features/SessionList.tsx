@@ -1,5 +1,5 @@
 // SessionList — Sidebar with search, skeleton loading, lazy scroll
-import { useState, useRef, useMemo, useEffect } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useChatStore } from '../../store/useChatStore';
 import { SessionItem } from './SessionItem';
