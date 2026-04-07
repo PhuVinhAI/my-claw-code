@@ -122,6 +122,34 @@ impl ToolExecutor for TauriToolExecutor {
             "🔧 TOOL_EXEC_START"
         );
         
+        // VALIDATE: Check if tool is allowed based on work mode and selected tools
+        let mode = self.work_mode.lock().unwrap();
+        let is_allowed = match *mode {
+            WorkMode::Workspace => {
+                // Workspace mode: All tools except excluded ones
+                let excluded = tools::GlobalToolRegistry::default_workspace_exclusions();
+                !excluded.contains(tool_name)
+            }
+            WorkMode::Normal => {
+                // Normal mode: Only selected tools
+                let selected = self.selected_tools.lock().unwrap();
+                selected.contains(&tool_name.to_string())
+            }
+        };
+        drop(mode); // Release lock
+        
+        if !is_allowed {
+            let error_msg = format!(
+                "Tool '{}' is not available in current mode. Please enable it in settings.",
+                tool_name
+            );
+            tracing::warn!(
+                tool_name = %tool_name,
+                "Tool execution blocked - not in allowed list"
+            );
+            return Err(ToolError::new(error_msg));
+        }
+        
         // Parse input JSON
         let input_value: serde_json::Value = serde_json::from_str(input)
             .map_err(|e| {
