@@ -1,15 +1,5 @@
 use std::collections::HashMap;
 use std::sync::Arc;
-<<<<<<< HEAD
-use std::time::Duration;
-
-use api::{
-    ApiClient, ApiError, AuthSource, ContentBlockDelta, ContentBlockDeltaEvent,
-    ContentBlockStartEvent, InputContentBlock, InputMessage, MessageDeltaEvent, MessageRequest,
-    OutputContentBlock, ProviderClient, StreamEvent, ToolChoice, ToolDefinition,
-};
-use serde_json::json;
-=======
 use std::sync::{Mutex as StdMutex, OnceLock};
 use std::time::Duration;
 
@@ -21,13 +11,10 @@ use api::{
 };
 use serde_json::json;
 use telemetry::{ClientIdentity, MemoryTelemetrySink, SessionTracer, TelemetryEvent};
->>>>>>> upstream/main
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
 use tokio::sync::Mutex;
 
-<<<<<<< HEAD
-=======
 fn env_lock() -> std::sync::MutexGuard<'static, ()> {
     static LOCK: OnceLock<StdMutex<()>> = OnceLock::new();
     LOCK.get_or_init(|| StdMutex::new(()))
@@ -35,7 +22,6 @@ fn env_lock() -> std::sync::MutexGuard<'static, ()> {
         .unwrap_or_else(std::sync::PoisonError::into_inner)
 }
 
->>>>>>> upstream/main
 #[tokio::test]
 async fn send_message_posts_json_and_parses_response() {
     let state = Arc::new(Mutex::new(Vec::<CapturedRequest>::new()));
@@ -44,13 +30,8 @@ async fn send_message_posts_json_and_parses_response() {
         "\"id\":\"msg_test\",",
         "\"type\":\"message\",",
         "\"role\":\"assistant\",",
-<<<<<<< HEAD
         "\"content\":[{\"type\":\"text\",\"text\":\"Hello from Claw\"}],",
         "\"model\":\"claude-sonnet-4-6\",",
-=======
-        "\"content\":[{\"type\":\"text\",\"text\":\"Hello from Claude\"}],",
-        "\"model\":\"claude-3-7-sonnet-latest\",",
->>>>>>> upstream/main
         "\"stop_reason\":\"end_turn\",",
         "\"stop_sequence\":null,",
         "\"usage\":{\"input_tokens\":12,\"output_tokens\":4},",
@@ -74,19 +55,12 @@ async fn send_message_posts_json_and_parses_response() {
     assert_eq!(response.id, "msg_test");
     assert_eq!(response.total_tokens(), 16);
     assert_eq!(response.request_id.as_deref(), Some("req_body_123"));
-<<<<<<< HEAD
-    assert_eq!(
-        response.content,
-        vec![OutputContentBlock::Text {
-            text: "Hello from Claw".to_string(),
-=======
     assert_eq!(response.usage.cache_creation_input_tokens, 0);
     assert_eq!(response.usage.cache_read_input_tokens, 0);
     assert_eq!(
         response.content,
         vec![OutputContentBlock::Text {
-            text: "Hello from Claude".to_string(),
->>>>>>> upstream/main
+            text: "Hello from Claw".to_string(),
         }]
     );
 
@@ -102,8 +76,6 @@ async fn send_message_posts_json_and_parses_response() {
         request.headers.get("authorization").map(String::as_str),
         Some("Bearer proxy-token")
     );
-<<<<<<< HEAD
-=======
     assert_eq!(
         request.headers.get("anthropic-version").map(String::as_str),
         Some("2023-06-01")
@@ -116,33 +88,18 @@ async fn send_message_posts_json_and_parses_response() {
         request.headers.get("anthropic-beta").map(String::as_str),
         Some("claude-code-20250219,prompt-caching-scope-2026-01-05")
     );
->>>>>>> upstream/main
     let body: serde_json::Value =
         serde_json::from_str(&request.body).expect("request body should be json");
     assert_eq!(
         body.get("model").and_then(serde_json::Value::as_str),
-<<<<<<< HEAD
         Some("claude-sonnet-4-6")
-=======
-        Some("claude-3-7-sonnet-latest")
->>>>>>> upstream/main
     );
     assert!(body.get("stream").is_none());
     assert_eq!(body["tools"][0]["name"], json!("get_weather"));
     assert_eq!(body["tool_choice"]["type"], json!("auto"));
-<<<<<<< HEAD
-}
-
-#[tokio::test]
-async fn stream_message_parses_sse_events_with_tool_use() {
-    let state = Arc::new(Mutex::new(Vec::<CapturedRequest>::new()));
-    let sse = concat!(
-        "event: message_start\n",
-        "data: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_stream\",\"type\":\"message\",\"role\":\"assistant\",\"content\":[],\"model\":\"claude-sonnet-4-6\",\"stop_reason\":null,\"stop_sequence\":null,\"usage\":{\"input_tokens\":8,\"output_tokens\":0}}}\n\n",
-=======
-    assert_eq!(
-        body["betas"],
-        json!(["claude-code-20250219", "prompt-caching-scope-2026-01-05"])
+    assert!(
+        body.get("betas").is_none(),
+        "betas must travel via the anthropic-beta header, not the request body"
     );
 }
 
@@ -234,13 +191,9 @@ async fn send_message_applies_request_profile_and_records_telemetry() {
     let body: serde_json::Value =
         serde_json::from_str(&request.body).expect("request body should be json");
     assert_eq!(body["metadata"]["source"], json!("clawd-code"));
-    assert_eq!(
-        body["betas"],
-        json!([
-            "claude-code-20250219",
-            "prompt-caching-scope-2026-01-05",
-            "tools-2026-04-01"
-        ])
+    assert!(
+        body.get("betas").is_none(),
+        "betas must travel via the anthropic-beta header, not the request body"
     );
 
     let events = sink.events();
@@ -320,6 +273,44 @@ async fn send_message_parses_prompt_cache_token_usage_from_response() {
 }
 
 #[tokio::test]
+async fn given_empty_usage_object_when_send_message_parses_response_then_usage_defaults_to_zero() {
+    // given
+    let state = Arc::new(Mutex::new(Vec::<CapturedRequest>::new()));
+    let body = concat!(
+        "{",
+        "\"id\":\"msg_empty_usage\",",
+        "\"type\":\"message\",",
+        "\"role\":\"assistant\",",
+        "\"content\":[{\"type\":\"text\",\"text\":\"Hello from Claude\"}],",
+        "\"model\":\"claude-3-7-sonnet-latest\",",
+        "\"stop_reason\":\"end_turn\",",
+        "\"stop_sequence\":null,",
+        "\"usage\":{}",
+        "}"
+    );
+    let server = spawn_server(
+        state,
+        vec![http_response("200 OK", "application/json", body)],
+    )
+    .await;
+    let client = AnthropicClient::new("test-key").with_base_url(server.base_url());
+
+    // when
+    let response = client
+        .send_message(&sample_request(false))
+        .await
+        .expect("response with empty usage object should still parse");
+
+    // then
+    assert_eq!(response.id, "msg_empty_usage");
+    assert_eq!(response.total_tokens(), 0);
+    assert_eq!(response.usage.input_tokens, 0);
+    assert_eq!(response.usage.cache_creation_input_tokens, 0);
+    assert_eq!(response.usage.cache_read_input_tokens, 0);
+    assert_eq!(response.usage.output_tokens, 0);
+}
+
+#[tokio::test]
 #[allow(clippy::await_holding_lock)]
 async fn stream_message_parses_sse_events_with_tool_use() {
     let _guard = env_lock();
@@ -335,8 +326,7 @@ async fn stream_message_parses_sse_events_with_tool_use() {
     let state = Arc::new(Mutex::new(Vec::<CapturedRequest>::new()));
     let sse = concat!(
         "event: message_start\n",
-        "data: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_stream\",\"type\":\"message\",\"role\":\"assistant\",\"content\":[],\"model\":\"claude-3-7-sonnet-latest\",\"stop_reason\":null,\"stop_sequence\":null,\"usage\":{\"input_tokens\":8,\"cache_creation_input_tokens\":13,\"cache_read_input_tokens\":21,\"output_tokens\":0}}}\n\n",
->>>>>>> upstream/main
+        "data: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_stream\",\"type\":\"message\",\"role\":\"assistant\",\"content\":[],\"model\":\"claude-sonnet-4-6\",\"stop_reason\":null,\"stop_sequence\":null,\"usage\":{\"input_tokens\":8,\"cache_creation_input_tokens\":13,\"cache_read_input_tokens\":21,\"output_tokens\":0}}}\n\n",
         "event: content_block_start\n",
         "data: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"tool_use\",\"id\":\"toolu_123\",\"name\":\"get_weather\",\"input\":{}}}\n\n",
         "event: content_block_delta\n",
@@ -344,11 +334,7 @@ async fn stream_message_parses_sse_events_with_tool_use() {
         "event: content_block_stop\n",
         "data: {\"type\":\"content_block_stop\",\"index\":0}\n\n",
         "event: message_delta\n",
-<<<<<<< HEAD
-        "data: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"tool_use\",\"stop_sequence\":null},\"usage\":{\"input_tokens\":8,\"output_tokens\":1}}\n\n",
-=======
         "data: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"tool_use\",\"stop_sequence\":null},\"usage\":{\"input_tokens\":8,\"cache_creation_input_tokens\":34,\"cache_read_input_tokens\":55,\"output_tokens\":1}}\n\n",
->>>>>>> upstream/main
         "event: message_stop\n",
         "data: {\"type\":\"message_stop\"}\n\n",
         "data: [DONE]\n\n"
@@ -366,12 +352,8 @@ async fn stream_message_parses_sse_events_with_tool_use() {
 
     let client = ApiClient::new("test-key")
         .with_auth_token(Some("proxy-token".to_string()))
-<<<<<<< HEAD
-        .with_base_url(server.base_url());
-=======
         .with_base_url(server.base_url())
         .with_prompt_cache(PromptCache::new("stream-session"));
->>>>>>> upstream/main
     let mut stream = client
         .stream_message(&sample_request(false))
         .await
@@ -425,8 +407,6 @@ async fn stream_message_parses_sse_events_with_tool_use() {
     let captured = state.lock().await;
     let request = captured.first().expect("server should capture request");
     assert!(request.body.contains("\"stream\":true"));
-<<<<<<< HEAD
-=======
 
     let cache_stats = client
         .prompt_cache_stats()
@@ -441,7 +421,6 @@ async fn stream_message_parses_sse_events_with_tool_use() {
 
     std::fs::remove_dir_all(temp_root).expect("cleanup temp root");
     std::env::remove_var("CLAUDE_CONFIG_HOME");
->>>>>>> upstream/main
 }
 
 #[tokio::test]
@@ -458,11 +437,7 @@ async fn retries_retryable_failures_before_succeeding() {
             http_response(
                 "200 OK",
                 "application/json",
-<<<<<<< HEAD
                 "{\"id\":\"msg_retry\",\"type\":\"message\",\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"Recovered\"}],\"model\":\"claude-sonnet-4-6\",\"stop_reason\":\"end_turn\",\"stop_sequence\":null,\"usage\":{\"input_tokens\":3,\"output_tokens\":2}}",
-=======
-                "{\"id\":\"msg_retry\",\"type\":\"message\",\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"Recovered\"}],\"model\":\"claude-3-7-sonnet-latest\",\"stop_reason\":\"end_turn\",\"stop_sequence\":null,\"usage\":{\"input_tokens\":3,\"output_tokens\":2}}",
->>>>>>> upstream/main
             ),
         ],
     )
@@ -482,38 +457,18 @@ async fn retries_retryable_failures_before_succeeding() {
 }
 
 #[tokio::test]
-<<<<<<< HEAD
-async fn provider_client_dispatches_api_requests() {
-=======
 async fn provider_client_dispatches_anthropic_requests() {
->>>>>>> upstream/main
     let state = Arc::new(Mutex::new(Vec::<CapturedRequest>::new()));
     let server = spawn_server(
         state.clone(),
         vec![http_response(
             "200 OK",
             "application/json",
-<<<<<<< HEAD
             "{\"id\":\"msg_provider\",\"type\":\"message\",\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"Dispatched\"}],\"model\":\"claude-sonnet-4-6\",\"stop_reason\":\"end_turn\",\"stop_sequence\":null,\"usage\":{\"input_tokens\":3,\"output_tokens\":2}}",
-=======
-            "{\"id\":\"msg_provider\",\"type\":\"message\",\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"Dispatched\"}],\"model\":\"claude-3-7-sonnet-latest\",\"stop_reason\":\"end_turn\",\"stop_sequence\":null,\"usage\":{\"input_tokens\":3,\"output_tokens\":2}}",
->>>>>>> upstream/main
         )],
     )
     .await;
 
-<<<<<<< HEAD
-    let client = ProviderClient::from_model_with_default_auth(
-        "claude-sonnet-4-6",
-        Some(AuthSource::ApiKey("test-key".to_string())),
-    )
-    .expect("api provider client should be constructed");
-    let client = match client {
-        ProviderClient::ClawApi(client) => {
-            ProviderClient::ClawApi(client.with_base_url(server.base_url()))
-        }
-        other => panic!("expected default provider, got {other:?}"),
-=======
     let client = ProviderClient::from_model_with_anthropic_auth(
         "claude-sonnet-4-6",
         Some(AuthSource::ApiKey("test-key".to_string())),
@@ -524,7 +479,6 @@ async fn provider_client_dispatches_anthropic_requests() {
             ProviderClient::Anthropic(client.with_base_url(server.base_url()))
         }
         other => panic!("expected anthropic provider, got {other:?}"),
->>>>>>> upstream/main
     };
 
     let response = client
@@ -592,8 +546,71 @@ async fn surfaces_retry_exhaustion_for_persistent_retryable_errors() {
 }
 
 #[tokio::test]
-<<<<<<< HEAD
-=======
+async fn retries_multiple_retryable_failures_with_exponential_backoff_and_jitter() {
+    let state = Arc::new(Mutex::new(Vec::<CapturedRequest>::new()));
+    let server = spawn_server(
+        state.clone(),
+        vec![
+            http_response(
+                "429 Too Many Requests",
+                "application/json",
+                "{\"type\":\"error\",\"error\":{\"type\":\"rate_limit_error\",\"message\":\"slow down\"}}",
+            ),
+            http_response(
+                "500 Internal Server Error",
+                "application/json",
+                "{\"type\":\"error\",\"error\":{\"type\":\"api_error\",\"message\":\"boom\"}}",
+            ),
+            http_response(
+                "503 Service Unavailable",
+                "application/json",
+                "{\"type\":\"error\",\"error\":{\"type\":\"overloaded_error\",\"message\":\"busy\"}}",
+            ),
+            http_response(
+                "429 Too Many Requests",
+                "application/json",
+                "{\"type\":\"error\",\"error\":{\"type\":\"rate_limit_error\",\"message\":\"slow down again\"}}",
+            ),
+            http_response(
+                "503 Service Unavailable",
+                "application/json",
+                "{\"type\":\"error\",\"error\":{\"type\":\"overloaded_error\",\"message\":\"still busy\"}}",
+            ),
+            http_response(
+                "200 OK",
+                "application/json",
+                "{\"id\":\"msg_exp_retry\",\"type\":\"message\",\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"Recovered after 5\"}],\"model\":\"claude-sonnet-4-6\",\"stop_reason\":\"end_turn\",\"stop_sequence\":null,\"usage\":{\"input_tokens\":3,\"output_tokens\":2}}",
+            ),
+        ],
+    )
+    .await;
+
+    let client = ApiClient::new("test-key")
+        .with_base_url(server.base_url())
+        .with_retry_policy(8, Duration::from_millis(1), Duration::from_millis(4));
+    let started_at = std::time::Instant::now();
+
+    let response = client
+        .send_message(&sample_request(false))
+        .await
+        .expect("8-retry policy should absorb 5 retryable failures");
+
+    let elapsed = started_at.elapsed();
+    assert_eq!(response.total_tokens(), 5);
+    assert_eq!(
+        state.lock().await.len(),
+        6,
+        "client should issue 1 original + 5 retry requests before the 200"
+    );
+    // Jittered sleeps are bounded by 2 * max_backoff per retry (base + jitter),
+    // so 5 sleeps fit comfortably below this upper bound with generous slack.
+    assert!(
+        elapsed < Duration::from_secs(5),
+        "retries should complete promptly, took {elapsed:?}"
+    );
+}
+
+#[tokio::test]
 #[allow(clippy::await_holding_lock)]
 async fn send_message_reuses_recent_completion_cache_entries() {
     let _guard = env_lock();
@@ -613,7 +630,7 @@ async fn send_message_reuses_recent_completion_cache_entries() {
         vec![http_response(
             "200 OK",
             "application/json",
-            "{\"id\":\"msg_cached\",\"type\":\"message\",\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"Cached once\"}],\"model\":\"claude-3-7-sonnet-latest\",\"stop_reason\":\"end_turn\",\"stop_sequence\":null,\"usage\":{\"input_tokens\":3,\"cache_creation_input_tokens\":5,\"cache_read_input_tokens\":4000,\"output_tokens\":2}}",
+            "{\"id\":\"msg_cached\",\"type\":\"message\",\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"Cached once\"}],\"model\":\"claude-sonnet-4-6\",\"stop_reason\":\"end_turn\",\"stop_sequence\":null,\"usage\":{\"input_tokens\":3,\"cache_creation_input_tokens\":5,\"cache_read_input_tokens\":4000,\"output_tokens\":2}}",
         )],
     )
     .await;
@@ -666,12 +683,12 @@ async fn send_message_tracks_unexpected_prompt_cache_breaks() {
             http_response(
                 "200 OK",
                 "application/json",
-                "{\"id\":\"msg_one\",\"type\":\"message\",\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"One\"}],\"model\":\"claude-3-7-sonnet-latest\",\"stop_reason\":\"end_turn\",\"stop_sequence\":null,\"usage\":{\"input_tokens\":3,\"cache_creation_input_tokens\":5,\"cache_read_input_tokens\":6000,\"output_tokens\":2}}",
+                "{\"id\":\"msg_one\",\"type\":\"message\",\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"One\"}],\"model\":\"claude-sonnet-4-6\",\"stop_reason\":\"end_turn\",\"stop_sequence\":null,\"usage\":{\"input_tokens\":3,\"cache_creation_input_tokens\":5,\"cache_read_input_tokens\":6000,\"output_tokens\":2}}",
             ),
             http_response(
                 "200 OK",
                 "application/json",
-                "{\"id\":\"msg_two\",\"type\":\"message\",\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"Two\"}],\"model\":\"claude-3-7-sonnet-latest\",\"stop_reason\":\"end_turn\",\"stop_sequence\":null,\"usage\":{\"input_tokens\":3,\"cache_creation_input_tokens\":0,\"cache_read_input_tokens\":1000,\"output_tokens\":2}}",
+                "{\"id\":\"msg_two\",\"type\":\"message\",\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"Two\"}],\"model\":\"claude-sonnet-4-6\",\"stop_reason\":\"end_turn\",\"stop_sequence\":null,\"usage\":{\"input_tokens\":3,\"cache_creation_input_tokens\":5,\"cache_read_input_tokens\":0,\"output_tokens\":2}}",":0,\"cache_read_input_tokens\":1000,\"output_tokens\":2}}",
             ),
         ],
     )
@@ -709,18 +726,12 @@ async fn send_message_tracks_unexpected_prompt_cache_breaks() {
 }
 
 #[tokio::test]
->>>>>>> upstream/main
 #[ignore = "requires ANTHROPIC_API_KEY and network access"]
 async fn live_stream_smoke_test() {
     let client = ApiClient::from_env().expect("ANTHROPIC_API_KEY must be set");
     let mut stream = client
         .stream_message(&MessageRequest {
-<<<<<<< HEAD
             model: std::env::var("CLAW_MODEL").unwrap_or_else(|_| "claude-sonnet-4-6".to_string()),
-=======
-            model: std::env::var("ANTHROPIC_MODEL")
-                .unwrap_or_else(|_| "claude-3-7-sonnet-latest".to_string()),
->>>>>>> upstream/main
             max_tokens: 32,
             messages: vec![InputMessage::user_text(
                 "Reply with exactly: hello from rust",
@@ -880,11 +891,7 @@ fn http_response_with_headers(
 
 fn sample_request(stream: bool) -> MessageRequest {
     MessageRequest {
-<<<<<<< HEAD
         model: "claude-sonnet-4-6".to_string(),
-=======
-        model: "claude-3-7-sonnet-latest".to_string(),
->>>>>>> upstream/main
         max_tokens: 64,
         messages: vec![InputMessage {
             role: "user".to_string(),
