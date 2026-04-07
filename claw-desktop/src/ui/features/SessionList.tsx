@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useChatStore } from '../../store/useChatStore';
 import { SessionItem } from './SessionItem';
 import { LanguageSelector } from '../../components/LanguageSelector';
-import { Plus, Settings, Sun, Moon, PanelLeftClose, ChevronDown, X, Search, Filter, Home, FolderOpen } from 'lucide-react';
+import { Plus, Settings, Sun, Moon, PanelLeftClose, ChevronDown, ChevronRight, X, Search, Filter, Home, FolderOpen } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '../../components/ui/dropdown-menu';
 import { invoke } from '@tauri-apps/api/core';
@@ -183,9 +183,10 @@ export function SessionList({ onOpenSettings, onCloseSidebar }: SessionListProps
 
   const handleOpenWorkspace = async () => {
     try {
-      const selected = await invoke<string | null>('select_folder');
+      const selected = await invoke<string | null>('select_and_set_workspace');
       
       if (selected) {
+        // Update work mode state và reload sessions
         await setWorkMode('workspace', selected);
       }
     } catch (e) {
@@ -195,41 +196,16 @@ export function SessionList({ onOpenSettings, onCloseSidebar }: SessionListProps
 
   return (
 
-    <div className="flex flex-col h-full bg-[#141414] relative">
-      {/* Header - 2 rows: buttons + search/filter */}
+    <div className="flex flex-col h-full bg-background relative">
+      {/* Header - 3 rows: search/filter + home + workspace */}
       <div className="shrink-0 px-3 pt-4 pb-3 space-y-2">
-        {/* Row 1: Home + Open Workspace buttons */}
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleGoHome}
-            className={cn(
-              "flex-1 flex items-center justify-center gap-1.5 h-7 px-2 rounded-md text-xs font-medium transition-colors",
-              workMode === 'normal'
-                ? "bg-accent text-accent-foreground"
-                : "bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground"
-            )}
-            title={t('sessionList.goHome', 'Go to Home')}
-          >
-            <Home className="w-3.5 h-3.5" />
-            <span>{t('sessionList.home')}</span>
-          </button>
-          <button
-            onClick={handleOpenWorkspace}
-            className="flex-1 flex items-center justify-center gap-1.5 h-7 px-2 rounded-md text-xs font-medium bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-            title={t('sessionList.openWorkspace', 'Open Workspace')}
-          >
-            <FolderOpen className="w-3.5 h-3.5" />
-            <span>{t('sessionList.openWorkspace', 'Workspace')}</span>
-          </button>
-        </div>
-        
-        {/* Row 2: Search + Filter */}
+        {/* Row 1: Close + Search + Filter */}
         <div className="flex items-center gap-2">
           {/* Close sidebar button */}
           {onCloseSidebar && (
             <button
               onClick={onCloseSidebar}
-              className="flex items-center justify-center h-7 w-7 rounded-md hover:bg-[#2a2a2a] text-[#888888] hover:text-[#e0e0e0] transition-colors shrink-0"
+              className="flex items-center justify-center h-7 w-7 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0"
               title={t('sessionList.closeSidebar', 'Close Sidebar')}
             >
               <PanelLeftClose className="w-3.5 h-3.5" />
@@ -299,6 +275,31 @@ export function SessionList({ onOpenSettings, onCloseSidebar }: SessionListProps
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
+        
+        {/* Row 2: Home button */}
+        <button
+          onClick={handleGoHome}
+          className={cn(
+            "w-full flex items-center justify-center gap-1.5 h-7 px-2 rounded-md text-xs font-medium transition-colors",
+            workMode === 'normal'
+              ? "bg-accent text-accent-foreground"
+              : "bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground"
+          )}
+          title={t('sessionList.goHome', 'Go to Home')}
+        >
+          <Home className="w-3.5 h-3.5" />
+          <span>{t('sessionList.home')}</span>
+        </button>
+        
+        {/* Row 3: Open Workspace button */}
+        <button
+          onClick={handleOpenWorkspace}
+          className="w-full flex items-center justify-center gap-1.5 h-7 px-2 rounded-md text-xs font-medium bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+          title={t('sessionList.openWorkspace', 'Open Workspace')}
+        >
+          <FolderOpen className="w-3.5 h-3.5" />
+          <span>{t('sessionList.openWorkspace', 'Workspace')}</span>
+        </button>
       </div>
 
       {/* Body */}
@@ -333,10 +334,14 @@ export function SessionList({ onOpenSettings, onCloseSidebar }: SessionListProps
                     onClick={(e) => toggleGroup(groupKey, e)}
                   >
                     <div className="flex items-center gap-1.5 overflow-hidden">
-                      <ChevronDown className={cn("w-3.5 h-3.5 text-muted-foreground/70 transition-transform duration-200 shrink-0", collapsedGroups[groupKey] && "-rotate-90")} />
                       <span className="text-xs font-semibold text-muted-foreground/80 lowercase tracking-wide truncate select-none" title={groupKey}>
                         {groupName}
                       </span>
+                      {collapsedGroups[groupKey] ? (
+                        <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/70 transition-transform duration-200 shrink-0" />
+                      ) : (
+                        <ChevronDown className="w-3.5 h-3.5 text-muted-foreground/70 transition-transform duration-200 shrink-0" />
+                      )}
                     </div>
                     <div className="flex items-center gap-1 opacity-0 group-hover/folder:opacity-100 transition-opacity">
                       <button
@@ -348,7 +353,7 @@ export function SessionList({ onOpenSettings, onCloseSidebar }: SessionListProps
                       </button>
                       {groupKey !== 'home' && (
                         <button
-                          onClick={(e) => { e.stopPropagation(); removeWorkspace(groupKey); }}
+                          onClick={async (e) => { e.stopPropagation(); await removeWorkspace(groupKey); }}
                           className="p-0.5 rounded-sm hover:bg-red-500/20 text-muted-foreground hover:text-red-500 transition-all"
                           title={t('sessionList.removeWorkspace', 'Remove workspace from list')}
                         >

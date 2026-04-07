@@ -46,10 +46,10 @@ export function TokenCounter({ usage, maxContext }: TokenCounterProps) {
 
   return (
     <div className={cn(
-      "flex items-center gap-1 sm:gap-1.5 text-xs sm:text-sm font-medium transition-colors",
+      "flex items-center gap-1 text-xs font-medium transition-colors",
       colorClass
     )}>
-      <BarChart3 className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+      <BarChart3 className="w-3.5 h-3.5" />
       <span>
         {formatNumber(totalTokens)}
         {maxContext && (

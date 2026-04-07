@@ -104,8 +104,8 @@ export function ModelSelector() {
 
   if (options.length === 0) {
     return (
-      <div className="flex items-center gap-1.5 sm:gap-2 rounded-lg px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm text-muted-foreground bg-muted/50">
-        <Bot className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+      <div className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground bg-muted/50">
+        <Bot className="h-3.5 w-3.5" />
         <span>{t('modelSelector.noModels')}</span>
       </div>
     );
@@ -115,8 +115,8 @@ export function ModelSelector() {
     <CustomDropdown
       trigger={
         <>
-          <Bot className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
-          <span className="truncate min-w-0 flex-1 text-left text-xs sm:text-sm" title={getSelectedModelName()}>
+          <Bot className="h-3.5 w-3.5 shrink-0" />
+          <span className="truncate min-w-0 flex-1 text-left text-xs" title={getSelectedModelName()}>
             {getSelectedModelName()}
           </span>
         </>
@@ -124,7 +124,7 @@ export function ModelSelector() {
       options={filteredOptions}
       value={selectedValue}
       onChange={handleValueChange}
-      dropdownClassName="max-h-[350px] sm:max-h-[400px] overflow-y-auto"
+      dropdownClassName="max-h-[320px] overflow-y-auto"
       searchTerm={searchTerm}
       onSearchChange={setSearchTerm}
       searchPlaceholder={t('modelSelector.searchPlaceholder')}

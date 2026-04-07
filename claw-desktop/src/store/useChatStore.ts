@@ -85,7 +85,15 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     });
   },
 
-  removeWorkspace: (workspacePath: string) => {
+  removeWorkspace: async (workspacePath: string) => {
+    const { workMode, workspacePath: currentPath, setWorkMode } = get();
+    
+    // Nếu đang ở workspace bị xóa → nhảy về Home
+    if (workMode === 'workspace' && currentPath === workspacePath) {
+      console.log('[STORE] Removing current workspace, switching to Home');
+      await setWorkMode('normal');
+    }
+    
     set((prev) => {
       const updated = prev.recentWorkspaces.filter(p => p !== workspacePath);
       localStorage.setItem('claw_recent_workspaces', JSON.stringify(updated));
@@ -312,7 +320,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   },
 
   switchSession: async (sessionId: string) => {
-    const { gateway, autoSaveCurrentSession, currentSessionId, sessions, state, stopGeneration } = get();
+    const { gateway, autoSaveCurrentSession, currentSessionId, sessions, state, stopGeneration, addRecentWorkspace } = get();
     
     // Don't switch if already on this session
     if (currentSessionId === sessionId) return;
@@ -331,7 +339,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
       // Find session metadata to get work context
       const sessionMeta = sessions.find(s => s.id === sessionId);
-      const workMode = sessionMeta?.work_mode || 'normal';
+      const workMode = (sessionMeta?.work_mode || 'normal') as WorkMode;
       const workspacePath = sessionMeta?.workspace_path || null;
 
       // Load new session from backend with work context
@@ -409,10 +417,17 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         messages: mergedMessages,
         currentSessionId: sessionId,
         currentAssistantText: '',
+        workMode, // Update work mode
+        workspacePath, // Update workspace path
         // Don't touch currentTokenUsage - let backend's usage event update it
         lastUserText: null, // Clear last user text
         state: { status: 'IDLE' },
       });
+      
+      // Nếu switch sang workspace session → đẩy workspace lên đầu
+      if (workMode === 'workspace' && workspacePath) {
+        addRecentWorkspace(workspacePath);
+      }
     } catch (error) {
       console.error('Failed to switch session:', error);
       alert(`Không thể chuyển session: ${error}`);
@@ -459,7 +474,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     try {
       // Find session metadata to get work context
       const sessionMeta = sessions.find(s => s.id === sessionId);
-      const workMode = sessionMeta?.work_mode || 'normal';
+      const workMode = (sessionMeta?.work_mode || 'normal') as WorkMode;
       const workspacePath = sessionMeta?.workspace_path || null;
 
       await gateway.deleteSession(sessionId, workMode, workspacePath);
@@ -486,7 +501,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     try {
       // Find session metadata to get work context
       const sessionMeta = sessions.find(s => s.id === sessionId);
-      const workMode = sessionMeta?.work_mode || 'normal';
+      const workMode = (sessionMeta?.work_mode || 'normal') as WorkMode;
       const workspacePath = sessionMeta?.workspace_path || null;
 
       await gateway.renameSession(sessionId, title, workMode, workspacePath);
@@ -855,8 +870,14 @@ export function initializeChatStore() {
               console.error('[STORE] Failed to reload session after message_stop:', e);
             }
             
-            // Reload sessions list to show updated session
-            loadSessions();
+            // Reload sessions list to show updated session with new timestamp
+            await loadSessions();
+            
+            // Nếu đang ở workspace mode → đẩy workspace lên đầu recentWorkspaces
+            const currentState = useChatStore.getState();
+            if (currentState.workMode === 'workspace' && currentState.workspacePath) {
+              currentState.addRecentWorkspace(currentState.workspacePath);
+            }
           });
         }
         break;
