@@ -18,9 +18,37 @@ export function ModelSelector() {
 
   useEffect(() => {
     if (settings?.selected_model) {
-      setSelectedValue(`${settings.selected_model.provider_id}:${settings.selected_model.model_id}`);
+      const selectedValue = `${settings.selected_model.provider_id}:${settings.selected_model.model_id}`;
+      
+      // Verify model still exists
+      const provider = settings.providers.find(p => p.id === settings.selected_model?.provider_id);
+      const model = provider?.models.find(m => m.id === settings.selected_model?.model_id);
+      
+      if (!model || !provider?.api_key || provider.api_key.trim() === '') {
+        // Selected model không tồn tại hoặc provider không có API key
+        // → Tự động chọn model đầu tiên có sẵn
+        console.warn('[ModelSelector] Selected model not found, auto-selecting first available model');
+        
+        const firstProviderWithKey = settings.providers.find(
+          p => p.api_key && p.api_key.trim() !== '' && p.models.length > 0
+        );
+        
+        if (firstProviderWithKey && firstProviderWithKey.models.length > 0) {
+          const firstModel = firstProviderWithKey.models[0];
+          console.log('[ModelSelector] Auto-selecting:', {
+            provider: firstProviderWithKey.id,
+            model: firstModel.id
+          });
+          setSelectedModel(firstProviderWithKey.id, firstModel.id);
+        } else {
+          // Không có model nào → clear selection
+          setSelectedValue('');
+        }
+      } else {
+        setSelectedValue(selectedValue);
+      }
     }
-  }, [settings]);
+  }, [settings, setSelectedModel]);
 
   if (!settings) return null;
 

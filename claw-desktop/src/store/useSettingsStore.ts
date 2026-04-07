@@ -92,8 +92,34 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
 
   deleteProvider: async (providerId: string) => {
     try {
+      const currentSettings = get().settings;
+      const isDeletingSelectedProvider = 
+        currentSettings?.selected_model?.provider_id === providerId;
+      
       await get().gateway.deleteProvider(providerId);
       await get().loadSettings(); // Reload
+      
+      // Nếu xóa provider đang được chọn → tự động chọn model đầu tiên còn lại
+      if (isDeletingSelectedProvider) {
+        const updatedSettings = get().settings;
+        if (updatedSettings) {
+          // Tìm model đầu tiên có API key
+          const firstProviderWithKey = updatedSettings.providers.find(
+            p => p.api_key && p.api_key.trim() !== '' && p.models.length > 0
+          );
+          
+          if (firstProviderWithKey && firstProviderWithKey.models.length > 0) {
+            const firstModel = firstProviderWithKey.models[0];
+            console.log('[SETTINGS] Auto-selecting first available model after provider deletion:', {
+              provider: firstProviderWithKey.id,
+              model: firstModel.id
+            });
+            await get().setSelectedModel(firstProviderWithKey.id, firstModel.id);
+          } else {
+            console.warn('[SETTINGS] No models available after provider deletion');
+          }
+        }
+      }
     } catch (error) {
       console.error('Failed to delete provider:', error);
       throw error;
@@ -122,8 +148,35 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
 
   deleteModel: async (providerId: string, modelId: string) => {
     try {
+      const currentSettings = get().settings;
+      const isDeletingSelectedModel = 
+        currentSettings?.selected_model?.provider_id === providerId &&
+        currentSettings?.selected_model?.model_id === modelId;
+      
       await get().gateway.deleteModel(providerId, modelId);
       await get().loadSettings(); // Reload
+      
+      // Nếu xóa model đang được chọn → tự động chọn model đầu tiên còn lại
+      if (isDeletingSelectedModel) {
+        const updatedSettings = get().settings;
+        if (updatedSettings) {
+          // Tìm model đầu tiên có API key
+          const firstProviderWithKey = updatedSettings.providers.find(
+            p => p.api_key && p.api_key.trim() !== '' && p.models.length > 0
+          );
+          
+          if (firstProviderWithKey && firstProviderWithKey.models.length > 0) {
+            const firstModel = firstProviderWithKey.models[0];
+            console.log('[SETTINGS] Auto-selecting first available model:', {
+              provider: firstProviderWithKey.id,
+              model: firstModel.id
+            });
+            await get().setSelectedModel(firstProviderWithKey.id, firstModel.id);
+          } else {
+            console.warn('[SETTINGS] No models available after deletion');
+          }
+        }
+      }
     } catch (error) {
       console.error('Failed to delete model:', error);
       throw error;
