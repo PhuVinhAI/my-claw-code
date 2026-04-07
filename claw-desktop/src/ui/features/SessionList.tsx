@@ -401,25 +401,25 @@ export function SessionList({ onOpenSettings, onCloseSidebar }: SessionListProps
 
 
       {/* Footer */}
-      <div className="shrink-0 flex items-center justify-between px-2 py-1.5 border-t border-border/10">
-        <div className="flex origin-left scale-[0.85]">
+      <div className="shrink-0 flex items-center justify-between px-2 py-2 border-t border-border/10">
+        <div className="flex">
           <button
             onClick={onOpenSettings}
-            className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground px-2 py-1.5 rounded-md hover:bg-muted transition-colors group"
+            className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground px-2.5 py-1.5 rounded-md hover:bg-muted transition-colors group"
             title={t('sessionList.settings')}
           >
             <Settings className="w-4 h-4 transition-transform group-hover:rotate-45" />
-            <span className="text-[11px] font-semibold leading-none tracking-wide">
+            <span className="text-xs font-medium leading-none tracking-wide">
               {t('sessionList.settings')}
             </span>
           </button>
         </div>
         
-        <div className="flex items-center gap-0.5 origin-right scale-[0.85]">
+        <div className="flex items-center gap-1">
            <LanguageSelector />
           <button
             onClick={toggleTheme}
-            className="flex items-center justify-center h-7 w-7 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            className="flex items-center justify-center h-8 w-8 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
             title={t('sessionList.theme')}
           >
             {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
