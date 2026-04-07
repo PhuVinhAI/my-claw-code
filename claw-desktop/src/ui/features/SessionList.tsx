@@ -4,7 +4,8 @@ import { useTranslation } from 'react-i18next';
 import { useChatStore } from '../../store/useChatStore';
 import { SessionItem } from './SessionItem';
 import { LanguageSelector } from '../../components/LanguageSelector';
-import { Plus, Search, Settings, Sun, Moon, MessageSquareDashed, SearchX } from 'lucide-react';
+import { Plus, Search, Settings, Sun, Moon, MessageSquareDashed, SearchX, PanelLeftClose } from 'lucide-react';
+
 
 const PAGE_SIZE = 20;
 
@@ -21,9 +22,12 @@ function SessionSkeleton() {
 
 interface SessionListProps {
   onOpenSettings: () => void;
+  onCloseSidebar?: () => void;
 }
 
-export function SessionList({ onOpenSettings }: SessionListProps) {
+
+export function SessionList({ onOpenSettings, onCloseSidebar }: SessionListProps) {
+
   const { t } = useTranslation();
   const { sessions, currentSessionId, isLoadingSessions, createNewSession } = useChatStore();
   const [search, setSearch] = useState('');
@@ -83,31 +87,43 @@ export function SessionList({ onOpenSettings }: SessionListProps) {
   return (
     <div className="flex flex-col h-full bg-background relative">
       {/* Header */}
-      <div className="shrink-0 flex flex-col gap-3 sm:gap-4 px-2 sm:px-3 pt-4 sm:pt-5 pb-2 sm:pb-3 border-b border-border/50">
-        <div className="flex items-center justify-between px-1">
-          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-            {t('sessionList.title')}
-          </span>
-          <button
-            onClick={createNewSession}
-            className="flex items-center justify-center h-6 w-6 sm:h-7 sm:w-7 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-            title={t('sessionList.newChat')}
-          >
-            <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-          </button>
+      <div className="shrink-0 flex items-center justify-between px-3 pt-4 pb-2">
+        <div className="flex flex-1 items-center gap-2">
+          {onCloseSidebar && (
+            <button
+              onClick={onCloseSidebar}
+              className="flex items-center justify-center h-6 w-6 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+              title={t('sessionList.closeSidebar', 'Close Sidebar')}
+            >
+              <PanelLeftClose className="w-3.5 h-3.5" />
+            </button>
+          )}
+          <div className="relative group flex-1">
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              placeholder={t('sessionList.searchPlaceholder')}
+              className="w-full h-7 pl-6 pr-2 text-xs bg-transparent border-none rounded-sm placeholder:text-muted-foreground text-foreground outline-none focus:ring-1 focus:ring-primary/20 transition-all"
+            />
+          </div>
         </div>
-
-        <div className="relative group px-1">
-          <Search className="absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 sm:w-4 sm:h-4 text-muted-foreground" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => handleSearchChange(e.target.value)}
-            placeholder={t('sessionList.searchPlaceholder')}
-            className="w-full h-8 sm:h-9 pl-7 sm:pl-8 pr-2.5 sm:pr-3 text-xs sm:text-sm bg-background border border-input rounded-md placeholder:text-muted-foreground text-foreground outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all"
-          />
-        </div>
+        <button
+          onClick={createNewSession}
+          className="flex items-center justify-center p-1.5 ml-1 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+          title={t('sessionList.newChat')}
+        >
+          <Plus className="w-3.5 h-3.5" />
+        </button>
       </div>
+
+      <div className="px-3 pt-2 pb-1">
+         <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+            {t('sessionList.title')}
+         </span>
+      </div>
+
 
       {/* Body */}
       <div
@@ -160,23 +176,27 @@ export function SessionList({ onOpenSettings }: SessionListProps) {
       </div>
 
       {/* Footer */}
-      <div className="shrink-0 flex items-center justify-between p-2 sm:p-3 border-t border-border/50 bg-background/80 backdrop-blur-sm">
+      <div className="shrink-0 flex items-center justify-between p-3">
         <button
           onClick={onOpenSettings}
-          className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm font-medium text-muted-foreground hover:text-foreground px-1.5 sm:px-2 py-1 sm:py-1.5 rounded-md hover:bg-muted transition-colors group"
+          className="flex flex-1 items-center gap-2 text-xs font-medium text-muted-foreground hover:text-foreground px-2 py-1.5 rounded-md hover:bg-muted transition-colors group"
           title={t('sessionList.settings')}
         >
-          <Settings className="w-3.5 h-3.5 sm:w-4 sm:h-4 transition-transform group-hover:rotate-45" />
-          <span>{t('sessionList.settings')}</span>
+          <Settings className="w-4 h-4 text-muted-foreground transition-transform group-hover:rotate-45" />
+          <span className="text-foreground text-[11px] font-semibold leading-tight">
+            {t('sessionList.settings')}
+          </span>
         </button>
-        <div className="flex items-center gap-0.5 sm:gap-1">
-          <LanguageSelector />
+        <div className="flex items-center gap-1">
+          <div className="scale-75 origin-right">
+             <LanguageSelector />
+          </div>
           <button
             onClick={toggleTheme}
-            className="flex items-center justify-center h-7 w-7 sm:h-8 sm:w-8 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            className="flex items-center justify-center h-6 w-6 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
             title={t('sessionList.theme')}
           >
-            {isDark ? <Sun className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <Moon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
+            {isDark ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
           </button>
         </div>
       </div>

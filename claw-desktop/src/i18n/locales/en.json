@@ -21,7 +21,9 @@
     "locale": "en-US"
   },
   "chatInput": {
-    "placeholder": "Ask anything...",
+    "placeholder": "Plan, Build...",
+
+
     "send": "Send message",
     "stop": "Stop AI",
     "selectFolder": "Select another folder",

@@ -21,7 +21,9 @@
     "locale": "vi-VN"
   },
   "chatInput": {
-    "placeholder": "Hỏi bất cứ điều gì...",
+    "placeholder": "Lên kế hoạch, Code...",
+
+
     "send": "Gửi tin nhắn",
     "stop": "Dừng AI",
     "selectFolder": "Chọn thư mục khác",

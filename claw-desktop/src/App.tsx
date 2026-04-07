@@ -3,7 +3,8 @@ import { initializeChatStore, useChatStore } from './store';
 import { MessageList, ChatInput, PermissionModal, SessionList, ErrorBanner } from './ui/features';
 import { OnboardingScreen } from './ui/pages/OnboardingScreen';
 import { SettingsScreen } from './ui/pages/SettingsScreen';
-import { PanelLeftClose, PanelLeft } from 'lucide-react';
+import { PanelLeft } from 'lucide-react';
+
 import { invoke } from '@tauri-apps/api/core';
 import './App.css';
 
@@ -60,32 +61,46 @@ function App() {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
+    <div className="flex h-screen overflow-hidden bg-background relative text-foreground">
+
+
+
+
+
       {/* Sidebar */}
       <div
         className={`
-          shrink-0 transition-all duration-300 ease-in-out border-r border-border
+          shrink-0 transition-all duration-300 ease-in-out border-r border-border bg-sidebar
+
+
+
+
+
+
+
           ${sidebarOpen ? 'w-64 sm:w-72 lg:w-80' : 'w-0'}
           overflow-hidden
         `}
       >
-        <SessionList onOpenSettings={() => setCurrentScreen('settings')} />
+        <SessionList onOpenSettings={() => setCurrentScreen('settings')} onCloseSidebar={() => setSidebarOpen(false)} />
+
       </div>
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Header */}
-        <div className="flex items-center justify-between h-12 sm:h-14 px-3 sm:px-4 shrink-0 border-b border-border/50">
-          <div className="flex items-center gap-2 sm:gap-3">
+        {/* Floating Sidebar Toggle when closed */}
+        {!sidebarOpen && (
+          <div className="absolute top-4 left-4 z-50">
             <button
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="flex items-center justify-center h-8 w-8 sm:h-9 sm:w-9 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-all duration-150"
+              onClick={() => setSidebarOpen(true)}
+              className="flex items-center justify-center p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-all duration-150"
+              title="Mở Sidebar"
             >
-              {sidebarOpen ? <PanelLeftClose className="w-4 h-4 sm:w-5 sm:h-5" /> : <PanelLeft className="w-4 h-4 sm:w-5 sm:h-5" />}
+              <PanelLeft className="w-4 h-4 sm:w-4 sm:h-4" />
             </button>
-            <span className="text-sm sm:text-base font-semibold text-foreground">Claw</span>
           </div>
-        </div>
+        )}
+
 
         {/* Chat Area */}
         {isEmpty ? (

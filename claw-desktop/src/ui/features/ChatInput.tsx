@@ -171,7 +171,12 @@ export function ChatInput() {
   };
 
   const inputCard = (
-    <div className="flex flex-col rounded-xl sm:rounded-2xl bg-background border-2 border-border transition-all duration-200 focus-within:border-primary">
+    <div className="flex flex-col rounded-xl sm:rounded-2xl bg-card border border-border transition-all duration-200 focus-within:ring-1 focus-within:ring-primary/20 shadow-lg">
+
+
+
+
+
       
       {/* Workspace bar */}
       {workMode === 'workspace' && (
@@ -235,10 +240,11 @@ export function ChatInput() {
         onChange={(e) => setInput(e.target.value)}
         onKeyDown={handleKeyDown}
         placeholder={t('chatInput.placeholder')}
+
         className={cn(
           "w-full resize-none border-none shadow-none placeholder:text-muted-foreground focus-visible:ring-0",
           "!bg-transparent text-foreground chat-input-scroll",
-          workMode === 'normal' ? "rounded-t-xl sm:rounded-t-2xl rounded-b-none" : "!rounded-none",
+          "!rounded-none leading-relaxed",
           isEmpty
             ? "min-h-[60px] sm:min-h-[70px] lg:min-h-[80px] max-h-[250px] sm:max-h-[280px] lg:max-h-[300px] px-4 sm:px-5 pt-4 sm:pt-5 pb-2 sm:pb-3 text-base sm:text-lg leading-relaxed"
             : "min-h-[50px] sm:min-h-[55px] lg:min-h-[60px] max-h-[200px] sm:max-h-[230px] lg:max-h-[250px] px-4 sm:px-5 pt-3 sm:pt-4 pb-2 text-sm sm:text-base leading-relaxed"
@@ -353,7 +359,8 @@ export function ChatInput() {
         {isGenerating ? (
           <button
             onClick={handleStop}
-            className="h-9 w-9 sm:h-10 sm:w-10 shrink-0 rounded-full flex items-center justify-center transition-all duration-200 bg-red-500 text-white hover:bg-red-600 hover:scale-105 shadow-md animate-in fade-in zoom-in"
+            className="h-7 w-7 sm:h-8 sm:w-8 shrink-0 rounded-md flex items-center justify-center transition-all duration-200 bg-red-500/10 text-red-500 hover:bg-red-500/20"
+
             title={t('chatInput.stop')}
           >
             <Square className="h-3.5 w-3.5 sm:h-4 sm:w-4 fill-current" />
@@ -363,10 +370,11 @@ export function ChatInput() {
             onClick={handleSend}
             disabled={!input.trim()}
             className={cn(
-              "h-9 w-9 sm:h-10 sm:w-10 shrink-0 rounded-full flex items-center justify-center transition-all duration-200",
+              "h-7 w-7 sm:h-8 sm:w-8 shrink-0 rounded-md flex items-center justify-center transition-all duration-200",
               input.trim()
-                ? "bg-primary text-primary-foreground hover:opacity-90 hover:scale-105"
-                : "bg-muted text-muted-foreground cursor-not-allowed"
+                ? "bg-foreground/10 text-foreground hover:bg-foreground/20"
+                : "bg-transparent text-muted-foreground/50 cursor-not-allowed"
+
             )}
             title={t('chatInput.send')}
           >
@@ -398,10 +406,10 @@ export function ChatInput() {
   }
 
   return (
-    <div
-      className="sticky bottom-0 z-10 pointer-events-none px-3 sm:px-4 pb-3 sm:pb-4 pt-4 sm:pt-6"
-      style={{ background: 'linear-gradient(to bottom, transparent 0%, var(--background) 60%)' }}
-    >
+    <div className="sticky bottom-0 z-10 pointer-events-none px-4 sm:px-6 pb-6 pt-8 bg-gradient-to-t from-background via-background/80 to-transparent">
+
+
+
       <div className="max-w-2xl lg:max-w-3xl mx-auto pointer-events-auto">
         {inputCard}
       </div>
