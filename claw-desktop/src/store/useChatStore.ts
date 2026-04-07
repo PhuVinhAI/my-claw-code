@@ -40,7 +40,7 @@ interface ChatStore {
 
   // Session Actions
   loadSessions: () => Promise<void>;
-  switchSession: (sessionId: string) => Promise<void>;
+  switchSession: (sessionId: string, workModeParam?: string, workspacePathParam?: string | null) => Promise<void>;
   createNewSession: () => Promise<void>;
   deleteSession: (sessionId: string) => Promise<void>;
   renameSession: (sessionId: string, title: string) => Promise<void>;
@@ -312,6 +312,15 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     try {
       // Backend đã filter sessions theo mode hiện tại
       const sessions = await gateway.listSessions();
+      
+      // Debug: log all sessions to check for duplicates
+      console.log('[STORE] Loaded sessions:', sessions.map(s => ({ 
+        id: s.id, 
+        title: s.title, 
+        work_mode: s.work_mode, 
+        workspace_path: s.workspace_path 
+      })));
+      
       set({ sessions, isLoadingSessions: false });
     } catch (error) {
       console.error('Failed to load sessions:', error);
@@ -319,7 +328,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     }
   },
 
-  switchSession: async (sessionId: string) => {
+  switchSession: async (sessionId: string, workModeParam?: string, workspacePathParam?: string | null) => {
     const { gateway, autoSaveCurrentSession, currentSessionId, sessions, state, stopGeneration, addRecentWorkspace } = get();
     
     // Don't switch if already on this session
@@ -337,10 +346,22 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       // Auto-save current session before switching
       await autoSaveCurrentSession();
 
-      // Find session metadata to get work context
-      const sessionMeta = sessions.find(s => s.id === sessionId);
-      const workMode = (sessionMeta?.work_mode || 'normal') as WorkMode;
-      const workspacePath = sessionMeta?.workspace_path || null;
+      // Use provided parameters if available, otherwise find from sessions list
+      let workMode: WorkMode;
+      let workspacePath: string | null;
+      
+      if (workModeParam !== undefined) {
+        // Use provided parameters (from SessionItem click)
+        workMode = workModeParam as WorkMode;
+        workspacePath = workspacePathParam ?? null;
+      } else {
+        // Fallback: find from sessions list (may be incorrect if duplicate IDs exist)
+        const sessionMeta = sessions.find(s => s.id === sessionId);
+        workMode = (sessionMeta?.work_mode || 'normal') as WorkMode;
+        workspacePath = sessionMeta?.workspace_path || null;
+      }
+      
+      console.log('[STORE] Switching to session:', { sessionId, workMode, workspacePath });
 
       // Load new session from backend with work context
       await gateway.loadSession(sessionId, workMode, workspacePath);

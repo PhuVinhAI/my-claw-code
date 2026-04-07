@@ -23,7 +23,8 @@ export function SessionItem({ session, isActive }: SessionItemProps) {
 
   const handleClick = () => {
     if (!isEditing && !isActive && !menuOpen && !deleteDialogOpen && !isInteracting) {
-      switchSession(session.id);
+      // Pass full session metadata to ensure correct session is loaded
+      switchSession(session.id, session.work_mode, session.workspace_path);
     }
   };
 

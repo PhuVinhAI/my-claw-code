@@ -373,7 +373,11 @@ export function SessionList({ onOpenSettings, onCloseSidebar }: SessionListProps
                           <SessionItem
                             key={session.id}
                             session={session}
-                            isActive={session.id === currentSessionId}
+                            isActive={
+                              session.id === currentSessionId &&
+                              session.work_mode === workMode &&
+                              session.workspace_path === workspacePath
+                            }
                           />
                         ))
                       )}
