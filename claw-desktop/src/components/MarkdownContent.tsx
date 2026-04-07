@@ -19,38 +19,38 @@ export function MarkdownContent({ content }: MarkdownContentProps) {
         components={{
           // Headings — clean, well-spaced
           h1: ({ children }) => (
-            <h1 className="text-xl sm:text-2xl font-semibold mt-5 sm:mt-6 mb-2.5 sm:mb-3 text-foreground tracking-tight">{children}</h1>
+            <h1 className="text-lg font-semibold mt-4 mb-2 text-foreground tracking-tight">{children}</h1>
           ),
           h2: ({ children }) => (
-            <h2 className="text-lg sm:text-xl font-semibold mt-4 sm:mt-5 mb-2 sm:mb-2.5 text-foreground tracking-tight">{children}</h2>
+            <h2 className="text-base font-semibold mt-3.5 mb-1.5 text-foreground tracking-tight">{children}</h2>
           ),
           h3: ({ children }) => (
-            <h3 className="text-base sm:text-lg font-medium mt-3.5 sm:mt-4 mb-1.5 sm:mb-2 text-foreground">{children}</h3>
+            <h3 className="text-sm font-medium mt-3 mb-1.5 text-foreground">{children}</h3>
           ),
           h4: ({ children }) => (
-            <h4 className="text-sm sm:text-base font-medium mt-3 mb-1.5 text-foreground">{children}</h4>
+            <h4 className="text-sm font-medium mt-2.5 mb-1 text-foreground">{children}</h4>
           ),
           h5: ({ children }) => (
-            <h5 className="text-xs sm:text-sm font-medium mt-2 mb-1 text-foreground">{children}</h5>
+            <h5 className="text-xs font-medium mt-2 mb-1 text-foreground">{children}</h5>
           ),
           h6: ({ children }) => (
-            <h6 className="text-[10px] sm:text-xs font-medium mt-2 mb-1 text-muted-foreground uppercase tracking-wide">{children}</h6>
+            <h6 className="text-[10px] font-medium mt-2 mb-1 text-muted-foreground uppercase tracking-wide">{children}</h6>
           ),
 
           // Paragraphs — clean spacing
           p: ({ children }) => (
-            <p className="mb-3.5 sm:mb-4 text-sm sm:text-base leading-[1.7] sm:leading-[1.8] text-foreground">{children}</p>
+            <p className="mb-3 text-sm leading-relaxed text-foreground">{children}</p>
           ),
 
           // Lists — clean spacing
           ul: ({ children }) => (
-            <ul className="list-disc list-outside ml-5 sm:ml-6 mb-3.5 sm:mb-4 space-y-1.5 sm:space-y-2 text-sm sm:text-base">{children}</ul>
+            <ul className="list-disc list-outside ml-5 mb-3 space-y-1.5 text-sm">{children}</ul>
           ),
           ol: ({ children }) => (
-            <ol className="list-decimal list-outside ml-5 sm:ml-6 mb-3.5 sm:mb-4 space-y-1.5 sm:space-y-2 text-sm sm:text-base">{children}</ol>
+            <ol className="list-decimal list-outside ml-5 mb-3 space-y-1.5 text-sm">{children}</ol>
           ),
           li: ({ children }) => (
-            <li className="leading-[1.7] sm:leading-[1.8] text-foreground pl-1.5 sm:pl-2">{children}</li>
+            <li className="leading-relaxed text-foreground pl-1.5">{children}</li>
           ),
 
           // Links
@@ -59,7 +59,7 @@ export function MarkdownContent({ content }: MarkdownContentProps) {
               href={href}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-primary font-medium underline underline-offset-[3px] sm:underline-offset-[4px] decoration-primary/30 hover:decoration-primary transition-colors"
+              className="text-primary font-medium underline underline-offset-[3px] decoration-primary/30 hover:decoration-primary transition-colors"
             >
               {children}
             </a>
@@ -67,13 +67,13 @@ export function MarkdownContent({ content }: MarkdownContentProps) {
 
           // Blockquotes — subtle left accent
           blockquote: ({ children }) => (
-            <blockquote className="border-l-3 sm:border-l-4 border-muted-foreground/30 pl-4 sm:pl-5 py-1 my-4 sm:my-5 text-muted-foreground bg-muted/30 rounded-r-lg">
+            <blockquote className="border-l-3 border-muted-foreground/30 pl-3 py-1 my-3 text-muted-foreground bg-muted/30 rounded-r-lg">
               {children}
             </blockquote>
           ),
 
           // Horizontal rule
-          hr: () => <hr className="my-6 sm:my-8 border-border" />,
+          hr: () => <hr className="my-4 border-border" />,
 
           // Code
           code: ({ node, inline, className, children, ...props }: any) => {
@@ -87,7 +87,7 @@ export function MarkdownContent({ content }: MarkdownContentProps) {
             // Inline code — subtle
             return (
               <code
-                className="px-1 sm:px-1.5 py-0.5 rounded-md bg-muted text-foreground font-mono text-[0.85em] sm:text-[0.9em] font-medium border border-border"
+                className="px-1 py-0.5 rounded-md bg-muted text-foreground font-mono text-[0.85em] font-medium border border-border"
                 {...props}
               >
                 {children}
@@ -97,8 +97,8 @@ export function MarkdownContent({ content }: MarkdownContentProps) {
 
           // Tables — modern, borderless-style
           table: ({ children }) => (
-            <div className="my-3.5 sm:my-4 overflow-x-auto rounded-lg border border-border/40">
-              <table className="w-full text-xs sm:text-sm">
+            <div className="my-3 overflow-x-auto rounded-lg border border-border/40">
+              <table className="w-full text-xs">
                 {children}
               </table>
             </div>
@@ -113,12 +113,12 @@ export function MarkdownContent({ content }: MarkdownContentProps) {
             </tr>
           ),
           th: ({ children }) => (
-            <th className="px-3 sm:px-4 py-2 sm:py-2.5 text-left font-medium text-muted-foreground text-[10px] sm:text-xs uppercase tracking-wider">
+            <th className="px-3 py-2 text-left font-medium text-muted-foreground text-[10px] uppercase tracking-wider">
               {children}
             </th>
           ),
           td: ({ children }) => (
-            <td className="px-3 sm:px-4 py-2 sm:py-2.5 text-foreground/85">
+            <td className="px-3 py-2 text-foreground/85">
               {children}
             </td>
           ),

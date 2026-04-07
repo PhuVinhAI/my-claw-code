@@ -70,7 +70,6 @@ interface GenericLspOutput {
   language?: string;
   status?: string;
   message?: string;
-  // Specific action results
   hover?: LspHoverResult;
   locations?: LspLocation[];
   symbols?: LspSymbol[];
@@ -83,7 +82,6 @@ export function LSPBlock({
   line,
   character,
   query,
-  // toolInput,
   output,
   isError = false,
   isPending = false,
@@ -129,8 +127,6 @@ export function LSPBlock({
   }
 
   const hasResults = !isPending && !isError && !isCancelled && parsedOutput;
-  
-  // Check if this is diagnostics action
   const isDiagnostics = action === 'diagnostics';
 
   // Build display info
@@ -154,56 +150,56 @@ export function LSPBlock({
   }
 
   return (
-    <div className="my-1.5 sm:my-2 bg-muted/10 rounded-lg border border-border/30 overflow-hidden">
+    <div className="my-1.5 bg-muted/10 rounded-lg border border-border/30 overflow-hidden">
       {/* Header */}
-      <div className="group flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2.5 sm:py-3 bg-muted/20 border-b border-border/30">
+      <div className="group flex items-center gap-2 px-3 py-2 bg-muted/20 border-b border-border/30">
         <StatusIcon
           className={cn(
-            'h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0',
+            'h-3.5 w-3.5 shrink-0',
             isPending && 'animate-spin text-blue-400',
             isError && 'text-red-400',
             isCancelled && 'text-red-400',
             !isPending && !isError && !isCancelled && 'text-emerald-400'
           )}
         />
-        <Code className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0 text-muted-foreground/70" />
-        <span className={cn('text-sm sm:text-base font-semibold text-foreground/90', isError && 'text-red-400')}>
+        <Code className="h-3.5 w-3.5 shrink-0 text-muted-foreground/70" />
+        <span className={cn('text-xs font-semibold text-foreground/90', isError && 'text-red-400')}>
           {getActionLabel()}
         </span>
         
         {displayInfo.length > 0 && (
           <>
             <span className="text-muted-foreground/30">|</span>
-            <span className="font-mono truncate flex-1 text-muted-foreground/70 text-[10px] sm:text-xs">
+            <span className="font-mono truncate flex-1 text-muted-foreground/70 text-[10px]">
               {displayInfo.join(' ')}
             </span>
           </>
         )}
 
         {parsedOutput && 'language' in parsedOutput && parsedOutput.language && (
-          <span className="text-[10px] sm:text-xs font-medium bg-blue-400/10 text-blue-400 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md border border-blue-400/20">
+          <span className="text-[10px] font-medium bg-blue-400/10 text-blue-400 px-1.5 py-0.5 rounded-md border border-blue-400/20">
             {parsedOutput.language}
           </span>
         )}
         
         {/* Diagnostics: Show error/warning counts inline */}
         {isDiagnostics && hasResults && (
-          <div className="flex items-center gap-1.5 sm:gap-2">
+          <div className="flex items-center gap-1.5">
             {errorCount > 0 && (
-              <span className="flex items-center gap-1 text-[10px] sm:text-xs font-medium bg-red-400/10 text-red-400 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md border border-red-400/20">
-                <AlertCircle className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+              <span className="flex items-center gap-1 text-[10px] font-medium bg-red-400/10 text-red-400 px-1.5 py-0.5 rounded-md border border-red-400/20">
+                <AlertCircle className="h-3 w-3" />
                 {errorCount}
               </span>
             )}
             {warningCount > 0 && (
-              <span className="flex items-center gap-1 text-[10px] sm:text-xs font-medium bg-yellow-400/10 text-yellow-400 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md border border-yellow-400/20">
-                <AlertCircle className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+              <span className="flex items-center gap-1 text-[10px] font-medium bg-yellow-400/10 text-yellow-400 px-1.5 py-0.5 rounded-md border border-yellow-400/20">
+                <AlertCircle className="h-3 w-3" />
                 {warningCount}
               </span>
             )}
             {infoCount > 0 && (
-              <span className="flex items-center gap-1 text-[10px] sm:text-xs font-medium bg-blue-400/10 text-blue-400 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md border border-blue-400/20">
-                <Info className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+              <span className="flex items-center gap-1 text-[10px] font-medium bg-blue-400/10 text-blue-400 px-1.5 py-0.5 rounded-md border border-blue-400/20">
+                <Info className="h-3 w-3" />
                 {infoCount}
               </span>
             )}
@@ -212,18 +208,18 @@ export function LSPBlock({
         
         {/* Other actions: Show result count */}
         {!isDiagnostics && hasResults && resultCount > 0 && (
-          <span className="text-[10px] sm:text-xs font-medium bg-emerald-400/10 text-emerald-400 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md border border-emerald-400/20">
+          <span className="text-[10px] font-medium bg-emerald-400/10 text-emerald-400 px-1.5 py-0.5 rounded-md border border-emerald-400/20">
             {t('lsp.results', { count: resultCount })}
           </span>
         )}
         
         {isCancelled && (
-          <span className="text-red-400 text-[10px] sm:text-xs font-medium bg-red-400/10 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md border border-red-400/20">
+          <span className="text-red-400 text-[10px] font-medium bg-red-400/10 px-1.5 py-0.5 rounded-md border border-red-400/20">
             {t('lsp.stopped')}
           </span>
         )}
         {isError && !isCancelled && (
-          <span className="text-red-400 text-[10px] sm:text-xs font-medium bg-red-400/10 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md border border-red-400/20">
+          <span className="text-red-400 text-[10px] font-medium bg-red-400/10 px-1.5 py-0.5 rounded-md border border-red-400/20">
             {t('lsp.error')}
           </span>
         )}
@@ -234,41 +230,41 @@ export function LSPBlock({
         <>
           <button
             onClick={() => setIsExpanded(!isExpanded)}
-            className="w-full flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 bg-muted/5 hover:bg-muted/10 transition-colors text-left border-b border-border/20"
+            className="w-full flex items-center gap-1.5 px-3 py-1.5 bg-muted/5 hover:bg-muted/10 transition-colors text-left border-b border-border/20"
           >
             {isExpanded ? (
-              <ChevronDown className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground/70" />
+              <ChevronDown className="h-3.5 w-3.5 text-muted-foreground/70" />
             ) : (
-              <ChevronRight className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground/70" />
+              <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/70" />
             )}
-            <span className="text-[10px] sm:text-xs text-muted-foreground/80 font-medium">
+            <span className="text-[10px] text-muted-foreground/80 font-medium">
               {isExpanded ? t('lsp.hideResults') : t('lsp.showResults')}
             </span>
           </button>
 
           {isExpanded && (
-            <div className="px-3 sm:px-4 py-2.5 sm:py-3 bg-muted/5 max-h-96 overflow-auto">
-              {/* Diagnostics - Should not reach here since isDiagnostics is excluded above */}
+            <div className="px-3 py-2 bg-muted/5 max-h-96 overflow-auto">
+              {/* Diagnostics */}
               {parsedOutput && 'diagnostics' in parsedOutput && parsedOutput.diagnostics && (
-                <div className="space-y-1.5 sm:space-y-2">
+                <div className="space-y-1.5">
                   {parsedOutput.diagnostics.map((diag, idx) => (
                     <div
                       key={idx}
                       className={cn(
-                        'flex items-start gap-1.5 sm:gap-2 p-1.5 sm:p-2 rounded-md border',
+                        'flex items-start gap-1.5 p-1.5 rounded-md border',
                         diag.severity === 'error' && 'bg-red-400/5 border-red-400/20',
                         diag.severity === 'warning' && 'bg-yellow-400/5 border-yellow-400/20',
                         diag.severity === 'info' && 'bg-blue-400/5 border-blue-400/20',
                         diag.severity === 'hint' && 'bg-muted/20 border-border/20'
                       )}
                     >
-                      {diag.severity === 'error' && <AlertCircle className="h-3 w-3 sm:h-3.5 sm:w-3.5 mt-0.5 text-red-400 shrink-0" />}
-                      {diag.severity === 'warning' && <AlertCircle className="h-3 w-3 sm:h-3.5 sm:w-3.5 mt-0.5 text-yellow-400 shrink-0" />}
-                      {diag.severity === 'info' && <Info className="h-3 w-3 sm:h-3.5 sm:w-3.5 mt-0.5 text-blue-400 shrink-0" />}
-                      {diag.severity === 'hint' && <Info className="h-3 w-3 sm:h-3.5 sm:w-3.5 mt-0.5 text-muted-foreground/60 shrink-0" />}
+                      {diag.severity === 'error' && <AlertCircle className="h-3 w-3 mt-0.5 text-red-400 shrink-0" />}
+                      {diag.severity === 'warning' && <AlertCircle className="h-3 w-3 mt-0.5 text-yellow-400 shrink-0" />}
+                      {diag.severity === 'info' && <Info className="h-3 w-3 mt-0.5 text-blue-400 shrink-0" />}
+                      {diag.severity === 'hint' && <Info className="h-3 w-3 mt-0.5 text-muted-foreground/60 shrink-0" />}
                       
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-xs">
+                        <div className="flex items-center gap-1.5 text-[10px]">
                           <span className="font-mono text-muted-foreground/60">
                             {diag.path}:{diag.line}:{diag.character}
                           </span>
@@ -276,7 +272,7 @@ export function LSPBlock({
                             <span className="text-muted-foreground/50">({diag.source})</span>
                           )}
                         </div>
-                        <div className="text-xs sm:text-sm text-foreground/90 mt-0.5">
+                        <div className="text-xs text-foreground/90 mt-0.5">
                           {diag.message}
                         </div>
                       </div>
@@ -287,19 +283,19 @@ export function LSPBlock({
 
               {/* Locations (Definition/References) */}
               {parsedOutput && 'locations' in parsedOutput && parsedOutput.locations && (
-                <div className="space-y-1.5 sm:space-y-2">
+                <div className="space-y-1.5">
                   {parsedOutput.locations.map((loc, idx) => (
                     <div
                       key={idx}
-                      className="flex items-start gap-1.5 sm:gap-2 p-1.5 sm:p-2 rounded-md hover:bg-muted/20 transition-colors border border-border/20"
+                      className="flex items-start gap-1.5 p-1.5 rounded-md hover:bg-muted/20 transition-colors border border-border/20"
                     >
-                      <MapPin className="h-3 w-3 sm:h-3.5 sm:w-3.5 mt-0.5 text-blue-400 shrink-0" />
+                      <MapPin className="h-3 w-3 mt-0.5 text-blue-400 shrink-0" />
                       <div className="flex-1 min-w-0">
-                        <div className="font-mono text-[10px] sm:text-xs text-muted-foreground/70">
+                        <div className="font-mono text-[10px] text-muted-foreground/70">
                           {loc.path}:{loc.line}:{loc.character}
                         </div>
                         {loc.preview && (
-                          <div className="text-xs sm:text-sm text-foreground/80 mt-0.5 font-mono">
+                          <div className="text-xs text-foreground/80 mt-0.5 font-mono">
                             {loc.preview}
                           </div>
                         )}
@@ -311,23 +307,23 @@ export function LSPBlock({
 
               {/* Symbols */}
               {parsedOutput && 'symbols' in parsedOutput && parsedOutput.symbols && (
-                <div className="space-y-1.5 sm:space-y-2">
+                <div className="space-y-1.5">
                   {parsedOutput.symbols.map((symbol, idx) => (
                     <div
                       key={idx}
-                      className="flex items-start gap-1.5 sm:gap-2 p-1.5 sm:p-2 rounded-md hover:bg-muted/20 transition-colors border border-border/20"
+                      className="flex items-start gap-1.5 p-1.5 rounded-md hover:bg-muted/20 transition-colors border border-border/20"
                     >
-                      <FileCode className="h-3 w-3 sm:h-3.5 sm:w-3.5 mt-0.5 text-purple-400 shrink-0" />
+                      <FileCode className="h-3 w-3 mt-0.5 text-purple-400 shrink-0" />
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5 sm:gap-2">
-                          <span className="text-xs sm:text-sm font-medium text-foreground/90">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-medium text-foreground/90">
                             {symbol.name}
                           </span>
-                          <span className="text-[10px] sm:text-xs text-muted-foreground/60 bg-muted/20 px-1 py-0.5 rounded">
+                          <span className="text-[10px] text-muted-foreground/60 bg-muted/20 px-1 py-0.5 rounded">
                             {symbol.kind}
                           </span>
                         </div>
-                        <div className="font-mono text-[10px] sm:text-xs text-muted-foreground/60 mt-0.5">
+                        <div className="font-mono text-[10px] text-muted-foreground/60 mt-0.5">
                           {symbol.path}:{symbol.line}:{symbol.character}
                         </div>
                       </div>
@@ -338,8 +334,8 @@ export function LSPBlock({
 
               {/* Hover Result */}
               {parsedOutput && 'hover' in parsedOutput && parsedOutput.hover && (
-                <div className="p-2.5 sm:p-3 bg-muted/20 rounded-lg border border-border/30">
-                  <pre className="text-xs sm:text-sm text-foreground/90 whitespace-pre-wrap font-mono">
+                <div className="p-2 bg-muted/20 rounded-lg border border-border/30">
+                  <pre className="text-xs text-foreground/90 whitespace-pre-wrap font-mono">
                     {parsedOutput.hover.content}
                   </pre>
                 </div>
@@ -347,22 +343,22 @@ export function LSPBlock({
 
               {/* Completions */}
               {parsedOutput && 'completions' in parsedOutput && parsedOutput.completions && (
-                <div className="space-y-1 sm:space-y-1.5">
+                <div className="space-y-1">
                   {parsedOutput.completions.map((item, idx) => (
                     <div
                       key={idx}
-                      className="flex items-center gap-1.5 sm:gap-2 p-1.5 sm:p-2 rounded-md hover:bg-muted/20 transition-colors border border-border/20"
+                      className="flex items-center gap-1.5 p-1.5 rounded-md hover:bg-muted/20 transition-colors border border-border/20"
                     >
-                      <span className="text-xs sm:text-sm font-mono text-foreground/90">
+                      <span className="text-xs font-mono text-foreground/90">
                         {item.label}
                       </span>
                       {item.kind && (
-                        <span className="text-[10px] sm:text-xs text-muted-foreground/60 bg-muted/20 px-1 py-0.5 rounded">
+                        <span className="text-[10px] text-muted-foreground/60 bg-muted/20 px-1 py-0.5 rounded">
                           {item.kind}
                         </span>
                       )}
                       {item.detail && (
-                        <span className="text-[10px] sm:text-xs text-muted-foreground/60 truncate">
+                        <span className="text-[10px] text-muted-foreground/60 truncate">
                           {item.detail}
                         </span>
                       )}
@@ -373,7 +369,7 @@ export function LSPBlock({
 
               {/* Generic message for dispatched actions */}
               {parsedOutput && 'message' in parsedOutput && parsedOutput.message && !('diagnostics' in parsedOutput) && !('locations' in parsedOutput) && !('symbols' in parsedOutput) && !('hover' in parsedOutput) && !('completions' in parsedOutput) && (
-                <div className="text-xs sm:text-sm text-muted-foreground/70 italic">
+                <div className="text-xs text-muted-foreground/70 italic">
                   {parsedOutput.message}
                 </div>
               )}

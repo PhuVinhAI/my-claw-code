@@ -62,41 +62,41 @@ export function DirectoryListBlock({
   const StatusIcon = isPending ? Loader2 : (isError || isCancelled) ? XCircle : CheckCircle2;
 
   return (
-    <div className="my-1.5 sm:my-2">
+    <div className="my-1.5">
       {/* Header - Inline compact style */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}
-        className="group w-full flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2.5 sm:py-3 bg-muted/20 border border-border/30 rounded-lg text-xs sm:text-sm transition-all hover:bg-muted/30 hover:border-border/50"
+        className="group w-full flex items-center gap-2 px-3 py-2 bg-muted/20 border border-border/30 rounded-lg text-xs transition-all hover:bg-muted/30 hover:border-border/50"
       >
         <StatusIcon
           className={cn(
-            'h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0',
+            'h-3.5 w-3.5 shrink-0',
             isPending && 'animate-spin text-blue-400',
             isError && 'text-red-400',
             isCancelled && 'text-red-400',
             !isPending && !isError && !isCancelled && 'text-emerald-400'
           )}
         />
-        <Folder className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0 text-muted-foreground/70" />
+        <Folder className="h-3.5 w-3.5 shrink-0 text-muted-foreground/70" />
         <span className={cn('font-semibold text-foreground/90', isError && 'text-red-400')}>
           {t('search.listDirectory')}
         </span>
         <span className="text-muted-foreground/30">|</span>
-        <span className="font-mono truncate flex-1 text-left text-muted-foreground/70 text-[10px] sm:text-xs">
+        <span className="font-mono truncate flex-1 text-left text-muted-foreground/70 text-[10px]">
           {path}
         </span>
         {parsedOutput && !isError && (
           <>
-            <span className="text-muted-foreground/30 hidden sm:inline">|</span>
-            <span className="font-mono text-muted-foreground/60 text-[10px] sm:text-xs hidden sm:inline">
+            <span className="text-muted-foreground/30">|</span>
+            <span className="font-mono text-muted-foreground/60 text-[10px]">
               {t('search.items', { count: parsedOutput.total })}
             </span>
           </>
         )}
         {isExpanded ? (
-          <ChevronDown className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground/70 shrink-0" />
+          <ChevronDown className="h-3.5 w-3.5 text-muted-foreground/70 shrink-0" />
         ) : (
-          <ChevronRight className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground/70 shrink-0" />
+          <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/70 shrink-0" />
         )}
       </button>
 

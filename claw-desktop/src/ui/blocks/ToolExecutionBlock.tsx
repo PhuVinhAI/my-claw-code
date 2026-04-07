@@ -136,7 +136,6 @@ export function ToolExecutionBlock({
     if (toolName === 'Config' && 'success' in parsedOutput) {
       const configOutput = parsedOutput as ConfigOutput;
       if (configOutput.error) {
-        // Parse common error messages and translate them
         const errorMsg = configOutput.error;
         const unknownSettingMatch = errorMsg.match(/Unknown setting: "(.+)"/);
         if (unknownSettingMatch) {
@@ -159,7 +158,6 @@ export function ToolExecutionBlock({
       if (entries.length === 1) {
         const [key, value] = entries[0];
         const valueStr = typeof value === 'object' ? JSON.stringify(value) : String(value);
-        // Truncate long values
         return `${key}: ${valueStr.length > 50 ? valueStr.substring(0, 50) + '...' : valueStr}`;
       }
       return t('toolExecution.fields', { count: entries.length });
@@ -171,30 +169,30 @@ export function ToolExecutionBlock({
   const inlineSummary = showInlineSummary ? getInlineSummary() : null;
 
   return (
-    <div className="my-1.5 sm:my-2 bg-muted/10 rounded-lg border border-border/30 overflow-hidden">
+    <div className="my-1.5 bg-muted/10 rounded-lg border border-border/30 overflow-hidden">
       {/* Header */}
-      <div className="group flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2.5 sm:py-3 bg-muted/20 border-b border-border/30">
+      <div className="group flex items-center gap-2 px-3 py-2 bg-muted/20 border-b border-border/30">
         <StatusIcon
           className={cn(
-            'h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0',
+            'h-3.5 w-3.5 shrink-0',
             isPending && 'animate-spin text-blue-400',
             isError && 'text-red-400',
             isCancelled && 'text-red-400',
             !isPending && !isError && !isCancelled && 'text-emerald-400'
           )}
         />
-        <ToolIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0 text-muted-foreground/70" />
-        <span className={cn('font-semibold text-xs sm:text-sm leading-4 text-foreground/90', isError && 'text-red-400')}>
+        <ToolIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground/70" />
+        <span className={cn('font-semibold text-xs leading-4 text-foreground/90', isError && 'text-red-400')}>
           {toolName}
         </span>
         {displayLabel && (
           <>
             <span className="text-muted-foreground/30 leading-4">|</span>
-            <span className="text-muted-foreground/60 text-[10px] sm:text-xs leading-4">{displayLabel}:</span>
+            <span className="text-muted-foreground/60 text-[10px] leading-4">{displayLabel}:</span>
           </>
         )}
         {displayValue && (
-          <span className="font-mono truncate flex-1 text-muted-foreground/70 text-[10px] sm:text-xs leading-4">
+          <span className="font-mono truncate flex-1 text-muted-foreground/70 text-[10px] leading-4">
             {displayValue.length > 60 ? displayValue.substring(0, 60) + '…' : displayValue}
           </span>
         )}
@@ -202,9 +200,9 @@ export function ToolExecutionBlock({
         {/* Inline summary for simple tools */}
         {inlineSummary && (
           <>
-            <span className="text-muted-foreground/30 leading-4 hidden sm:inline">|</span>
+            <span className="text-muted-foreground/30 leading-4">|</span>
             <span className={cn(
-              "font-mono text-[10px] sm:text-xs leading-4 truncate max-w-xs sm:max-w-md",
+              "font-mono text-[10px] leading-4 truncate max-w-xs",
               toolName === 'Config' && parsedOutput && 'error' in parsedOutput && parsedOutput.error
                 ? "text-red-400"
                 : "text-foreground/80"
@@ -215,12 +213,12 @@ export function ToolExecutionBlock({
         )}
         
         {isCancelled && (
-          <span className="text-red-400 text-[10px] sm:text-xs leading-4 font-medium bg-red-400/10 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md border border-red-400/20">
+          <span className="text-red-400 text-[10px] leading-4 font-medium bg-red-400/10 px-1.5 py-0.5 rounded-md border border-red-400/20">
             {t('toolExecution.stopped')}
           </span>
         )}
         {isError && !isCancelled && (
-          <span className="text-red-400 text-[10px] sm:text-xs leading-4 font-medium bg-red-400/10 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md border border-red-400/20">
+          <span className="text-red-400 text-[10px] leading-4 font-medium bg-red-400/10 px-1.5 py-0.5 rounded-md border border-red-400/20">
             {t('toolExecution.error')}
           </span>
         )}
@@ -231,50 +229,50 @@ export function ToolExecutionBlock({
         <>
           <button
             onClick={() => setIsExpanded(!isExpanded)}
-            className="w-full flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 bg-muted/5 hover:bg-muted/10 transition-colors text-left border-b border-border/20"
+            className="w-full flex items-center gap-1.5 px-3 py-1.5 bg-muted/5 hover:bg-muted/10 transition-colors text-left border-b border-border/20"
           >
             {isExpanded ? (
-              <ChevronDown className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground/70" />
+              <ChevronDown className="h-3.5 w-3.5 text-muted-foreground/70" />
             ) : (
-              <ChevronRight className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground/70" />
+              <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/70" />
             )}
-            <span className="text-[10px] sm:text-xs text-muted-foreground/80 font-medium">
+            <span className="text-[10px] text-muted-foreground/80 font-medium">
               {isExpanded ? t('toolExecution.hideOutput') : t('toolExecution.showOutput')}
             </span>
           </button>
 
           {isExpanded && (
-            <div className="px-3 sm:px-4 py-2.5 sm:py-3 bg-muted/5">
+            <div className="px-3 py-2 bg-muted/5">
               {/* ToolSearch Output */}
               {toolName === 'ToolSearch' && 'matches' in parsedOutput && (
-                <div className="space-y-2.5 sm:space-y-3">
-                  <div className="flex items-center gap-1.5 sm:gap-2">
-                    <Search className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-blue-400" />
-                    <span className="text-xs sm:text-sm font-medium text-foreground/90">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-1.5">
+                    <Search className="h-3.5 w-3.5 text-blue-400" />
+                    <span className="text-xs font-medium text-foreground/90">
                       {t('toolExecution.foundTools', { count: parsedOutput.matches.length })}
                     </span>
                   </div>
 
                   {parsedOutput.matches.length > 0 ? (
-                    <div className="flex flex-wrap gap-1.5 sm:gap-2">
+                    <div className="flex flex-wrap gap-1.5">
                       {parsedOutput.matches.map((match: string, idx: number) => (
                         <span
                           key={idx}
-                          className="inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-0.5 sm:py-1 bg-muted/20 rounded-md border border-border/20 font-mono text-xs sm:text-sm text-foreground/90"
+                          className="inline-flex items-center gap-1 px-2 py-0.5 bg-muted/20 rounded-md border border-border/20 font-mono text-xs text-foreground/90"
                         >
-                          <Package className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-blue-400" />
+                          <Package className="h-3 w-3 text-blue-400" />
                           {match}
                         </span>
                       ))}
                     </div>
                   ) : (
-                    <div className="text-[10px] sm:text-xs text-muted-foreground/70 italic">
+                    <div className="text-[10px] text-muted-foreground/70 italic">
                       {t('toolExecution.noToolsFound')}
                     </div>
                   )}
 
                   {parsedOutput.pending_mcp_servers && parsedOutput.pending_mcp_servers.length > 0 && (
-                    <div className="text-[10px] sm:text-xs text-muted-foreground/70 p-1.5 sm:p-2 bg-muted/10 rounded">
+                    <div className="text-[10px] text-muted-foreground/70 p-1.5 bg-muted/10 rounded">
                       {t('toolExecution.pendingMcpServers')}: {parsedOutput.pending_mcp_servers.join(', ')}
                     </div>
                   )}
@@ -283,16 +281,16 @@ export function ToolExecutionBlock({
 
               {/* SendUserMessage Output */}
               {toolName === 'SendUserMessage' && 'message' in parsedOutput && (
-                <div className="space-y-2.5 sm:space-y-3">
-                  <div className="p-2.5 sm:p-3 bg-blue-400/5 border border-blue-400/20 rounded-lg">
-                    <div className="flex items-start gap-1.5 sm:gap-2">
-                      <MessageSquare className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-blue-400 mt-0.5" />
+                <div className="space-y-2">
+                  <div className="p-2 bg-blue-400/5 border border-blue-400/20 rounded-lg">
+                    <div className="flex items-start gap-1.5">
+                      <MessageSquare className="h-3.5 w-3.5 text-blue-400 mt-0.5" />
                       <div className="flex-1 min-w-0">
-                        <div className="text-xs sm:text-sm text-foreground/90 whitespace-pre-wrap">
+                        <div className="text-xs text-foreground/90 whitespace-pre-wrap">
                           {parsedOutput.message}
                         </div>
                         {parsedOutput.sentAt && (
-                          <div className="text-[10px] sm:text-xs text-muted-foreground/70 mt-1.5 sm:mt-2">
+                          <div className="text-[10px] text-muted-foreground/70 mt-1.5">
                             {t('toolExecution.sentAt')}: {
                               (() => {
                                 const date = new Date(parsedOutput.sentAt);
@@ -307,13 +305,13 @@ export function ToolExecutionBlock({
 
                   {parsedOutput.attachments && parsedOutput.attachments.length > 0 && (
                     <div className="space-y-1.5">
-                      <div className="text-[10px] sm:text-xs text-muted-foreground/70 font-medium">{t('toolExecution.attachments')}:</div>
+                      <div className="text-[10px] text-muted-foreground/70 font-medium">{t('toolExecution.attachments')}:</div>
                       {parsedOutput.attachments.map((att: any, idx: number) => (
                         <div
                           key={idx}
-                          className="flex items-center gap-1.5 sm:gap-2 p-1.5 sm:p-2 bg-muted/20 rounded-md border border-border/20 text-[10px] sm:text-xs"
+                          className="flex items-center gap-1.5 p-1.5 bg-muted/20 rounded-md border border-border/20 text-[10px]"
                         >
-                          <FileText className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-muted-foreground/70" />
+                          <FileText className="h-3 w-3 text-muted-foreground/70" />
                           <span className="font-mono flex-1 truncate">{att.path}</span>
                           <span className="text-muted-foreground/60">{(att.size / 1024).toFixed(1)} KB</span>
                         </div>
@@ -325,17 +323,17 @@ export function ToolExecutionBlock({
 
               {/* StructuredOutput */}
               {toolName === 'StructuredOutput' && 'structured_output' in parsedOutput && (
-                <div className="space-y-2.5 sm:space-y-3">
-                  <div className="flex items-center gap-1.5 sm:gap-2">
-                    <Package className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-purple-400" />
-                    <span className="text-xs sm:text-sm font-medium text-foreground/90">{t('toolExecution.structuredOutput')}</span>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-1.5">
+                    <Package className="h-3.5 w-3.5 text-purple-400" />
+                    <span className="text-xs font-medium text-foreground/90">{t('toolExecution.structuredOutput')}</span>
                   </div>
 
-                  <div className="space-y-1.5 sm:space-y-2">
+                  <div className="space-y-1.5">
                     {Object.entries(parsedOutput.structured_output).map(([key, value]) => (
-                      <div key={key} className="p-2.5 sm:p-3 bg-muted/20 rounded-lg border border-border/30">
-                        <div className="text-[10px] sm:text-xs text-muted-foreground/70 mb-1 font-medium">{key}</div>
-                        <div className="font-mono text-xs sm:text-sm text-foreground/90">
+                      <div key={key} className="p-2 bg-muted/20 rounded-lg border border-border/30">
+                        <div className="text-[10px] text-muted-foreground/70 mb-1 font-medium">{key}</div>
+                        <div className="font-mono text-xs text-foreground/90">
                           {typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value)}
                         </div>
                       </div>
@@ -346,7 +344,7 @@ export function ToolExecutionBlock({
 
               {/* Generic JSON output for other tools */}
               {!['Sleep', 'Config', 'ToolSearch', 'SendUserMessage', 'StructuredOutput'].includes(toolName) && (
-                <pre className="text-[10px] sm:text-xs text-foreground/80 font-mono whitespace-pre-wrap bg-muted/20 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded overflow-auto max-h-64">
+                <pre className="text-[10px] text-foreground/80 font-mono whitespace-pre-wrap bg-muted/20 px-2 py-1.5 rounded overflow-auto max-h-64">
                   {JSON.stringify(parsedOutput, null, 2)}
                 </pre>
               )}

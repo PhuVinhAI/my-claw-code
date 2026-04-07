@@ -84,32 +84,32 @@ export function AskUserQuestionBlock({
   }, [showForm, options, toolUseId]);
 
   return (
-    <div className="bg-muted/40 dark:bg-muted/20 rounded-lg p-2.5 sm:p-3 border w-full space-y-2 sm:space-y-3">
+    <div className="bg-muted/40 dark:bg-muted/20 rounded-lg p-2 border w-full space-y-2">
       {/* Header */}
-      <div className="flex items-center gap-1.5 sm:gap-2">
-        <MessageCircleQuestion className="h-4 w-4 sm:h-5 sm:w-5 text-blue-500" />
-        <span className="font-semibold text-xs sm:text-sm">{t('question.title')}</span>
+      <div className="flex items-center gap-1.5">
+        <MessageCircleQuestion className="h-4 w-4 text-blue-500" />
+        <span className="font-semibold text-xs">{t('question.title')}</span>
         {isAnswered && (
-          <span className="ml-auto text-[10px] sm:text-xs font-medium px-1.5 py-0.5 rounded-md bg-green-500/10 text-green-600 dark:text-green-400">
+          <span className="ml-auto text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-green-500/10 text-green-600 dark:text-green-400">
             {t('question.answered')}
           </span>
         )}
       </div>
 
       {/* Question Text */}
-      <div className="text-xs sm:text-sm text-foreground/90">
+      <div className="text-xs text-foreground/90">
         {question}
       </div>
 
       {/* Show answer if already answered */}
       {isAnswered && parsedOutput && parsedOutput.answer && (
-        <div className="flex items-start gap-2 sm:gap-2.5 p-1.5 sm:p-2 rounded-md bg-green-500/10 border border-green-500/20">
-          <CheckCircle2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-green-600 dark:text-green-400 shrink-0 mt-0.5" />
+        <div className="flex items-start gap-2 p-1.5 rounded-md bg-green-500/10 border border-green-500/20">
+          <CheckCircle2 className="h-3.5 w-3.5 text-green-600 dark:text-green-400 shrink-0 mt-0.5" />
           <div className="flex-1 min-w-0">
-            <div className="text-[10px] sm:text-xs text-green-600 dark:text-green-400 font-medium mb-1">
+            <div className="text-[10px] text-green-600 dark:text-green-400 font-medium mb-1">
               {t('question.yourAnswer')}:
             </div>
-            <div className="text-xs sm:text-sm text-foreground/90">
+            <div className="text-xs text-foreground/90">
               {parsedOutput.answer}
             </div>
           </div>
@@ -118,7 +118,7 @@ export function AskUserQuestionBlock({
 
       {/* Interactive Form */}
       {showForm && (
-        <div className="space-y-1.5 sm:space-y-2">
+        <div className="space-y-1.5">
           {/* Multiple Choice Options */}
           {options && options.length > 0 && (
             <>
@@ -128,7 +128,7 @@ export function AskUserQuestionBlock({
                   onClick={() => setSelectedOption(index)}
                   disabled={isSubmitting}
                   className={cn(
-                    'w-full flex items-start gap-2 sm:gap-2.5 p-1.5 sm:p-2 rounded-md transition-colors text-left',
+                    'w-full flex items-start gap-2 p-1.5 rounded-md transition-colors text-left',
                     'disabled:opacity-50 disabled:cursor-not-allowed',
                     selectedOption === index
                       ? 'bg-blue-500/20 border border-blue-500/30'
@@ -137,7 +137,7 @@ export function AskUserQuestionBlock({
                 >
                   <div
                     className={cn(
-                      'h-3.5 w-3.5 sm:h-4 sm:w-4 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5',
+                      'h-3.5 w-3.5 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5',
                       selectedOption === index
                         ? 'border-blue-500 bg-blue-500'
                         : 'border-muted-foreground/30'
@@ -147,7 +147,7 @@ export function AskUserQuestionBlock({
                       <div className="h-1.5 w-1.5 rounded-full bg-white" />
                     )}
                   </div>
-                  <span className="text-xs sm:text-sm">{option}</span>
+                  <span className="text-xs">{option}</span>
                 </button>
               ))}
             </>
@@ -167,7 +167,7 @@ export function AskUserQuestionBlock({
               }}
               disabled={isSubmitting}
               placeholder={t('question.placeholder')}
-              className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 bg-background border border-border rounded-md text-xs sm:text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full px-2 py-1.5 bg-background border border-border rounded-md text-xs text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
             />
           )}
 
@@ -176,12 +176,12 @@ export function AskUserQuestionBlock({
             onClick={handleSubmit}
             disabled={isSubmitting || (options ? selectedOption === null : !textAnswer.trim())}
             className={cn(
-              'w-full flex items-center justify-center gap-1.5 sm:gap-2 px-3 py-1.5 sm:py-2 rounded-md font-medium text-xs sm:text-sm transition-colors',
+              'w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md font-medium text-xs transition-colors',
               'disabled:opacity-50 disabled:cursor-not-allowed',
               'bg-blue-500 hover:bg-blue-600 text-white'
             )}
           >
-            <Send className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+            <Send className="h-3 w-3" />
             {isSubmitting ? `${t('question.submit')}...` : t('question.submit')}
           </button>
         </div>
@@ -189,7 +189,7 @@ export function AskUserQuestionBlock({
 
       {/* Error Message */}
       {isError && output && (
-        <div className="text-[10px] sm:text-xs text-red-600 dark:text-red-400 bg-red-500/10 px-2 py-1.5 rounded-md border border-red-500/20">
+        <div className="text-[10px] text-red-600 dark:text-red-400 bg-red-500/10 px-2 py-1.5 rounded-md border border-red-500/20">
           {output === 'Prompt cancelled by user' ? t('question.cancelledByUser') : output}
         </div>
       )}

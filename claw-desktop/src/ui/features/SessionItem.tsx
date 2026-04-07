@@ -23,7 +23,7 @@ export function SessionItem({ session, isActive }: SessionItemProps) {
 
   const handleClick = () => {
     if (!isEditing && !isActive && !menuOpen && !deleteDialogOpen && !isInteracting) {
-      // Pass full session metadata to ensure correct session is loaded
+      // Pass work_mode and workspace_path to ensure correct session is loaded
       switchSession(session.id, session.work_mode, session.workspace_path);
     }
   };
@@ -70,7 +70,7 @@ export function SessionItem({ session, isActive }: SessionItemProps) {
 
   if (isEditing) {
     return (
-      <div className="flex items-center gap-1 sm:gap-1.5 px-1.5 sm:px-2 py-1.5 sm:py-2 mb-1 rounded-lg bg-muted border border-border" onClick={(e) => e.stopPropagation()}>
+      <div className="flex items-center gap-1 px-1.5 py-1.5 mb-1 rounded-lg bg-muted border border-border" onClick={(e) => e.stopPropagation()}>
         <input
           value={editTitle}
           onChange={(e) => setEditTitle(e.target.value)}
@@ -78,22 +78,22 @@ export function SessionItem({ session, isActive }: SessionItemProps) {
             if (e.key === 'Enter') handleRename();
             if (e.key === 'Escape') setIsEditing(false);
           }}
-          className="flex-1 min-w-0 h-6 sm:h-7 px-1.5 sm:px-2 text-xs sm:text-sm bg-background border border-input rounded-md outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all text-foreground"
+          className="flex-1 min-w-0 h-6 px-1.5 text-xs bg-background border border-input rounded-md outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all text-foreground"
           autoFocus
         />
         <button 
           onClick={handleRename} 
-          className="h-6 w-6 sm:h-7 sm:w-7 shrink-0 flex items-center justify-center rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+          className="h-6 w-6 shrink-0 flex items-center justify-center rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
           title={t('sessionItem.save')}
         >
-          <Check className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+          <Check className="w-3 h-3" />
         </button>
         <button 
           onClick={() => setIsEditing(false)} 
-          className="h-6 w-6 sm:h-7 sm:w-7 shrink-0 flex items-center justify-center rounded-md bg-background border border-input text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+          className="h-6 w-6 shrink-0 flex items-center justify-center rounded-md bg-background border border-input text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
           title={t('sessionItem.cancel')}
         >
-          <X className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+          <X className="w-3 h-3" />
         </button>
       </div>
     );
@@ -124,13 +124,13 @@ export function SessionItem({ session, isActive }: SessionItemProps) {
         <button
           onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }}
           className={cn(
-            'flex items-center justify-center h-6 w-6 sm:h-7 sm:w-7 rounded-md transition-all duration-150',
+            'flex items-center justify-center h-6 w-6 rounded-md transition-all duration-150',
             menuOpen
               ? 'bg-foreground/10 text-foreground'
               : 'opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground hover:bg-foreground/5'
           )}
         >
-          <MoreHorizontal className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+          <MoreHorizontal className="w-3.5 h-3.5" />
         </button>
 
         {menuOpen && (

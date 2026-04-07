@@ -26,13 +26,13 @@ function UserMessage({ text }: { text: string }) {
 
   return (
     <div className="space-y-2">
-      <div className="whitespace-pre-wrap break-words">
+      <div className="whitespace-pre-wrap break-words text-foreground">
         {displayText}
       </div>
       {shouldCollapse && (
         <button
           onClick={() => setIsExpanded(!isExpanded)}
-          className="flex items-center gap-1 text-xs opacity-70 hover:opacity-100 transition-opacity"
+          className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
         >
           {isExpanded ? (
             <>
@@ -270,8 +270,8 @@ export function MessageList() {
   }, []);
 
   return (
-    <div ref={scrollParentRef} className="flex-1 p-4 sm:p-5 lg:p-6 pb-3 sm:pb-4 overflow-y-auto relative">
-      <div className="max-w-2xl lg:max-w-3xl mx-auto">
+    <div ref={scrollParentRef} className="flex-1 p-4 pb-3 overflow-y-auto relative">
+      <div className="max-w-2xl mx-auto">
         <div
           style={{
             height: `${virtualizer.getTotalSize()}px`,
@@ -293,23 +293,23 @@ export function MessageList() {
                   width: '100%',
                   transform: `translateY(${virtualItem.start}px)`,
                 }}
-                className="pb-4 sm:pb-5 lg:pb-6"
+                className="pb-4"
               >
                 <div
                   className={cn(
                     'flex w-full items-start',
-                    message.role === 'user' ? 'justify-end' : 'justify-start'
+                    message.role === 'user' ? 'justify-start' : 'justify-start'
                   )}
                 >
                   <div
                     className={cn(
-                      'text-sm sm:text-base leading-[1.7] sm:leading-[1.8]',
+                      'text-sm leading-relaxed w-full',
                       message.role === 'user'
-                        ? 'max-w-[85%] rounded-xl sm:rounded-2xl bg-secondary text-secondary-foreground px-4 sm:px-5 lg:px-6 py-2.5 sm:py-3 lg:py-3.5'
-                        : 'w-full'
+                        ? 'rounded-lg bg-card border border-border px-3 py-2.5'
+                        : ''
                     )}
                   >
-                    <div className="space-y-3 sm:space-y-4">
+                    <div className="space-y-3">
                       {message.blocks.map((block, blockIdx) => {
                         if (block.type === 'text') {
                           return (
@@ -403,12 +403,12 @@ export function MessageList() {
 
         {/* Streaming text */}
         {currentAssistantText && (
-          <div className="flex w-full items-start justify-start mt-6 sm:mt-7 lg:mt-8">
-            <div className="w-full text-sm sm:text-base leading-[1.7] sm:leading-[1.8]">
+          <div className="flex w-full items-start justify-start mt-4">
+            <div className="w-full text-sm leading-relaxed">
               {(() => {
                 const parsed = parseThinkingTags(currentAssistantText);
                 return (
-                  <div className="space-y-3 sm:space-y-4">
+                  <div className="space-y-3">
                     {parsed.blocks.map((block, idx) => {
                       if (block.type === 'thinking') {
                         return (
@@ -435,20 +435,20 @@ export function MessageList() {
 
         {/* Loading */}
         {state.status === 'GENERATING' && !currentAssistantText && (
-          <div className="flex w-full items-start justify-start mt-6 sm:mt-7 lg:mt-8">
-            <div className="flex items-center gap-2 sm:gap-3 text-muted-foreground py-2 sm:py-3">
-              <div className="flex gap-1 sm:gap-1.5">
-                <span className="animate-bounce text-xs sm:text-sm" style={{ animationDelay: '0ms' }}>
+          <div className="flex w-full items-start justify-start mt-4">
+            <div className="flex items-center gap-2 text-muted-foreground py-2">
+              <div className="flex gap-1">
+                <span className="animate-bounce text-xs" style={{ animationDelay: '0ms' }}>
                   ●
                 </span>
-                <span className="animate-bounce text-xs sm:text-sm" style={{ animationDelay: '150ms' }}>
+                <span className="animate-bounce text-xs" style={{ animationDelay: '150ms' }}>
                   ●
                 </span>
-                <span className="animate-bounce text-xs sm:text-sm" style={{ animationDelay: '300ms' }}>
+                <span className="animate-bounce text-xs" style={{ animationDelay: '300ms' }}>
                   ●
                 </span>
               </div>
-              <span className="text-xs sm:text-sm font-medium">{t('messageList.thinking')}</span>
+              <span className="text-xs font-medium">{t('messageList.thinking')}</span>
             </div>
           </div>
         )}
@@ -461,10 +461,10 @@ export function MessageList() {
             <Button
               onClick={scrollToBottom}
               size="icon"
-              className="h-9 w-9 rounded-full shadow-lg hover:shadow-xl transition-all bg-card text-foreground hover:bg-card/80 border border-border"
+              className="h-7 w-7 rounded-full shadow-lg hover:shadow-xl transition-all bg-card text-foreground hover:bg-card/80 border border-border"
               aria-label="Scroll to bottom"
             >
-              <ArrowDown className="h-4 w-4" />
+              <ArrowDown className="h-3.5 w-3.5" />
             </Button>
           </div>
         </div>

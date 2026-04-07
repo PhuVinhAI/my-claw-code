@@ -17,9 +17,9 @@ const PAGE_SIZE = 20;
 
 function SessionSkeleton() {
   return (
-    <div className="flex items-center gap-2 px-2 sm:px-3 py-2 sm:py-2.5 rounded-lg animate-pulse">
-      <div className="flex-1 min-w-0 space-y-1.5 sm:space-y-2">
-        <div className="h-2.5 sm:h-3 bg-foreground/[0.06] rounded-md w-3/4" />
+    <div className="flex items-center gap-2 px-2 py-2 rounded-lg animate-pulse">
+      <div className="flex-1 min-w-0 space-y-1.5">
+        <div className="h-2.5 bg-foreground/[0.06] rounded-md w-3/4" />
         <div className="h-2 bg-foreground/[0.04] rounded-md w-1/3" />
       </div>
     </div>
@@ -306,7 +306,7 @@ export function SessionList({ onOpenSettings, onCloseSidebar }: SessionListProps
       <div
         ref={listRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto px-1.5 sm:px-2 py-2 sm:py-3"
+        className="flex-1 overflow-y-auto px-1.5 py-2"
       >
         {/* Xóa nút "Open Workspace" - không cần nữa */}
 

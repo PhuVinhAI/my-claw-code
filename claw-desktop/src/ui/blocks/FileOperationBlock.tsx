@@ -99,40 +99,40 @@ export function FileOperationBlock({
   const showDiffButton = hasDiff && !isError && !isCancelled;
 
   return (
-    <div className="my-1.5 sm:my-2 bg-muted/10 rounded-lg border border-border/30 overflow-hidden">
+    <div className="my-1.5 bg-muted/10 rounded-lg border border-border/30 overflow-hidden">
       {/* Header */}
-      <div className="group flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2.5 sm:py-3 bg-muted/20 border-b border-border/30">
+      <div className="group flex items-center gap-2 px-3 py-2 bg-muted/20 border-b border-border/30">
         <StatusIcon
           className={cn(
-            'h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0',
+            'h-3.5 w-3.5 shrink-0',
             isPending && 'animate-spin text-blue-400',
             isError && 'text-red-400',
             isCancelled && 'text-red-400',
             !isPending && !isError && !isCancelled && 'text-emerald-400'
           )}
         />
-        <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0 text-muted-foreground/70" />
-        <span className={cn('font-semibold text-xs sm:text-sm text-foreground/90', isError && 'text-red-400')}>{label}</span>
+        <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground/70" />
+        <span className={cn('font-semibold text-xs text-foreground/90', isError && 'text-red-400')}>{label}</span>
         <span className="text-muted-foreground/30">|</span>
-        <span className="font-mono truncate flex-1 text-muted-foreground/70 text-[10px] sm:text-xs">{filePath}</span>
+        <span className="font-mono truncate flex-1 text-muted-foreground/70 text-[10px]">{filePath}</span>
         
         {additionalInfo && (
           <>
-            <span className="text-muted-foreground/30 hidden sm:inline">|</span>
-            <span className="font-mono text-muted-foreground/60 text-[10px] sm:text-xs hidden sm:inline">{additionalInfo}</span>
+            <span className="text-muted-foreground/30">|</span>
+            <span className="font-mono text-muted-foreground/60 text-[10px]">{additionalInfo}</span>
           </>
         )}
         
         {showDiffButton && (
           <>
             <span className="text-muted-foreground/30">|</span>
-            <span className="flex items-center gap-1.5 text-[10px] sm:text-xs font-medium">
+            <span className="flex items-center gap-1.5 text-[10px] font-medium">
               <span className="flex items-center gap-0.5 text-emerald-400">
-                <Plus className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
+                <Plus className="h-2.5 w-2.5" />
                 {diffStats.additions}
               </span>
               <span className="flex items-center gap-0.5 text-red-400">
-                <Minus className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
+                <Minus className="h-2.5 w-2.5" />
                 {diffStats.deletions}
               </span>
             </span>
@@ -140,12 +140,12 @@ export function FileOperationBlock({
         )}
         
         {isCancelled && (
-          <span className="text-red-400 text-[10px] sm:text-xs font-medium bg-red-400/10 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md border border-red-400/20">
+          <span className="text-red-400 text-[10px] font-medium bg-red-400/10 px-1.5 py-0.5 rounded-md border border-red-400/20">
             {t('fileOperation.stopped')}
           </span>
         )}
         {isError && !isCancelled && (
-          <span className="text-red-400 text-[10px] sm:text-xs font-medium bg-red-400/10 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md border border-red-400/20">
+          <span className="text-red-400 text-[10px] font-medium bg-red-400/10 px-1.5 py-0.5 rounded-md border border-red-400/20">
             {t('fileOperation.error')}
           </span>
         )}
@@ -156,21 +156,21 @@ export function FileOperationBlock({
         <>
           <button
             onClick={() => setIsExpanded(!isExpanded)}
-            className="w-full flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 bg-muted/5 hover:bg-muted/10 transition-colors text-left border-b border-border/20"
+            className="w-full flex items-center gap-1.5 px-3 py-1.5 bg-muted/5 hover:bg-muted/10 transition-colors text-left border-b border-border/20"
           >
             {isExpanded ? (
-              <ChevronDown className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground/70" />
+              <ChevronDown className="h-3.5 w-3.5 text-muted-foreground/70" />
             ) : (
-              <ChevronRight className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground/70" />
+              <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/70" />
             )}
-            <GitCompare className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-muted-foreground/70" />
-            <span className="text-[10px] sm:text-xs text-muted-foreground/80 font-medium">
+            <GitCompare className="h-3 w-3 text-muted-foreground/70" />
+            <span className="text-[10px] text-muted-foreground/80 font-medium">
               {isExpanded ? t('fileOperation.hideDiff') : t('fileOperation.showDiff')}
             </span>
           </button>
 
           {isExpanded && (
-            <div className="px-3 sm:px-4 py-2.5 sm:py-3 bg-muted/5">
+            <div className="px-3 py-2 bg-muted/5">
               <div className="rounded-lg overflow-hidden border border-border/30 bg-background">
                 <div className="max-h-96 overflow-auto font-mono text-[11px] leading-relaxed">
                   {parsedOutput.structuredPatch.map((hunk, hunkIdx) => (
