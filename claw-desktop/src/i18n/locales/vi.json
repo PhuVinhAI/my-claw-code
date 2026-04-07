@@ -309,5 +309,19 @@
     "quickAdd": "Thêm nhanh models",
     "added": "Đã thêm",
     "add": "Thêm"
+  },
+  "lsp": {
+    "diagnostics": "Chẩn đoán",
+    "hover": "Thông tin",
+    "definition": "Đến định nghĩa",
+    "references": "Tìm tham chiếu",
+    "completion": "Gợi ý code",
+    "symbols": "Ký hiệu",
+    "format": "Format code",
+    "results": "{{count}} kết quả",
+    "stopped": "Đã dừng",
+    "error": "Lỗi",
+    "hideResults": "Ẩn kết quả",
+    "showResults": "Xem kết quả"
   }
 }

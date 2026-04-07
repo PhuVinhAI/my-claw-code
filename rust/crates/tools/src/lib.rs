@@ -39,6 +39,45 @@ const WORKSPACE_EXCLUDED_TOOLS: &[&str] = &[
     "ToolSearch",       // Tool discovery - meta-operation
     "Config",           // System configuration - should be explicit
     "StructuredOutput", // Structured output formatting - specialized
+    
+    // Plan mode tools
+    "EnterPlanMode",    // Plan mode management
+    "ExitPlanMode",     // Plan mode management
+    
+    // Background task management
+    "TaskCreate",       // Background task management
+    "RunTaskPacket",    // Background task management
+    "TaskGet",          // Background task management
+    "TaskList",         // Background task management
+    "TaskStop",         // Background task management
+    "TaskUpdate",       // Background task management
+    "TaskOutput",       // Background task management
+    
+    // Worker management
+    "WorkerCreate",     // Worker process management
+    "WorkerTerminate",  // Worker process management
+    
+    // Team management
+    "TeamCreate",       // Sub-agent team management
+    "TeamDelete",       // Sub-agent team management
+    
+    // Cron/scheduling
+    "CronCreate",       // Scheduled task management
+    "CronDelete",       // Scheduled task management
+    "CronList",         // Scheduled task management
+    
+    // User interaction
+    "SendUserMessage",  // Direct user messaging - should be explicit
+    
+    // MCP tools
+    "MCP",              // MCP tool execution - specialized
+    "ListMcpResources", // MCP resource listing - specialized
+    "ReadMcpResource",  // MCP resource reading - specialized
+    "McpAuth",          // MCP authentication - specialized
+    
+    // Remote/testing
+    "RemoteTrigger",    // Remote action triggering - specialized
+    "TestingPermission",// Permission testing - development only
 ];
 
 /// Get OS-specific tool exclusions

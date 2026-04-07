@@ -309,5 +309,19 @@
     "quickAdd": "Quick add models",
     "added": "Added",
     "add": "Add"
+  },
+  "lsp": {
+    "diagnostics": "Diagnostics",
+    "hover": "Hover Info",
+    "definition": "Go to Definition",
+    "references": "Find References",
+    "completion": "Code Completion",
+    "symbols": "Document Symbols",
+    "format": "Format Document",
+    "results": "{{count}} results",
+    "stopped": "Stopped",
+    "error": "Error",
+    "hideResults": "Hide results",
+    "showResults": "Show results"
   }
 }

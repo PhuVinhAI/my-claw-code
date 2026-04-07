@@ -9,6 +9,7 @@ import { SearchResultBlock } from './SearchResultBlock';
 import { WebSearchBlock } from './WebSearchBlock';
 import { DelegationBlock } from './DelegationBlock';
 import { DirectoryListBlock } from './DirectoryListBlock';
+import { LSPBlock } from './LSPBlock';
 
 interface RenderToolBlockProps {
   toolUseBlock: ContentBlock;
@@ -160,6 +161,24 @@ export function renderToolBlock({ toolUseBlock, toolResultBlock, detachedTools }
         name={parsedInput.skill || parsedInput.name || toolName}
         description={parsedInput.description}
         prompt={parsedInput.prompt}
+        toolInput={toolInput}
+        output={toolOutput}
+        isError={isError}
+        isPending={isPending}
+        isCancelled={isCancelledState}
+      />
+    );
+  }
+
+  // LSP (Language Server Protocol)
+  if (toolName === 'LSP' || toolName === 'lsp') {
+    return (
+      <LSPBlock
+        action={parsedInput.action || 'unknown'}
+        path={parsedInput.path}
+        line={parsedInput.line}
+        character={parsedInput.character}
+        query={parsedInput.query}
         toolInput={toolInput}
         output={toolOutput}
         isError={isError}
