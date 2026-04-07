@@ -1,8 +1,9 @@
 // Antigravity Claude Proxy Setup Component
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { AlertCircle, CheckCircle, ExternalLink, Plus, Server } from 'lucide-react';
+import { AlertCircle, CheckCircle, ExternalLink, Plus } from 'lucide-react';
 import { Button } from '../../../components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../../components/ui/dialog';
 import { Model } from '../../../core/entities';
 import { cn } from '../../../lib/utils';
 
@@ -47,80 +48,60 @@ export function AntigravitySetup({ existingModels, onAddModel, isOpen, onOpenCha
     return existingModels.some((m) => m.id === modelId);
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="mb-6 rounded-lg border border-border bg-muted/30 overflow-hidden">
-      {/* Header */}
-      <div className="px-4 py-3 bg-gradient-to-r from-blue-500/10 to-purple-500/10 border-b border-border">
-        <div className="flex items-start gap-3">
-          <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-blue-500/20">
-            <Server className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-3xl sm:max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+        <DialogHeader>
+          <DialogTitle>{t('antigravity.title', 'Antigravity Claude Proxy')}</DialogTitle>
+          <p className="text-xs text-muted-foreground mt-1">
+            {t('antigravity.subtitle', 'Free Claude & Gemini models via Google Cloud Code')}
+          </p>
+        </DialogHeader>
+
+        {/* Warning */}
+        <div className="px-3 py-2.5 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900 rounded-lg">
+          <div className="flex items-start gap-2">
+            <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-500 mt-0.5 shrink-0" />
+            <div className="text-xs text-amber-800 dark:text-amber-300">
+              <strong>{t('antigravity.warning', 'Cảnh báo:')}</strong>{' '}
+              {t('antigravity.warningText', 'Google có thể cấm tài khoản vi phạm ToS. Sử dụng tài khoản phụ.')}
+            </div>
           </div>
-          <div className="flex-1">
-            <h3 className="text-sm font-semibold mb-1">
-              {t('antigravity.title', 'Antigravity Claude Proxy')}
-            </h3>
-            <p className="text-xs text-muted-foreground">
-              {t('antigravity.subtitle', 'Free Claude & Gemini models via Google Cloud Code')}
-            </p>
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => onOpenChange(false)}
-            className="h-7 w-7 p-0"
+        </div>
+
+        {/* Setup Instructions */}
+        <div className="space-y-2">
+          <h4 className="text-xs font-semibold">{t('antigravity.setup', 'Cài đặt:')}</h4>
+          <ol className="text-xs text-muted-foreground space-y-1.5 list-decimal list-inside">
+            <li>
+              {t('antigravity.step1', 'Cài đặt:')} <code className="px-1.5 py-0.5 rounded bg-muted text-foreground">npm install -g antigravity-claude-proxy@latest</code>
+            </li>
+            <li>
+              {t('antigravity.step2', 'Khởi động:')} <code className="px-1.5 py-0.5 rounded bg-muted text-foreground">antigravity-claude-proxy start</code>
+            </li>
+            <li>
+              {t('antigravity.step3', 'Thêm tài khoản Google:')} <code className="px-1.5 py-0.5 rounded bg-muted text-foreground">antigravity-claude-proxy accounts add</code>
+            </li>
+            <li>
+              {t('antigravity.step4', 'Sử dụng Base URL:')} <code className="px-1.5 py-0.5 rounded bg-muted text-foreground">http://localhost:8080</code>
+            </li>
+            <li>
+              {t('antigravity.step5', 'API Key:')} <code className="px-1.5 py-0.5 rounded bg-muted text-foreground">test</code> {t('antigravity.step5Note', '(bất kỳ giá trị nào)')}
+            </li>
+          </ol>
+          <a
+            href="https://github.com/badrisnarayanan/antigravity-claude-proxy"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
           >
-            ×
-          </Button>
+            {t('antigravity.docs', 'Xem hướng dẫn đầy đủ')}
+            <ExternalLink className="w-3 h-3" />
+          </a>
         </div>
-      </div>
 
-      {/* Warning */}
-      <div className="px-4 py-3 bg-amber-50 dark:bg-amber-950/20 border-b border-amber-200 dark:border-amber-900">
-        <div className="flex items-start gap-2">
-          <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-500 mt-0.5 shrink-0" />
-          <div className="text-xs text-amber-800 dark:text-amber-300">
-            <strong>{t('antigravity.warning', 'Cảnh báo:')}</strong>{' '}
-            {t('antigravity.warningText', 'Google có thể cấm tài khoản vi phạm ToS. Sử dụng tài khoản phụ.')}
-          </div>
-        </div>
-      </div>
-
-      {/* Setup Instructions */}
-      <div className="px-4 py-3 border-b border-border">
-        <h4 className="text-xs font-semibold mb-2">{t('antigravity.setup', 'Cài đặt:')}</h4>
-        <ol className="text-xs text-muted-foreground space-y-1.5 list-decimal list-inside">
-          <li>
-            {t('antigravity.step1', 'Cài đặt:')} <code className="px-1.5 py-0.5 rounded bg-muted text-foreground">npm install -g antigravity-claude-proxy@latest</code>
-          </li>
-          <li>
-            {t('antigravity.step2', 'Khởi động:')} <code className="px-1.5 py-0.5 rounded bg-muted text-foreground">antigravity-claude-proxy start</code>
-          </li>
-          <li>
-            {t('antigravity.step3', 'Thêm tài khoản Google:')} <code className="px-1.5 py-0.5 rounded bg-muted text-foreground">antigravity-claude-proxy accounts add</code>
-          </li>
-          <li>
-            {t('antigravity.step4', 'Sử dụng Base URL:')} <code className="px-1.5 py-0.5 rounded bg-muted text-foreground">http://localhost:8080</code>
-          </li>
-          <li>
-            {t('antigravity.step5', 'API Key:')} <code className="px-1.5 py-0.5 rounded bg-muted text-foreground">test</code> {t('antigravity.step5Note', '(bất kỳ giá trị nào)')}
-          </li>
-        </ol>
-        <a
-          href="https://github.com/badrisnarayanan/antigravity-claude-proxy"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 text-xs text-primary hover:underline mt-2"
-        >
-          {t('antigravity.docs', 'Xem hướng dẫn đầy đủ')}
-          <ExternalLink className="w-3 h-3" />
-        </a>
-      </div>
-
-      {/* Model Tabs */}
-      <div className="px-4 pt-3">
-        <div className="flex gap-2 mb-3">
+        {/* Model Tabs */}
+        <div className="flex gap-2">
           <button
             onClick={() => setSelectedTab('claude')}
             className={cn(
@@ -144,17 +125,15 @@ export function AntigravitySetup({ existingModels, onAddModel, isOpen, onOpenCha
             Gemini ({ANTIGRAVITY_MODELS.gemini.length})
           </button>
         </div>
-      </div>
 
-      {/* Models List */}
-      <div className="px-4 pb-4">
-        <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
+        {/* Models List */}
+        <div className="flex-1 overflow-y-auto space-y-1.5 pr-2 min-h-0">
           {ANTIGRAVITY_MODELS[selectedTab].map((model) => {
             const added = isModelAdded(model.id);
             return (
               <div
                 key={model.id}
-                className="flex items-center justify-between p-2.5 rounded-lg border border-border hover:border-primary/50 hover:bg-muted/50 transition-all"
+                className="flex items-center justify-between p-2 rounded-md border border-border hover:bg-muted/50 transition-colors"
               >
                 <div className="flex-1 min-w-0 mr-2">
                   <p className="font-medium text-xs truncate">{model.name}</p>
@@ -188,7 +167,7 @@ export function AntigravitySetup({ existingModels, onAddModel, isOpen, onOpenCha
             );
           })}
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

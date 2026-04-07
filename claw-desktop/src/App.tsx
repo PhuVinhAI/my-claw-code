@@ -3,6 +3,7 @@ import { initializeChatStore, useChatStore } from './store';
 import { MessageList, ChatInput, PermissionModal, SessionList, ErrorBanner } from './ui/features';
 import { OnboardingScreen } from './ui/pages/OnboardingScreen';
 import { SettingsScreen } from './ui/pages/SettingsScreen';
+import { TitleBar } from './components/TitleBar';
 import { PanelLeft } from 'lucide-react';
 
 import { invoke } from '@tauri-apps/api/core';
@@ -53,15 +54,31 @@ function App() {
   }
 
   if (currentScreen === 'onboarding') {
-    return <OnboardingScreen onComplete={handleOnboardingComplete} />;
+    return (
+      <div className="flex flex-col h-screen overflow-hidden">
+        <TitleBar />
+        <div className="flex-1 min-h-0">
+          <OnboardingScreen onComplete={handleOnboardingComplete} />
+        </div>
+      </div>
+    );
   }
 
   if (currentScreen === 'settings') {
-    return <SettingsScreen onBack={() => setCurrentScreen('chat')} />;
+    return (
+      <div className="flex flex-col h-screen overflow-hidden">
+        <TitleBar />
+        <div className="flex-1 min-h-0">
+          <SettingsScreen onBack={() => setCurrentScreen('chat')} />
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background relative text-foreground">
+    <div className="flex flex-col h-screen overflow-hidden bg-background text-foreground">
+      <TitleBar />
+      <div className="flex flex-1 min-h-0 relative">
 
 
 
@@ -71,20 +88,11 @@ function App() {
       <div
         className={`
           shrink-0 transition-all duration-300 ease-in-out border-r border-border bg-sidebar
-
-
-
-
-
-
-
           ${sidebarOpen ? 'w-56 sm:w-64' : 'w-0'}
-
           overflow-hidden
         `}
       >
         <SessionList onOpenSettings={() => setCurrentScreen('settings')} onCloseSidebar={() => setSidebarOpen(false)} />
-
       </div>
 
       {/* Main Content */}
@@ -116,6 +124,7 @@ function App() {
 
       <PermissionModal />
       <ErrorBanner />
+      </div>
     </div>
   );
 }

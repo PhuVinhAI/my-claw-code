@@ -1,26 +1,33 @@
-// AI Settings Tab - Simple list layout
+// AI Settings Tab - Modal-based UI
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSettingsStore } from '../../../store/useSettingsStore';
 import { Provider, Model } from '../../../core/entities';
 import { Button } from '../../../components/ui/button';
-import { Input } from '../../../components/ui/input';
-import { Plus, Trash2, X, Check, ChevronDown, ChevronRight, Eye, EyeOff, Download, Loader2, BarChart3 } from 'lucide-react';
+import { Plus, Trash2, Pencil, ChevronDown, ChevronRight, Download, Loader2, BarChart3 } from 'lucide-react';
 import { ConfirmDeleteProviderDialog } from './ConfirmDeleteProviderDialog';
+import { ProviderFormDialog } from './ProviderFormDialog';
+import { ModelFormDialog } from './ModelFormDialog';
 import { KiloModelsBrowser, KiloModel } from './KiloModelsBrowser';
 import { fetchKiloModels } from './fetchKiloModels';
 import { AntigravitySetup } from './AntigravitySetup';
-import { cn } from '../../../lib/utils';
 
 export function AISettingsTab() {
   const { t } = useTranslation();
   const { settings, addProvider, updateProvider, deleteProvider, addModel, updateModel, deleteModel } = useSettingsStore();
   
   const [expandedProviders, setExpandedProviders] = useState<Set<string>>(new Set());
-  const [showProviderForm, setShowProviderForm] = useState(false);
+  
+  // Provider dialog state
+  const [providerDialogOpen, setProviderDialogOpen] = useState(false);
   const [editingProvider, setEditingProvider] = useState<Provider | null>(null);
-  const [showAddModel, setShowAddModel] = useState<string | null>(null); // provider ID
+  
+  // Model dialog state
+  const [modelDialogOpen, setModelDialogOpen] = useState(false);
   const [editingModel, setEditingModel] = useState<{ providerId: string; model: Model } | null>(null);
+  const [currentProviderId, setCurrentProviderId] = useState<string | null>(null);
+  
+  // Delete confirmation
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [providerToDelete, setProviderToDelete] = useState<Provider | null>(null);
   
@@ -31,21 +38,6 @@ export function AISettingsTab() {
   
   // Antigravity setup state
   const [antigravitySetupOpen, setAntigravitySetupOpen] = useState<string | null>(null);
-
-  // Provider form state
-  const [providerForm, setProviderForm] = useState<Partial<Provider>>({
-    id: '',
-    name: '',
-    api_key: '',
-    base_url: '',
-    models: [],
-  });
-
-  // Model form state
-  const [modelForm, setModelForm] = useState<Partial<Model>>({ id: '', name: '' });
-  
-  // Show/hide API key
-  const [showApiKey, setShowApiKey] = useState(false);
 
   if (!settings) {
     return (
@@ -65,72 +57,44 @@ export function AISettingsTab() {
     setExpandedProviders(newExpanded);
   };
 
-  const handleSaveProvider = async () => {
-    if (!providerForm.id || !providerForm.name || !providerForm.api_key || !providerForm.base_url) {
-      alert(t('settings.fillAllFields'));
-      return;
-    }
-
-    try {
-      if (editingProvider) {
-        await updateProvider(providerForm as Provider);
-      } else {
-        await addProvider(providerForm as Provider);
-      }
-      setProviderForm({ id: '', name: '', api_key: '', base_url: '', models: [] });
-      setShowProviderForm(false);
-      setEditingProvider(null);
-    } catch (error) {
-      alert(`${t('common.error')}: ${error}`);
-    }
+  const handleAddProvider = () => {
+    setEditingProvider(null);
+    setProviderDialogOpen(true);
   };
 
   const handleEditProvider = (provider: Provider) => {
     setEditingProvider(provider);
-    setProviderForm(provider);
-    setShowProviderForm(true);
+    setProviderDialogOpen(true);
   };
 
-  const handleCancelProviderForm = () => {
-    setShowProviderForm(false);
-    setEditingProvider(null);
-    setProviderForm({ id: '', name: '', api_key: '', base_url: '', models: [] });
-    setShowApiKey(false);
+  const handleSaveProvider = async (provider: Provider) => {
+    if (editingProvider) {
+      await updateProvider(provider);
+    } else {
+      await addProvider(provider);
+    }
   };
 
-  const handleSaveModel = async () => {
-    if (!modelForm.id || !modelForm.name) {
-      alert(t('settings.fillAllFields'));
-      return;
-    }
-
-    const providerId = editingModel?.providerId || showAddModel;
-    if (!providerId) return;
-
-    try {
-      if (editingModel) {
-        await updateModel(providerId, modelForm as Model);
-      } else {
-        await addModel(providerId, modelForm as Model);
-      }
-      setModelForm({ id: '', name: '' });
-      setShowAddModel(null);
-      setEditingModel(null);
-    } catch (error) {
-      alert(`${t('common.error')}: ${error}`);
-    }
+  const handleAddModel = (providerId: string) => {
+    setCurrentProviderId(providerId);
+    setEditingModel(null);
+    setModelDialogOpen(true);
   };
 
   const handleEditModel = (providerId: string, model: Model) => {
+    setCurrentProviderId(providerId);
     setEditingModel({ providerId, model });
-    setModelForm(model);
-    setShowAddModel(providerId);
+    setModelDialogOpen(true);
   };
 
-  const handleCancelModelForm = () => {
-    setShowAddModel(null);
-    setEditingModel(null);
-    setModelForm({ id: '', name: '' });
+  const handleSaveModel = async (model: Model) => {
+    if (!currentProviderId) return;
+    
+    if (editingModel) {
+      await updateModel(currentProviderId, model);
+    } else {
+      await addModel(currentProviderId, model);
+    }
   };
 
   const handleDeleteProvider = async (providerId: string) => {
@@ -187,92 +151,11 @@ export function AISettingsTab() {
           <h2 className="text-lg font-semibold mb-1">{t('settings.aiProviders')}</h2>
           <p className="text-xs text-muted-foreground">{t('settings.aiProvidersDescription')}</p>
         </div>
-        <Button onClick={() => setShowProviderForm(true)} size="sm" className="h-8 text-xs">
+        <Button onClick={handleAddProvider} size="sm" className="h-8 text-xs">
           <Plus className="w-3.5 h-3.5 mr-1" />
           {t('settings.addProvider')}
         </Button>
       </div>
-
-      {/* Provider Form */}
-      {showProviderForm && (
-        <div className="rounded-lg border border-border bg-card p-4">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-semibold">
-              {editingProvider ? t('settings.editProvider') : t('settings.addProvider')}
-            </h3>
-            <button
-              onClick={handleCancelProviderForm}
-              className="flex items-center justify-center h-6 w-6 rounded-md hover:bg-muted transition-colors"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-
-          <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-medium mb-1.5">{t('settings.providerId')}</label>
-                <Input
-                  value={providerForm.id}
-                  onChange={(e) => setProviderForm({ ...providerForm, id: e.target.value })}
-                  placeholder="openai"
-                  className="h-8 text-xs"
-                  disabled={!!editingProvider}
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium mb-1.5">{t('settings.providerName')}</label>
-                <Input
-                  value={providerForm.name}
-                  onChange={(e) => setProviderForm({ ...providerForm, name: e.target.value })}
-                  placeholder="OpenAI"
-                  className="h-8 text-xs"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium mb-1.5">{t('settings.apiKey')}</label>
-              <div className="relative">
-                <Input
-                  type={showApiKey ? 'text' : 'password'}
-                  value={providerForm.api_key}
-                  onChange={(e) => setProviderForm({ ...providerForm, api_key: e.target.value })}
-                  placeholder="sk-..."
-                  className="h-8 text-xs font-mono pr-8"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowApiKey(!showApiKey)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                >
-                  {showApiKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium mb-1.5">{t('settings.baseUrl')}</label>
-              <Input
-                value={providerForm.base_url}
-                onChange={(e) => setProviderForm({ ...providerForm, base_url: e.target.value })}
-                placeholder="https://api.openai.com/v1"
-                className="h-8 text-xs font-mono"
-              />
-            </div>
-
-            <div className="flex gap-2 pt-2">
-              <Button onClick={handleSaveProvider} size="sm" className="h-7 text-xs">
-                <Check className="w-3 h-3 mr-1" />
-                {editingProvider ? t('common.save') : t('settings.addProvider')}
-              </Button>
-              <Button variant="outline" size="sm" onClick={handleCancelProviderForm} className="h-7 text-xs">
-                {t('common.cancel')}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Providers List */}
       <div className="space-y-2">
@@ -311,7 +194,7 @@ export function AISettingsTab() {
                       onClick={() => handleEditProvider(provider)}
                       className="h-7 w-7 p-0"
                     >
-                      <Check className="w-3.5 h-3.5" />
+                      <Pencil className="w-3.5 h-3.5" />
                     </Button>
                     <Button
                       variant="ghost"
@@ -371,7 +254,7 @@ export function AISettingsTab() {
                             </Button>
                           )}
                           <Button
-                            onClick={() => setShowAddModel(provider.id)}
+                            onClick={() => handleAddModel(provider.id)}
                             size="sm"
                             className="h-6 text-xs px-2"
                           >
@@ -380,86 +263,6 @@ export function AISettingsTab() {
                           </Button>
                         </div>
                       </div>
-
-                      {/* Kilo Browser */}
-                      {isKiloProvider && kiloBrowserOpen === provider.id && (
-                        <KiloModelsBrowser
-                          models={kiloModels}
-                          existingModels={provider.models}
-                          onAddModel={(model) => addModel(provider.id, model)}
-                          isOpen={true}
-                          onOpenChange={(open) => !open && setKiloBrowserOpen(null)}
-                        />
-                      )}
-
-                      {/* Antigravity Setup */}
-                      {isAntigravityProvider && antigravitySetupOpen === provider.id && (
-                        <AntigravitySetup
-                          existingModels={provider.models}
-                          onAddModel={(model) => addModel(provider.id, model)}
-                          isOpen={true}
-                          onOpenChange={(open) => !open && setAntigravitySetupOpen(null)}
-                        />
-                      )}
-
-                      {/* Add/Edit Model Form */}
-                      {showAddModel === provider.id && (
-                        <div className="mb-3 p-3 rounded-lg border border-border bg-muted/30">
-                          <div className="flex items-center justify-between mb-3">
-                            <p className="text-xs font-medium">
-                              {editingModel ? t('settings.editModel') : t('settings.addModel')}
-                            </p>
-                            <button
-                              onClick={handleCancelModelForm}
-                              className="flex items-center justify-center h-5 w-5 rounded-md hover:bg-muted"
-                            >
-                              <X className="w-3 h-3" />
-                            </button>
-                          </div>
-                          <div className="space-y-2">
-                            <div className="grid grid-cols-2 gap-2">
-                              <div>
-                                <label className="block text-xs font-medium mb-1">{t('settings.modelId')}</label>
-                                <Input
-                                  value={modelForm.id}
-                                  onChange={(e) => setModelForm({ ...modelForm, id: e.target.value })}
-                                  placeholder="gpt-4"
-                                  className="h-7 text-xs font-mono"
-                                  disabled={!!editingModel}
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-xs font-medium mb-1">{t('settings.modelName')}</label>
-                                <Input
-                                  value={modelForm.name}
-                                  onChange={(e) => setModelForm({ ...modelForm, name: e.target.value })}
-                                  placeholder="GPT-4"
-                                  className="h-7 text-xs"
-                                />
-                              </div>
-                            </div>
-                            <div>
-                              <label className="block text-xs font-medium mb-1">{t('settings.maxContext')}</label>
-                              <Input
-                                type="number"
-                                value={modelForm.max_context || ''}
-                                onChange={(e) => setModelForm({ ...modelForm, max_context: e.target.value ? parseInt(e.target.value) : undefined })}
-                                placeholder="128000"
-                                className="h-7 text-xs"
-                              />
-                            </div>
-                            <div className="flex gap-2">
-                              <Button onClick={handleSaveModel} size="sm" className="h-6 text-xs">
-                                <Check className="w-3 h-3 mr-1" />
-                                {editingModel ? t('common.save') : t('settings.addModel')}
-                              </Button>
-                              <Button variant="outline" size="sm" onClick={handleCancelModelForm} className="h-6 text-xs">
-                                {t('common.cancel')}
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
-                      )}
 
                       {/* Models List */}
                       {provider.models.length === 0 ? (
@@ -490,7 +293,7 @@ export function AISettingsTab() {
                                   onClick={() => handleEditModel(provider.id, model)}
                                   className="h-6 w-6 p-0"
                                 >
-                                  <Check className="w-3 h-3" />
+                                  <Pencil className="w-3 h-3" />
                                 </Button>
                                 <Button
                                   variant="ghost"
@@ -514,7 +317,40 @@ export function AISettingsTab() {
         )}
       </div>
 
-      {/* Confirm Delete Dialog */}
+      {/* Dialogs */}
+      <ProviderFormDialog
+        open={providerDialogOpen}
+        onOpenChange={setProviderDialogOpen}
+        provider={editingProvider}
+        onSave={handleSaveProvider}
+      />
+
+      <ModelFormDialog
+        open={modelDialogOpen}
+        onOpenChange={setModelDialogOpen}
+        model={editingModel?.model || null}
+        onSave={handleSaveModel}
+      />
+
+      {kiloBrowserOpen && (
+        <KiloModelsBrowser
+          models={kiloModels}
+          existingModels={settings.providers.find(p => p.id === kiloBrowserOpen)?.models || []}
+          onAddModel={(model) => addModel(kiloBrowserOpen, model)}
+          isOpen={true}
+          onOpenChange={(open) => !open && setKiloBrowserOpen(null)}
+        />
+      )}
+
+      {antigravitySetupOpen && (
+        <AntigravitySetup
+          existingModels={settings.providers.find(p => p.id === antigravitySetupOpen)?.models || []}
+          onAddModel={(model) => addModel(antigravitySetupOpen, model)}
+          isOpen={true}
+          onOpenChange={(open) => !open && setAntigravitySetupOpen(null)}
+        />
+      )}
+
       {providerToDelete && (
         <ConfirmDeleteProviderDialog
           open={deleteConfirmOpen}

@@ -334,7 +334,7 @@ export function SessionList({ onOpenSettings, onCloseSidebar }: SessionListProps
                     onClick={(e) => toggleGroup(groupKey, e)}
                   >
                     <div className="flex items-center gap-1.5 overflow-hidden">
-                      <span className="text-xs font-semibold text-muted-foreground/80 lowercase tracking-wide truncate select-none" title={groupKey}>
+                      <span className="text-xs font-semibold text-muted-foreground/80 tracking-wide truncate select-none" title={groupKey}>
                         {groupName}
                       </span>
                       {collapsedGroups[groupKey] ? (

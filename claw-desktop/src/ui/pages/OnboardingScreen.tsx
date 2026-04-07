@@ -113,7 +113,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                 Chào mừng đến với Claw
               </h1>
               <p className="text-base text-muted-foreground max-w-md mx-auto leading-relaxed">
-                Cấu hình Antigravity proxy để sử dụng Claude & Gemini miễn phí
+                Cấu hình Antigravity proxy để sử dụng<br />Claude & Gemini miễn phí
               </p>
             </div>
 
