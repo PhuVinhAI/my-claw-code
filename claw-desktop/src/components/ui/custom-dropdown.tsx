@@ -67,14 +67,28 @@ export function CustomDropdown({
         setShowProviderFilter(false);
       }
     };
+    
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setOpen(false);
+        setShowProviderFilter(false);
+      }
+    };
+    
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
+    };
   }, []);
 
   // Focus search input when dropdown opens
   useEffect(() => {
     if (open && searchInputRef.current && onSearchChange) {
-      searchInputRef.current.focus();
+      // Clear search when opening
+      onSearchChange('');
+      setTimeout(() => searchInputRef.current?.focus(), 50);
     }
   }, [open, onSearchChange]);
 
@@ -159,6 +173,13 @@ export function CustomDropdown({
                   placeholder={searchPlaceholder}
                   className="w-full px-2.5 py-1.5 pr-8 text-xs bg-card border border-input rounded-md focus:outline-none focus:border-border transition-all text-foreground placeholder:text-muted-foreground"
                   onClick={(e) => e.stopPropagation()}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Escape') {
+                      e.stopPropagation();
+                      onSearchChange('');
+                      searchInputRef.current?.blur();
+                    }
+                  }}
                 />
                 
                 {/* Filter Icon Button */}
@@ -175,7 +196,7 @@ export function CustomDropdown({
                         ? "text-primary"
                         : "text-muted-foreground hover:text-foreground"
                     )}
-                    title="Filter by provider"
+                    title={selectedProviders.length > 0 ? `Đang lọc ${selectedProviders.length} provider` : "Lọc theo provider"}
                   >
                     <Filter className="h-3 w-3" />
                     {selectedProviders.length > 0 && (
@@ -187,9 +208,22 @@ export function CustomDropdown({
 
               {/* Provider Filter Dropdown */}
               {showProviderFilter && providers && providers.length > 1 && onProviderFilterChange && (
-                <div className="mt-1.5">
+                <div className="mt-1.5 animate-in fade-in slide-in-from-top-1 duration-150">
                   <div className="bg-card rounded-md p-1.5 border border-border/20">
-                    <div className="text-[10px] font-medium text-muted-foreground mb-1.5 px-1">{filterByProviderLabel}</div>
+                    <div className="flex items-center justify-between mb-1.5 px-1">
+                      <div className="text-[10px] font-medium text-muted-foreground">{filterByProviderLabel}</div>
+                      {selectedProviders.length > 0 && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onProviderFilterChange([]);
+                          }}
+                          className="text-[10px] text-primary hover:text-primary/80 font-medium"
+                        >
+                          Xóa bộ lọc
+                        </button>
+                      )}
+                    </div>
                     <div className="flex flex-wrap gap-1">
                       {providers.map((provider) => (
                         <button
