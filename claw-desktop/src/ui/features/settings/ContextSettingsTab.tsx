@@ -4,9 +4,8 @@ import { useTranslation } from 'react-i18next';
 import { useSettingsStore } from '../../../store/useSettingsStore';
 import { toast } from 'sonner';
 import { Slider } from '../../../components/ui/slider';
-// import { Input } from '../../../components/ui/input';
 import { Button } from '../../../components/ui/button';
-import { Info, Save, Sparkles } from 'lucide-react';
+import { Info, Save } from 'lucide-react';
 
 export function ContextSettingsTab() {
   const { t } = useTranslation();
@@ -52,31 +51,19 @@ export function ContextSettingsTab() {
     preserveMessages !== (settings?.compact_config?.preserve_recent_messages || 4);
 
   return (
-    <div className="flex-1 overflow-y-auto bg-background">
-      <div className="p-4 sm:p-5 lg:p-6 max-w-xl lg:max-w-2xl mx-auto">
-        {/* Header */}
-        <div className="mb-4 sm:mb-5 lg:mb-6">
-          <div className="flex items-start gap-3 mb-3 sm:mb-4">
-            <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-blue-100 dark:bg-blue-950/30 shrink-0">
-              <Sparkles className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-            </div>
-            <div className="flex-1">
-              <h2 className="text-lg sm:text-xl font-semibold mb-0.5 sm:mb-1">
-                {t('compact.settings.title')}
-              </h2>
-              <p className="text-xs sm:text-sm text-muted-foreground">
-                {t('compact.settings.description')}
-              </p>
-            </div>
-          </div>
-        </div>
+    <div className="space-y-4">
+      {/* Section Header */}
+      <div>
+        <h2 className="text-lg font-semibold mb-1">{t('settings.contextSettings')}</h2>
+        <p className="text-xs text-muted-foreground">{t('settings.contextSettingsDescription')}</p>
+      </div>
 
-        <div className="space-y-5 sm:space-y-6">
+      <div className="space-y-5">
           {/* Threshold Setting */}
           <div className="space-y-3">
             <div>
               <div className="flex items-center justify-between mb-3">
-                <label className="block text-xs sm:text-sm font-medium">
+                <label className="block text-xs font-medium">
                   {t('compact.settings.threshold')}
                 </label>
                 <span className="text-sm font-mono text-muted-foreground">
@@ -119,7 +106,7 @@ export function ContextSettingsTab() {
           <div className="space-y-3">
             <div>
               <div className="flex items-center justify-between mb-3">
-                <label className="block text-xs sm:text-sm font-medium">
+                <label className="block text-xs font-medium">
                   {t('compact.settings.preserveMessages')}
                 </label>
                 <span className="text-sm font-mono text-muted-foreground">
@@ -161,6 +148,5 @@ export function ContextSettingsTab() {
           )}
         </div>
       </div>
-    </div>
   );
 }

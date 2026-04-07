@@ -169,7 +169,7 @@ export function ChatInput() {
       />
 
       {/* Bottom bar */}
-      <div className="flex items-center justify-between gap-2 px-2.5 pb-2 pt-1 border-t border-border">
+      <div className="flex items-center justify-between gap-2 px-2.5 pb-2 pt-1">
         <div className="flex items-center gap-1.5 flex-wrap">
           {/* Tools dropdown */}
           {workMode === 'normal' && (

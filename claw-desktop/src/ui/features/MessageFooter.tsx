@@ -28,7 +28,7 @@ export function MessageFooter({ content, modelName, className }: MessageFooterPr
     <div className={cn('flex items-center justify-between gap-2 mt-3 pt-2 border-t border-border/40', className)}>
       <div className="flex items-center gap-2">
         {modelName && (
-          <Badge variant="secondary" className="text-[10px] sm:text-xs font-normal opacity-60">
+          <Badge variant="secondary" className="text-[10px] font-normal opacity-60">
             {modelName}
           </Badge>
         )}

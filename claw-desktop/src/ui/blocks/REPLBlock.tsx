@@ -17,8 +17,8 @@ import './xterm-custom.css';
 
 interface REPLBlockProps {
   code: string;
-  language?: string; // Add language param
-  toolInput?: string; // Add to parse timeout
+  language?: string;
+  toolInput?: string;
   isError?: boolean;
   isPending?: boolean;
   isCancelled?: boolean;
@@ -61,17 +61,16 @@ export function REPLBlock({
   useEffect(() => {
     if (!terminalRef.current || xtermRef.current) return;
 
-    // Get theme colors from CSS variables
     const isDark = document.documentElement.classList.contains('dark');
     
     const term = new Terminal({
       cursorBlink: false,
-      fontSize: 13,
+      fontSize: 12,
       fontFamily: 'Consolas, "Courier New", monospace',
       theme: {
-        background: 'transparent', // Use CSS background
+        background: 'transparent',
         foreground: isDark ? '#e5e5e5' : '#262626',
-        cursor: isDark ? '#60a5fa' : '#3b82f6', // blue-400/500
+        cursor: isDark ? '#60a5fa' : '#3b82f6',
         cursorAccent: isDark ? '#1e293b' : '#f8fafc',
         black: isDark ? '#1a1a1a' : '#525252',
         red: '#ef4444',
@@ -90,7 +89,7 @@ export function REPLBlock({
         brightCyan: '#22d3ee',
         brightWhite: isDark ? '#fafafa' : '#171717',
       },
-      rows: 15,
+      rows: 12,
       cols: 80,
       convertEol: true,
       scrollback: 1000,
@@ -118,12 +117,10 @@ export function REPLBlock({
     xtermRef.current = term;
     fitAddonRef.current = fitAddon;
 
-    // Restore historical output
     if (output) {
       term.write(output);
     }
 
-    // Handle user input (for interactive Python prompts)
     term.onData(async (data) => {
       if (!toolUseId) return;
       const { sendToolInput } = useChatStore.getState();
@@ -137,7 +134,6 @@ export function REPLBlock({
     };
   }, [toolUseId, output]);
 
-  // Resize on window resize
   useEffect(() => {
     const handleResize = () => {
       if (fitAddonRef.current) {
@@ -152,15 +148,15 @@ export function REPLBlock({
   if (isCancelled) {
     return (
       <div className="bg-muted/10 rounded-lg border border-border/30 w-full overflow-hidden">
-        <div className="flex items-center justify-between px-3 sm:px-4 py-2 sm:py-2.5 bg-muted/20 border-b border-border/30">
-          <div className="flex items-center gap-2 sm:gap-2.5">
-            <XCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-red-400" />
-            <Code className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground/70" />
-            <span className="text-xs sm:text-sm font-semibold text-foreground/90">{language.toUpperCase()} REPL</span>
+        <div className="flex items-center justify-between px-3 py-2 bg-muted/20 border-b border-border/30">
+          <div className="flex items-center gap-2">
+            <XCircle className="h-3.5 w-3.5 text-red-400" />
+            <Code className="h-3.5 w-3.5 text-muted-foreground/70" />
+            <span className="text-xs font-semibold text-foreground/90">{language.toUpperCase()} REPL</span>
           </div>
         </div>
-        <div className="px-3 sm:px-4 py-2.5 sm:py-3 bg-muted/5">
-          <p className="text-xs sm:text-sm text-red-400 font-mono">{t('terminal.stoppedByUser')}</p>
+        <div className="px-3 py-2 bg-muted/5">
+          <p className="text-xs text-red-400 font-mono">{t('terminal.stoppedByUser')}</p>
         </div>
       </div>
     );
@@ -169,24 +165,23 @@ export function REPLBlock({
   return (
     <div className="bg-muted/10 rounded-lg border border-border/30 w-full overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between px-3 sm:px-4 py-2 sm:py-2.5 bg-muted/20 border-b border-border/30">
-        <div className="flex items-center gap-2 sm:gap-2.5">
+      <div className="flex items-center justify-between px-3 py-2 bg-muted/20 border-b border-border/30">
+        <div className="flex items-center gap-2">
           <StatusIcon
             className={cn(
-              'h-3.5 w-3.5 sm:h-4 sm:w-4',
+              'h-3.5 w-3.5',
               isPending && 'animate-spin text-blue-400',
               isError && 'text-red-400',
               !isPending && !isError && 'text-emerald-400'
             )}
           />
-          <Code className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground/70" />
-          <span className="text-xs sm:text-sm font-semibold text-foreground/90">{language.toUpperCase()} REPL</span>
+          <Code className="h-3.5 w-3.5 text-muted-foreground/70" />
+          <span className="text-xs font-semibold text-foreground/90">{language.toUpperCase()} REPL</span>
           
-          {/* Show timeout if specified */}
           {inputParams.timeout_ms && (
             <>
               <span className="text-muted-foreground/30">|</span>
-              <span className="text-[10px] sm:text-xs text-muted-foreground/60">timeout: {inputParams.timeout_ms}ms</span>
+              <span className="text-[10px] text-muted-foreground/60">timeout: {inputParams.timeout_ms}ms</span>
             </>
           )}
         </div>
@@ -196,17 +191,17 @@ export function REPLBlock({
       <div className="border-b border-border/20">
         <button
           onClick={() => setIsCodeExpanded(!isCodeExpanded)}
-          className="w-full flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 bg-muted/5 hover:bg-muted/10 transition-colors text-left"
+          className="w-full flex items-center gap-1.5 px-3 py-1.5 bg-muted/5 hover:bg-muted/10 transition-colors text-left"
         >
           {isCodeExpanded ? (
-            <ChevronDown className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground/70" />
+            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground/70" />
           ) : (
-            <ChevronRight className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground/70" />
+            <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/70" />
           )}
-          <span className="text-[10px] sm:text-xs text-muted-foreground/80 font-mono">
+          <span className="text-[10px] text-muted-foreground/80 font-mono">
             {isCodeExpanded ? t('repl.hideCode') : t('repl.showCode')}
           </span>
-          <span className="text-[10px] sm:text-xs text-muted-foreground/50">({code.split('\n').length} {t('repl.lines')})</span>
+          <span className="text-[10px] text-muted-foreground/50">({code.split('\n').length} {t('repl.lines')})</span>
         </button>
         
         {isCodeExpanded && (
@@ -219,13 +214,13 @@ export function REPLBlock({
                 margin: 0,
                 borderRadius: 0,
                 background: 'transparent',
-                padding: '1rem 1.25rem',
+                padding: '0.75rem 0.875rem',
               }}
               codeTagProps={{
                 style: {
                   fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace',
-                  fontSize: '0.8125rem',
-                  lineHeight: '1.7',
+                  fontSize: '0.6875rem',
+                  lineHeight: '1.5',
                 },
               }}
             >
@@ -242,14 +237,14 @@ export function REPLBlock({
             <div 
               ref={terminalRef}
               className="w-full xterm-container"
-              style={{ height: '300px', maxHeight: '500px' }}
+              style={{ height: '250px', maxHeight: '400px' }}
             />
             
             <button
               onClick={() => setIsOutputExpanded(false)}
-              className="w-full px-3 sm:px-4 py-1.5 sm:py-2 text-[10px] sm:text-xs text-muted-foreground/60 hover:text-muted-foreground hover:bg-muted/20 text-center border-t border-border/10 transition-colors cursor-pointer flex items-center justify-center gap-1.5 sm:gap-2"
+              className="w-full px-3 py-1.5 text-[10px] text-muted-foreground/60 hover:text-muted-foreground hover:bg-muted/20 text-center border-t border-border/10 transition-colors cursor-pointer flex items-center justify-center gap-1.5"
             >
-              <ChevronUp className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+              <ChevronUp className="h-3 w-3" />
               <span>{t('terminal.clickToCollapse')}</span>
             </button>
           </>
@@ -258,9 +253,9 @@ export function REPLBlock({
         {!isOutputExpanded && (
           <button
             onClick={() => setIsOutputExpanded(true)}
-            className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-[10px] sm:text-xs text-muted-foreground/60 hover:text-muted-foreground hover:bg-muted/20 text-center border-t border-border/10 transition-colors cursor-pointer flex items-center justify-center gap-1.5 sm:gap-2"
+            className="w-full px-3 py-2 text-[10px] text-muted-foreground/60 hover:text-muted-foreground hover:bg-muted/20 text-center border-t border-border/10 transition-colors cursor-pointer flex items-center justify-center gap-1.5"
           >
-            <ChevronDown className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+            <ChevronDown className="h-3 w-3" />
             <span>{t('terminal.clickToExpand')}</span>
           </button>
         )}

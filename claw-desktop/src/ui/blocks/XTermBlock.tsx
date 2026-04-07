@@ -63,7 +63,6 @@ export function XTermBlock({
 
   const handleStop = async () => {
     if (toolUseId) {
-      // Can stop both pending and detached tools
       await cancelToolExecution(toolUseId);
     }
   };
@@ -80,7 +79,6 @@ export function XTermBlock({
       console.log('[XTermBlock] External terminal opened successfully');
     } catch (e) {
       console.error('[XTermBlock] Failed to open external terminal:', e);
-      // Show error to user
       alert(`Không thể mở terminal: ${e}`);
     }
   };
@@ -92,7 +90,7 @@ export function XTermBlock({
     
     const term = new Terminal({
       cursorBlink: true,
-      fontSize: 13,
+      fontSize: 12,
       fontFamily: 'Consolas, "Courier New", monospace',
       theme: {
         background: 'transparent',
@@ -116,7 +114,7 @@ export function XTermBlock({
         brightCyan: '#22d3ee',
         brightWhite: isDark ? '#fafafa' : '#171717',
       },
-      rows: 24,
+      rows: 20,
       cols: 80,
       convertEol: true,
       scrollback: 1000,
@@ -178,16 +176,16 @@ export function XTermBlock({
     
     return (
       <div className="bg-muted/10 rounded-lg border border-border/30 w-full overflow-hidden">
-        <div className="flex items-center justify-between px-3 sm:px-4 py-2 sm:py-2.5 bg-muted/20 border-b border-border/30">
-          <div className="flex items-center gap-2 sm:gap-2.5">
-            <XCircle className={cn("h-3.5 w-3.5 sm:h-4 sm:w-4", statusColor)} />
-            <TerminalIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground/70" />
-            <span className="text-xs sm:text-sm font-semibold text-foreground/90">{toolName}</span>
+        <div className="flex items-center justify-between px-3 py-2 bg-muted/20 border-b border-border/30">
+          <div className="flex items-center gap-2">
+            <XCircle className={cn("h-3.5 w-3.5", statusColor)} />
+            <TerminalIcon className="h-3.5 w-3.5 text-muted-foreground/70" />
+            <span className="text-xs font-semibold text-foreground/90">{toolName}</span>
           </div>
-          <span className={cn("text-xs sm:text-sm", statusColor)}>{statusText}</span>
+          <span className={cn("text-xs", statusColor)}>{statusText}</span>
         </div>
-        <div className="px-3 sm:px-4 py-2.5 sm:py-3 bg-muted/5 font-mono text-xs sm:text-sm">
-          <div className="flex items-center gap-1.5 sm:gap-2">
+        <div className="px-3 py-2 bg-muted/5 font-mono text-xs">
+          <div className="flex items-center gap-1.5">
             <span className="text-emerald-400 select-none">{toolName === 'PowerShell' ? 'PS>' : '$'}</span>
             <pre className="flex-1 text-foreground/80 whitespace-pre-wrap break-all">{command}</pre>
           </div>
@@ -207,11 +205,11 @@ export function XTermBlock({
 
   return (
     <div className="bg-muted/10 rounded-lg border border-border/30 w-full overflow-hidden font-mono">
-      <div className="flex items-center justify-between px-3 sm:px-4 py-2 sm:py-2.5 bg-muted/20 border-b border-border/30">
-        <div className="flex items-center gap-2 sm:gap-2.5 min-w-0 flex-1">
+      <div className="flex items-center justify-between px-3 py-2 bg-muted/20 border-b border-border/30">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
           <StatusIcon
             className={cn(
-              'h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0',
+              'h-3.5 w-3.5 shrink-0',
               isPending && 'animate-spin text-blue-400',
               isDetached && 'animate-pulse text-yellow-400',
               isCancelled && 'text-orange-400',
@@ -220,90 +218,76 @@ export function XTermBlock({
               !isPending && !isError && !isDetached && !isCancelled && !isTimedOut && 'text-emerald-400'
             )}
           />
-          <TerminalIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground/70 shrink-0" />
-          <span className="text-xs sm:text-sm font-semibold text-foreground/90">{toolName}</span>
+          <TerminalIcon className="h-3.5 w-3.5 text-muted-foreground/70 shrink-0" />
+          <span className="text-xs font-semibold text-foreground/90">{toolName}</span>
           
           {isDetached && (
             <>
               <span className="text-muted-foreground/30">|</span>
-              <span className="text-[10px] sm:text-xs text-yellow-400">{t('terminal.detached')}</span>
+              <span className="text-[10px] text-yellow-400">{t('terminal.detached')}</span>
             </>
           )}
           
           {isCancelled && (
             <>
               <span className="text-muted-foreground/30">|</span>
-              <span className="text-[10px] sm:text-xs text-orange-400 font-medium">{t('terminal.cancelled')}</span>
+              <span className="text-[10px] text-orange-400 font-medium">{t('terminal.cancelled')}</span>
             </>
           )}
           
           {isTimedOut && (
             <>
               <span className="text-muted-foreground/30">|</span>
-              <span className="text-[10px] sm:text-xs text-orange-400 font-medium">{t('terminal.timedOut')}</span>
+              <span className="text-[10px] text-orange-400 font-medium">{t('terminal.timedOut')}</span>
             </>
           )}
           
           {inputParams.timeout && (
             <>
-              <span className="text-muted-foreground/30 hidden sm:inline">|</span>
-              <span className="text-[10px] sm:text-xs text-muted-foreground/60 hidden sm:inline">
+              <span className="text-muted-foreground/30">|</span>
+              <span className="text-[10px] text-muted-foreground/60">
                 {t('terminal.timeout')}: {Math.round(inputParams.timeout / 1000)}{t('terminal.seconds')}
-              </span>
-            </>
-          )}
-          
-          {inputParams.description && (
-            <>
-              <span className="text-muted-foreground/30 hidden lg:inline">|</span>
-              <span className="text-[10px] sm:text-xs text-muted-foreground/60 truncate max-w-[150px] sm:max-w-xs hidden lg:inline">
-                {inputParams.description}
               </span>
             </>
           )}
         </div>
         
-        {/* Show buttons if:
-            1. Tool is pending (not detached yet) - show both Detach and Stop
-            2. Tool is detached - show only Stop (can kill detached process)
-            3. Tool is detached AND AI still generating - show Stop
-        */}
         {toolUseId && (isPending || (isDetached && isGenerating)) && (
-          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+          <div className="flex items-center gap-1 shrink-0">
             {isPending && !isDetached && (
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={handleDetach}
-                className="h-6 sm:h-7 px-1.5 sm:px-2 text-[10px] sm:text-xs text-yellow-400 hover:text-yellow-300 hover:bg-yellow-950/30"
+                className="h-6 px-1.5 text-[10px] text-yellow-400 hover:text-yellow-300 hover:bg-yellow-950/30"
               >
-                <StopCircle className="h-3 w-3 sm:h-3.5 sm:w-3.5 sm:mr-1" />
-                <span className="hidden sm:inline">{t('terminal.detach')}</span>
+                <StopCircle className="h-3 w-3 mr-1" />
+                <span>{t('terminal.detach')}</span>
               </Button>
             )}
             <Button
               variant="ghost"
               size="sm"
               onClick={handleStop}
-              className="h-6 sm:h-7 px-1.5 sm:px-2 text-[10px] sm:text-xs text-red-400 hover:text-red-300 hover:bg-red-950/30"
+              className="h-6 px-1.5 text-[10px] text-red-400 hover:text-red-300 hover:bg-red-950/30"
             >
-              <StopCircle className="h-3 w-3 sm:h-3.5 sm:w-3.5 sm:mr-1" />
-              <span className="hidden sm:inline">{t('terminal.stop')}</span>
+              <StopCircle className="h-3 w-3 mr-1" />
+              <span>{t('terminal.stop')}</span>
             </Button>
           </div>
         )}
       </div>
 
-      <div className="px-3 sm:px-4 py-2 sm:py-2.5 bg-muted/5 border-b border-border/20">
-        <div className="flex items-center gap-1.5 sm:gap-2">
-          <span className="text-emerald-400 select-none shrink-0 text-xs sm:text-sm">{getShellPrompt()}</span>
-          <pre className="flex-1 text-foreground/80 text-xs sm:text-sm whitespace-pre-wrap break-all">{command}</pre>
+      <div className="px-3 py-2 bg-muted/5 border-b border-border/20">
+        <div className="flex items-center gap-1.5">
+          <span className="text-emerald-400 select-none shrink-0 text-xs">{getShellPrompt()}</span>
+          <pre className="flex-1 text-foreground/80 text-xs whitespace-pre-wrap break-all">{command}</pre>
           <button
             onClick={handleOpenInTerminal}
             className="shrink-0 p-1 text-muted-foreground/60 hover:text-muted-foreground hover:bg-muted/20 rounded transition-colors"
             title={t('terminal.openInTerminal')}
           >
-            <ExternalLink className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+            <ExternalLink className="h-3.5 w-3.5" />
           </button>
         </div>
       </div>
@@ -313,14 +297,14 @@ export function XTermBlock({
           <div 
             ref={terminalRef}
             className="w-full xterm-container"
-            style={{ height: '300px', maxHeight: '500px' }}
+            style={{ height: '250px', maxHeight: '400px' }}
           />
           
           <button
             onClick={() => setIsExpanded(false)}
-            className="w-full px-3 sm:px-4 py-1.5 sm:py-2 text-[10px] sm:text-xs text-muted-foreground/60 hover:text-muted-foreground hover:bg-muted/20 text-center border-t border-border/10 transition-colors cursor-pointer flex items-center justify-center gap-1.5 sm:gap-2"
+            className="w-full px-3 py-1.5 text-[10px] text-muted-foreground/60 hover:text-muted-foreground hover:bg-muted/20 text-center border-t border-border/10 transition-colors cursor-pointer flex items-center justify-center gap-1.5"
           >
-            <ChevronUp className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+            <ChevronUp className="h-3 w-3" />
             <span>{t('terminal.clickToCollapse')}</span>
           </button>
         </>
@@ -329,9 +313,9 @@ export function XTermBlock({
       {!isExpanded && (
         <button
           onClick={() => setIsExpanded(true)}
-          className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-[10px] sm:text-xs text-muted-foreground/60 hover:text-muted-foreground hover:bg-muted/20 text-center border-t border-border/10 transition-colors cursor-pointer flex items-center justify-center gap-1.5 sm:gap-2"
+          className="w-full px-3 py-2 text-[10px] text-muted-foreground/60 hover:text-muted-foreground hover:bg-muted/20 text-center border-t border-border/10 transition-colors cursor-pointer flex items-center justify-center gap-1.5"
         >
-          <ChevronDown className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+          <ChevronDown className="h-3 w-3" />
           <span>{t('terminal.clickToExpand')}</span>
         </button>
       )}

@@ -92,9 +92,9 @@ export function KiloModelsBrowser({ models, existingModels, onAddModel, isOpen, 
   return (
     <div className="mb-4 rounded-lg border border-primary/30 bg-primary/5">
       {/* Header */}
-      <div className="flex items-center justify-between p-3 sm:p-4 border-b border-primary/20">
+      <div className="flex items-center justify-between p-3 border-b border-primary/20">
         <div className="flex items-center gap-2">
-          <h4 className="text-xs sm:text-sm font-semibold">
+          <h4 className="text-xs font-semibold">
             {t('kiloModelsBrowser.title')}
           </h4>
           <span className="text-xs text-muted-foreground">
@@ -110,7 +110,7 @@ export function KiloModelsBrowser({ models, existingModels, onAddModel, isOpen, 
       </div>
 
       {/* Search and Filters */}
-      <div className="p-3 sm:p-4 space-y-2.5 border-b border-primary/10">
+      <div className="p-3 space-y-2.5 border-b border-primary/10">
         {/* Search */}
         <div className="relative">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
@@ -118,7 +118,7 @@ export function KiloModelsBrowser({ models, existingModels, onAddModel, isOpen, 
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder={t('kiloModelsBrowser.searchPlaceholder')}
-            className="h-8 sm:h-9 text-xs sm:text-sm pl-8"
+            className="h-8 text-xs pl-8"
           />
         </div>
         
@@ -224,9 +224,9 @@ export function KiloModelsBrowser({ models, existingModels, onAddModel, isOpen, 
       </div>
 
       {/* Models List */}
-      <div className="p-2 sm:p-3 space-y-1.5 max-h-96 overflow-y-auto">
+      <div className="p-2 space-y-1.5 max-h-96 overflow-y-auto">
         {filteredModels.length === 0 ? (
-          <div className="text-center py-8 text-xs sm:text-sm text-muted-foreground">
+          <div className="text-center py-8 text-xs text-muted-foreground">
             {t('kiloModelsBrowser.noModelsFound')}
           </div>
         ) : (
@@ -235,11 +235,11 @@ export function KiloModelsBrowser({ models, existingModels, onAddModel, isOpen, 
             return (
               <div
                 key={model.id}
-                className="flex items-start gap-2 p-2 sm:p-2.5 rounded-md border border-border hover:bg-muted/50 transition-colors"
+                className="flex items-start gap-2 p-2 rounded-md border border-border hover:bg-muted/50 transition-colors"
               >
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-0.5">
-                    <p className="font-medium text-xs sm:text-sm truncate">{model.name}</p>
+                    <p className="font-medium text-xs truncate">{model.name}</p>
                     {model.isFree && (
                       <span className="shrink-0 px-1.5 py-0.5 text-[10px] font-medium rounded bg-green-100 dark:bg-green-950/30 text-green-700 dark:text-green-400 border border-green-300 dark:border-green-800">
                         FREE

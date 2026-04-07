@@ -28,7 +28,7 @@ export function ConfirmDeleteDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent showCloseButton={false} className="sm:max-w-[380px] p-0 gap-0 overflow-hidden bg-card border-border shadow-xl">
+      <DialogContent showCloseButton={false} className="max-w-[380px] p-0 gap-0 overflow-hidden bg-card border-border shadow-xl">
         {/* Body */}
         <div className="p-5">
           <DialogHeader className="text-left gap-1.5">
