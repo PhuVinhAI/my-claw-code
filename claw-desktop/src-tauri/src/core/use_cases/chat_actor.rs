@@ -270,23 +270,15 @@ impl ChatSessionActor {
             "🎯 TURN_START (turn_id from frontend)"
         );
         
-        // Check if cancel flag is still set from previous turn
-        let flag_before = self.cancel_flag.load(std::sync::atomic::Ordering::Relaxed);
-        if flag_before {
-            tracing::warn!(
-                turn_id = %turn_id,
-                "Cancel flag still set at turn start - resetting"
-            );
-        }
-        
-        // Reset cancel flag at the START of new prompt
-        // Cancel command is now synchronous, so this is safe
+        // CRITICAL: Reset cancel flag at the START of new turn
+        // This prevents race condition where previous cancel affects new turn
         self.cancel_flag.store(false, std::sync::atomic::Ordering::Relaxed);
+        tracing::debug!("Cancel flag reset at turn start");
         
-        tracing::debug!(
-            turn_id = %turn_id,
-            "Cancel flag reset, starting new turn"
-        );
+        // CRITICAL: Drain cancel channel to remove any stale cancel signals
+        // This prevents tools in new turn from being cancelled by old signals
+        self.runtime.tool_executor_mut().drain_cancel_channel();
+        tracing::debug!("Cancel channel drained at turn start");
         
         // Set turn_id in API client and tool executor for event emission
         self.runtime.api_client_mut().set_turn_id(turn_id.clone());
@@ -445,7 +437,8 @@ impl ChatSessionActor {
         });
 
         // Check if cancelled during execution
-        if self.cancel_flag.load(std::sync::atomic::Ordering::Relaxed) {
+        let was_cancelled = self.cancel_flag.load(std::sync::atomic::Ordering::Relaxed);
+        if was_cancelled {
             tracing::warn!(turn_id = %turn_id, "🛑 TURN_CANCELLED");
             
             // Emit MessageStop to notify frontend
@@ -455,11 +448,12 @@ impl ChatSessionActor {
                 },
             );
             
-            // Return cancelled error
+            // Return cancelled error (but DON'T remove user message - it's valid input)
             return Err(RuntimeError::new("Operation cancelled by user"));
         }
 
-        // If error occurred, remove last user message from session
+        // If error occurred (NOT cancel), remove last user message from session
+        // Cancel is not an error - user message should stay in history
         if summary.is_err() {
             eprintln!("[ACTOR] Error occurred, removing last user message from session");
             let session = self.runtime.session();
@@ -747,6 +741,11 @@ impl ChatSessionActor {
         if !flag_value {
             tracing::warn!("Cancel command received but flag not set - this shouldn't happen");
         }
+        
+        // CRITICAL: Reset cancel flag IMMEDIATELY after cancel is processed
+        // This prevents race condition where next turn's tools get cancelled by mistake
+        self.cancel_flag.store(false, std::sync::atomic::Ordering::Relaxed);
+        tracing::debug!("Cancel flag reset immediately after cancel processed");
         
         // Generate a cancel turn_id (không phải turn thật, chỉ để mark cancelled events)
         let cancel_turn_id = format!("cancel-{}", uuid::Uuid::new_v4());

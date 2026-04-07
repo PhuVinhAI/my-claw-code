@@ -2,6 +2,7 @@
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
 use tokio::sync::mpsc;
+use tokio::sync::Notify;
 use crossbeam_channel::Sender;
 
 use crate::adapters::outbound::tauri_prompter::PermissionState;
@@ -23,6 +24,7 @@ pub struct AppState {
     pub settings_manager: Arc<SettingsManager>,
     pub pty_executor: Arc<PtyExecutor>, // For cancelling specific PTY tools
     pub prompt_registry: Arc<PromptRegistry>, // For PromptUser tool
+    pub cleanup_complete: Arc<Notify>, // Event-driven notification when cleanup completes
 }
 
 impl AppState {
@@ -47,6 +49,7 @@ impl AppState {
             settings_manager,
             pty_executor,
             prompt_registry,
+            cleanup_complete: Arc::new(Notify::new()),
         }
     }
 }

@@ -68,6 +68,21 @@ impl TauriToolExecutor {
         current.clone()
     }
     
+    /// Drain cancel channel to remove stale cancel signals
+    /// MUST be called at the start of each new turn to prevent race conditions
+    pub fn drain_cancel_channel(&self) {
+        let mut drained_count = 0;
+        while self.cancel_rx.try_recv().is_ok() {
+            drained_count += 1;
+        }
+        if drained_count > 0 {
+            tracing::debug!(
+                drained_count = drained_count,
+                "Drained stale cancel signals from channel"
+            );
+        }
+    }
+    
     /// Get PTY executor for cancelling specific tools
     pub fn get_pty_executor(&self) -> Arc<PtyExecutor> {
         self.pty_executor.clone()

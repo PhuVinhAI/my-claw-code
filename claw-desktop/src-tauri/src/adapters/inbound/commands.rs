@@ -7,13 +7,28 @@ use crate::core::use_cases::chat_actor::ActorCommand;
 use crate::setup::app_state::AppState;
 
 /// Send prompt command - Non-blocking (fire and forget)
+/// If cancel cleanup is in progress, waits for cleanup event before proceeding
 #[tauri::command]
 pub async fn send_prompt(text: String, turn_id: String, state: State<'_, AppState>) -> Result<(), String> {
     tracing::info!(text_len = text.len(), turn_id = %turn_id, "send_prompt command called");
     tracing::debug!(text_preview = %text.chars().take(100).collect::<String>(), "Prompt text preview");
     
-    // DON'T reset cancel_flag here - Actor will reset it when starting new prompt
-    // This prevents race condition where cancel_flag is reset before Actor checks it
+    // Wait if cancel cleanup is in progress (event-driven, no polling)
+    // Check cancel_flag to see if cleanup is happening
+    if state.cancel_flag.load(Ordering::Relaxed) {
+        tracing::info!("Cancel in progress, waiting for cleanup event before sending new prompt");
+        
+        // Wait for cleanup_complete notification with timeout (max 3 seconds)
+        let cleanup_notifier = state.cleanup_complete.clone();
+        tokio::select! {
+            _ = cleanup_notifier.notified() => {
+                tracing::info!("Cleanup completed, proceeding with prompt");
+            }
+            _ = tokio::time::sleep(tokio::time::Duration::from_secs(3)) => {
+                tracing::warn!("Cleanup timeout after 3s, proceeding anyway");
+            }
+        }
+    }
     
     // Spawn task để không block UI
     let actor_tx = state.actor_tx.clone();
@@ -125,9 +140,10 @@ pub async fn get_session(state: State<'_, AppState>) -> Result<crate::core::doma
 }
 
 /// Dừng quá trình tạo phản hồi của AI
+/// Returns IMMEDIATELY for instant UI feedback, cleanup happens in background
 #[tauri::command]
 pub async fn cancel_prompt(state: State<'_, AppState>) -> Result<(), String> {
-    tracing::info!("cancel_prompt command called - cancelling all operations");
+    tracing::info!("cancel_prompt command called - instant cancel, cleanup in background");
     
     // Set global cancel flag FIRST (tools check this immediately)
     state.cancel_flag.store(true, Ordering::Relaxed);
@@ -135,7 +151,7 @@ pub async fn cancel_prompt(state: State<'_, AppState>) -> Result<(), String> {
     // Send cancel event to tool executor
     let _ = state.cancel_tx.send(());
     
-    // Cancel ALL running PTY processes
+    // Cancel ALL running PTY processes (non-blocking)
     let running_tools = state.pty_executor.get_running_tools();
     tracing::info!(tool_count = running_tools.len(), "Cancelling running tools");
     
@@ -145,23 +161,39 @@ pub async fn cancel_prompt(state: State<'_, AppState>) -> Result<(), String> {
         }
     }
     
-    // Send Cancel command to Actor and WAIT for confirmation
-    // This ensures Cancel is fully processed BEFORE any subsequent Prompt command
-    let (tx, rx) = oneshot::channel();
+    // Send Cancel command to Actor WITHOUT waiting for confirmation
+    // Actor will process cancel in background and emit MessageStop event
+    let actor_tx = state.actor_tx.clone();
+    let cleanup_notifier = state.cleanup_complete.clone();
+    tokio::spawn(async move {
+        let (tx, rx) = oneshot::channel();
+        
+        if let Err(e) = actor_tx.send(ActorCommand::Cancel { response_tx: tx }).await {
+            tracing::error!(error = %e, "Failed to send Cancel to actor");
+            // Notify anyway so waiting prompts don't hang
+            cleanup_notifier.notify_waiters();
+            return;
+        }
+        
+        tracing::debug!("Cancel command sent to actor, waiting for background cleanup");
+        
+        // Wait for cleanup in background (doesn't block UI)
+        match rx.await {
+            Ok(()) => {
+                tracing::info!("Cancel cleanup completed in background");
+                // Notify all waiting prompts that cleanup is done
+                cleanup_notifier.notify_waiters();
+            }
+            Err(e) => {
+                tracing::error!(error = %e, "Failed to receive cancel confirmation");
+                // Notify anyway so waiting prompts don't hang
+                cleanup_notifier.notify_waiters();
+            }
+        }
+    });
     
-    state
-        .actor_tx
-        .send(ActorCommand::Cancel { response_tx: tx })
-        .await
-        .map_err(|e| format!("Failed to send Cancel to actor: {}", e))?;
-    
-    tracing::info!("Cancel command sent to actor, waiting for confirmation");
-    
-    // Wait for Actor to confirm cancel processed
-    rx.await
-        .map_err(|e| format!("Failed to receive cancel confirmation: {}", e))?;
-    
-    tracing::info!("Cancel command confirmed by actor");
+    // Return immediately for instant UI feedback
+    tracing::info!("cancel_prompt returning immediately (cleanup in background)");
     Ok(())
 }
 
