@@ -135,7 +135,9 @@
     "write": "Tạo file",
     "edit": "Sửa file",
     "stopped": "Đã dừng",
-    "error": "Lỗi"
+    "error": "Lỗi",
+    "showDiff": "Xem thay đổi",
+    "hideDiff": "Ẩn thay đổi"
   },
   "webSearch": {
     "search": "Tìm kiếm web",

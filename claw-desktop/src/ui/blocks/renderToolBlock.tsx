@@ -103,6 +103,7 @@ export function renderToolBlock({ toolUseBlock, toolResultBlock, detachedTools }
         toolName={toolName as 'read_file' | 'write_file' | 'edit_file'}
         filePath={parsedInput.path || parsedInput.file_path || 'unknown'}
         toolInput={toolInput}
+        toolOutput={toolOutput}
         isError={isError}
         isPending={isPending}
         isCancelled={isCancelledState}

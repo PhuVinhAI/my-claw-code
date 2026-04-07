@@ -135,7 +135,9 @@
     "write": "Create file",
     "edit": "Edit file",
     "stopped": "Stopped",
-    "error": "Error"
+    "error": "Error",
+    "showDiff": "Show changes",
+    "hideDiff": "Hide changes"
   },
   "webSearch": {
     "search": "Web search",
