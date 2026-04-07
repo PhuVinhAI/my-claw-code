@@ -11,6 +11,28 @@ pub use setup::di_container::initialize_app;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // WINDOWS FIX: Allocate hidden console to prevent ConPTY from creating visible windows
+    // When app runs with windows_subsystem="windows", it has no console. ConPTY requires
+    // a console host, so it creates visible console windows that flicker on screen.
+    // Solution: Allocate a hidden console once at startup. All ConPTY instances will
+    // use this hidden console instead of creating new visible ones.
+    #[cfg(target_os = "windows")]
+    {
+        use windows::Win32::System::Console::{AllocConsole, GetConsoleWindow};
+        use windows::Win32::UI::WindowsAndMessaging::{ShowWindow, SW_HIDE};
+        
+        unsafe {
+            // Allocate console if we don't have one
+            let _ = AllocConsole();
+            
+            // Hide the console window immediately
+            let console_window = GetConsoleWindow();
+            if !console_window.is_invalid() {
+                ShowWindow(console_window, SW_HIDE);
+            }
+        }
+    }
+    
     // Initialize logging FIRST - Returns session metadata
     let session_metadata = match setup::logging::init_logging() {
         Ok(metadata) => {

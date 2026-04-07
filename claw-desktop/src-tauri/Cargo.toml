@@ -54,4 +54,8 @@ tools = { path = "../../rust/crates/tools" }
 commands = { path = "../../rust/crates/commands" }
 plugins = { path = "../../rust/crates/plugins" }
 
+# Windows API for console management (hide console window)
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.58", features = ["Win32_System_Console", "Win32_UI_WindowsAndMessaging", "Win32_Foundation"] }
+
 

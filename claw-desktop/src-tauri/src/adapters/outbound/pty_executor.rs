@@ -160,6 +160,9 @@ impl PtyExecutor {
         // Spawn command in PTY
         let mut cmd = if cfg!(target_os = "windows") {
             // Use PowerShell for consistency with bash runtime
+            // Note: Console window flickering is prevented by allocating a hidden console
+            // at app startup (see lib.rs). ConPTY will use that hidden console instead
+            // of creating new visible windows.
             let mut c = CommandBuilder::new("powershell");
             c.arg("-NoProfile");
             c.arg("-NonInteractive");
