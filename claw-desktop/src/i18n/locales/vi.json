@@ -325,5 +325,15 @@
     "error": "Lỗi",
     "hideResults": "Ẩn kết quả",
     "showResults": "Xem kết quả"
+  },
+  "question": {
+    "title": "Câu hỏi",
+    "waiting": "Đang chờ trả lời…",
+    "cancelled": "Đã hủy",
+    "error": "Lỗi",
+    "answered": "Đã trả lời",
+    "yourAnswer": "Câu trả lời của bạn",
+    "placeholder": "Nhập câu trả lời...",
+    "submit": "Gửi câu trả lời"
   }
 }

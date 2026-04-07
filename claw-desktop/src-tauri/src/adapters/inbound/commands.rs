@@ -902,3 +902,19 @@ pub async fn test_antigravity_connection(base_url: String) -> Result<String, Str
         }
     }
 }
+
+/// Submit answer for PromptUser tool
+#[tauri::command]
+pub async fn submit_prompt_answer(
+    tool_use_id: String,
+    answer: String,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    tracing::info!(tool_use_id = %tool_use_id, answer_len = answer.len(), "submit_prompt_answer command called");
+    
+    // Submit answer to prompt registry
+    state.prompt_registry.submit_answer(&tool_use_id, answer)?;
+    
+    tracing::info!(tool_use_id = %tool_use_id, "Answer submitted successfully");
+    Ok(())
+}

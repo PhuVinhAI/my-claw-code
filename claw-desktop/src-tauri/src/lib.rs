@@ -33,6 +33,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             send_prompt,
             answer_permission,
+            submit_prompt_answer,
             load_session,
             save_session,
             get_session,

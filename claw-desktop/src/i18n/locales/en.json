@@ -325,5 +325,15 @@
     "error": "Error",
     "hideResults": "Hide results",
     "showResults": "Show results"
+  },
+  "question": {
+    "title": "Question",
+    "waiting": "Waiting for answer…",
+    "cancelled": "Cancelled",
+    "error": "Error",
+    "answered": "Answered",
+    "yourAnswer": "Your answer",
+    "placeholder": "Type your answer here...",
+    "submit": "Submit Answer"
   }
 }

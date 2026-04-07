@@ -10,6 +10,7 @@ import { WebSearchBlock } from './WebSearchBlock';
 import { DelegationBlock } from './DelegationBlock';
 import { DirectoryListBlock } from './DirectoryListBlock';
 import { LSPBlock } from './LSPBlock';
+import { AskUserQuestionBlock } from './AskUserQuestionBlock';
 
 interface RenderToolBlockProps {
   toolUseBlock: ContentBlock;
@@ -181,6 +182,21 @@ export function renderToolBlock({ toolUseBlock, toolResultBlock, detachedTools }
         character={parsedInput.character}
         query={parsedInput.query}
         toolInput={toolInput}
+        output={toolOutput}
+        isError={isError}
+        isPending={isPending}
+        isCancelled={isCancelledState}
+      />
+    );
+  }
+
+  // AskUserQuestion / PromptUser - Interactive Q&A
+  if (toolName === 'AskUserQuestion' || toolName === 'PromptUser') {
+    return (
+      <AskUserQuestionBlock
+        question={parsedInput.question || 'Question'}
+        options={parsedInput.options}
+        toolUseId={toolUseId || undefined}
         output={toolOutput}
         isError={isError}
         isPending={isPending}

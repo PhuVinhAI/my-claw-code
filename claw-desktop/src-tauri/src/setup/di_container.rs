@@ -141,6 +141,9 @@ async fn initialize_app_async(app_handle: AppHandle) -> Result<AppState, String>
     let workspace_path = std::path::PathBuf::from(&settings.workspace_path);
     eprintln!("✓ Workspace path: {}", workspace_path.display());
 
+    // 6.6. Create PromptRegistry for PromptUser tool
+    let prompt_registry = Arc::new(crate::adapters::outbound::prompt_registry::PromptRegistry::new());
+
     // 7. Create Tool Executor
     let tool_executor = TauriToolExecutor::new(
         event_publisher.clone(),
@@ -148,6 +151,7 @@ async fn initialize_app_async(app_handle: AppHandle) -> Result<AppState, String>
         tool_stdin_rx,
         work_mode.clone(),
         workspace_path,
+        prompt_registry.clone(),
     );
 
     // 7.5. Get PTY executor reference for cancellation (before moving tool_executor)
@@ -243,5 +247,5 @@ async fn initialize_app_async(app_handle: AppHandle) -> Result<AppState, String>
     });
 
     // 16. Return AppState
-    Ok(AppState::new(tx, permission_state, cancel_flag, cancel_tx, tool_stdin_tx, settings_manager, pty_executor_for_cancel))
+    Ok(AppState::new(tx, permission_state, cancel_flag, cancel_tx, tool_stdin_tx, settings_manager, pty_executor_for_cancel, prompt_registry))
 }

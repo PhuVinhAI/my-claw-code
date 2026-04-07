@@ -9,6 +9,7 @@ use crossbeam_channel::{Receiver, Sender, bounded};
 use crate::core::use_cases::ports::IEventPublisher;
 use crate::core::domain::types::WorkMode;
 use super::pty_executor::PtyExecutor;
+use super::prompt_registry::PromptRegistry;
 
 pub struct TauriToolExecutor {
     registry: GlobalToolRegistry,
@@ -20,6 +21,7 @@ pub struct TauriToolExecutor {
     selected_tools: Arc<Mutex<Vec<String>>>, // Normal mode: user-selected tools
     event_publisher: Arc<dyn IEventPublisher>, // For emitting tool cancellation events
     current_turn_id: Arc<std::sync::Mutex<String>>, // Track current turn ID
+    prompt_registry: Arc<PromptRegistry>, // For PromptUser tool
 }
 
 impl TauriToolExecutor {
@@ -29,6 +31,7 @@ impl TauriToolExecutor {
         stdin_rx: crossbeam_channel::Receiver<(String, String)>,
         work_mode: Arc<Mutex<WorkMode>>,
         workspace_path: std::path::PathBuf,
+        prompt_registry: Arc<PromptRegistry>,
     ) -> Self {
         let (cancel_tx, cancel_rx) = bounded(1);
         let pty_executor = Arc::new(PtyExecutor::new(
@@ -47,6 +50,7 @@ impl TauriToolExecutor {
             selected_tools: Arc::new(Mutex::new(Vec::new())), // Mặc định: không có tools
             event_publisher,
             current_turn_id: Arc::new(std::sync::Mutex::new(String::new())),
+            prompt_registry,
         }
     }
     
@@ -174,6 +178,42 @@ impl ToolExecutor for TauriToolExecutor {
                 tracing::error!(error = %e, "Failed to parse tool input JSON");
                 ToolError::new(format!("Invalid tool input JSON: {}", e))
             })?;
+
+        // Special handling for PromptUser tool - interactive question/answer
+        if tool_name == "PromptUser" {
+            tracing::debug!("Using PromptRegistry for PromptUser");
+            let result = self.execute_prompt_user(&input_value, tool_use_id);
+            
+            let duration_ms = start_time.elapsed().as_millis() as u64;
+            
+            // Log for AI
+            log_tool_execution_for_ai(
+                tool_use_id,
+                tool_name,
+                input,
+                result.as_ref().ok().map(|s| s.as_str()),
+                result.is_err(),
+                Some(duration_ms)
+            );
+            
+            if result.is_ok() {
+                tracing::info!(
+                    tool_name = %tool_name,
+                    tool_use_id = %tool_use_id,
+                    duration_ms = duration_ms,
+                    "✅ TOOL_EXEC_SUCCESS"
+                );
+            } else {
+                tracing::error!(
+                    tool_name = %tool_name,
+                    tool_use_id = %tool_use_id,
+                    duration_ms = duration_ms,
+                    "❌ TOOL_EXEC_FAILED"
+                );
+            }
+            
+            return result;
+        }
 
         // Special handling for bash/PowerShell tools with PTY
         if tool_name == "bash" || tool_name == "PowerShell" {
@@ -357,6 +397,94 @@ impl TauriToolExecutor {
 
         serde_json::to_string(&bash_output)
             .map_err(|e| ToolError::new(format!("Failed to serialize output: {}", e)))
+    }
+    
+    fn execute_prompt_user(&self, input: &serde_json::Value, tool_use_id: &str) -> Result<String, ToolError> {
+        use serde_json::json;
+        
+        // Parse PromptUser input
+        #[derive(serde::Deserialize)]
+        struct PromptUserInput {
+            question: String,
+            #[serde(default)]
+            options: Option<Vec<String>>,
+        }
+        
+        let prompt_input: PromptUserInput = serde_json::from_value(input.clone())
+            .map_err(|e| ToolError::new(format!("Invalid PromptUser input: {}", e)))?;
+        
+        tracing::info!(
+            tool_use_id = %tool_use_id,
+            question = %prompt_input.question,
+            has_options = prompt_input.options.is_some(),
+            "PromptUser: Registering prompt and waiting for answer"
+        );
+        
+        // Register prompt and get receiver for answer
+        let answer_rx = self.prompt_registry.register_prompt(tool_use_id.to_string());
+        
+        // Emit event to UI with "pending" status so UI can show question
+        let turn_id = self.get_turn_id();
+        self.event_publisher.publish_stream_event(
+            crate::core::domain::types::StreamEvent::ToolResult {
+                tool_use_id: tool_use_id.to_string(),
+                output: serde_json::to_string(&json!({
+                    "question": prompt_input.question,
+                    "options": prompt_input.options,
+                    "status": "pending",
+                    "message": "Waiting for user response..."
+                })).unwrap_or_default(),
+                is_error: false,
+                is_cancelled: false,
+                is_timed_out: false,
+                turn_id: turn_id.clone(),
+            }
+        );
+        
+        // Wait for answer (blocking, but runs in separate thread via execute_with_context)
+        // Use select! to also listen for cancellation
+        crossbeam_channel::select! {
+            recv(answer_rx) -> result => {
+                match result {
+                    Ok(answer) => {
+                        tracing::info!(
+                            tool_use_id = %tool_use_id,
+                            answer_len = answer.len(),
+                            "PromptUser: Received answer from user"
+                        );
+                        
+                        // Return answer in expected format
+                        let output = json!({
+                            "question": prompt_input.question,
+                            "answer": answer,
+                            "status": "answered"
+                        });
+                        
+                        serde_json::to_string(&output)
+                            .map_err(|e| ToolError::new(format!("Failed to serialize output: {}", e)))
+                    }
+                    Err(e) => {
+                        tracing::error!(
+                            tool_use_id = %tool_use_id,
+                            error = %e,
+                            "PromptUser: Failed to receive answer"
+                        );
+                        Err(ToolError::new("Failed to receive answer from user".to_string()))
+                    }
+                }
+            }
+            recv(self.cancel_rx) -> _ => {
+                tracing::warn!(
+                    tool_use_id = %tool_use_id,
+                    "PromptUser: Cancelled by user"
+                );
+                
+                // Cleanup pending prompt
+                self.prompt_registry.cancel_prompt(tool_use_id);
+                
+                Err(ToolError::new("Prompt cancelled by user".to_string()))
+            }
+        }
     }
 }
 

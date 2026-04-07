@@ -74,6 +74,7 @@ const WORKSPACE_EXCLUDED_TOOLS: &[&str] = &[
     
     // User interaction
     "SendUserMessage",  // Direct user messaging - should be explicit
+    "AskUserQuestion",  // CLI-only tool using stdin/stdout - use PromptUser instead
     
     // MCP tools
     "MCP",              // MCP tool execution - specialized
@@ -1311,6 +1312,27 @@ pub fn mvp_tool_specs() -> Vec<ToolSpec> {
             }),
             required_permission: PermissionMode::DangerFullAccess,
         },
+        ToolSpec {
+            name: "PromptUser",
+            description: "Ask the user a question and wait for their answer. Supports both multiple choice (options) and free-form text input.",
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "question": { 
+                        "type": "string",
+                        "description": "The question to ask the user"
+                    },
+                    "options": { 
+                        "type": "array",
+                        "items": { "type": "string" },
+                        "description": "Optional list of choices for multiple choice questions. If omitted, user can provide free-form text."
+                    }
+                },
+                "required": ["question"],
+                "additionalProperties": false
+            }),
+            required_permission: PermissionMode::ReadOnly,
+        },
     ]
 }
 
@@ -1386,6 +1408,9 @@ fn execute_tool_with_enforcer(
         "PowerShell" => from_value::<PowerShellInput>(input).and_then(run_powershell),
         "AskUserQuestion" => {
             from_value::<AskUserQuestionInput>(input).and_then(run_ask_user_question)
+        }
+        "PromptUser" => {
+            from_value::<PromptUserInput>(input).and_then(run_prompt_user)
         }
         "TaskCreate" => from_value::<TaskCreateInput>(input).and_then(run_task_create),
         "RunTaskPacket" => from_value::<TaskPacket>(input).and_then(run_task_packet),
@@ -1485,6 +1510,19 @@ fn run_ask_user_question(input: AskUserQuestionInput) -> Result<String, String> 
         "question": input.question,
         "answer": answer,
         "status": "answered"
+    }))
+}
+
+// PromptUser - Desktop-friendly interactive question tool
+// Returns immediately with "pending" status, desktop UI will collect answer
+fn run_prompt_user(input: PromptUserInput) -> Result<String, String> {
+    // Return immediately with pending status
+    // Desktop will detect this and show UI for user to answer
+    to_pretty_json(json!({
+        "question": input.question,
+        "options": input.options,
+        "status": "pending",
+        "message": "Waiting for user response..."
     }))
 }
 
@@ -2363,6 +2401,13 @@ struct PowerShellInput {
 
 #[derive(Debug, Deserialize)]
 struct AskUserQuestionInput {
+    question: String,
+    #[serde(default)]
+    options: Option<Vec<String>>,
+}
+
+#[derive(Debug, Deserialize)]
+struct PromptUserInput {
     question: String,
     #[serde(default)]
     options: Option<Vec<String>>,

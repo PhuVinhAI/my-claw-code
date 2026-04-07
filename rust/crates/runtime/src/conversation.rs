@@ -432,7 +432,7 @@ where
                     PermissionOutcome::Allow => {
                         self.record_tool_started(iterations, &tool_name);
                         let (mut output, mut is_error) =
-                            match self.tool_executor.execute(&tool_name, &effective_input) {
+                            match self.tool_executor.execute_with_context(&tool_name, &effective_input, &tool_use_id) {
                                 Ok(output) => (output, false),
                                 Err(error) => (error.to_string(), true),
                             };
@@ -850,7 +850,7 @@ where
                     PermissionOutcome::Allow => {
                         self.record_tool_started(iterations, &tool_name);
                         let (mut output, mut is_error) =
-                            match self.tool_executor.execute(&tool_name, &effective_input) {
+                            match self.tool_executor.execute_with_context(&tool_name, &effective_input, &tool_use_id) {
                                 Ok(output) => (output, false),
                                 Err(error) => (error.to_string(), true),
                             };
