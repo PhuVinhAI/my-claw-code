@@ -4,7 +4,7 @@ import { useSettingsStore } from '../../store/useSettingsStore';
 import { Model } from '../../core/entities';
 import { Button } from '../../components/ui/button';
 import { invoke } from '@tauri-apps/api/core';
-import { Sparkles, ArrowRight, Check, ExternalLink, Server, AlertCircle, CheckCircle, Plus } from 'lucide-react';
+import { Sparkles, ArrowRight, Check, ExternalLink, Server, AlertCircle, CheckCircle } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
 interface OnboardingScreenProps {

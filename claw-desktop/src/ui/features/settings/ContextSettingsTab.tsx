@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useSettingsStore } from '../../../store/useSettingsStore';
 import { toast } from 'sonner';
 import { Slider } from '../../../components/ui/slider';
-import { Input } from '../../../components/ui/input';
+// import { Input } from '../../../components/ui/input';
 import { Button } from '../../../components/ui/button';
 import { Info, Save, Sparkles } from 'lucide-react';
 

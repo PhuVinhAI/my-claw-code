@@ -83,7 +83,7 @@ export function LSPBlock({
   line,
   character,
   query,
-  toolInput,
+  // toolInput,
   output,
   isError = false,
   isPending = false,
