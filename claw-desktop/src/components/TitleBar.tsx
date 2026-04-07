@@ -45,8 +45,13 @@ export function TitleBar() {
       {/* Draggable area - Left side with title */}
       <div 
         data-tauri-drag-region
-        className="flex-1 h-full flex items-center px-3"
+        className="flex-1 h-full flex items-center px-3 gap-2"
       >
+        <img 
+          src="/logo.png" 
+          alt="Claw Logo" 
+          className="w-5 h-5 object-contain"
+        />
         <span className="text-xs font-semibold text-foreground">Claw</span>
       </div>
 
