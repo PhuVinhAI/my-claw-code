@@ -2,7 +2,7 @@ use std::cmp::Reverse;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
-use std::time::Instant;
+use std::time::{Instant, SystemTime};
 
 use glob::Pattern;
 use regex::RegexBuilder;
@@ -14,6 +14,15 @@ const MAX_READ_SIZE: u64 = 10 * 1024 * 1024;
 
 /// Maximum file size that can be written (10 MB).
 const MAX_WRITE_SIZE: usize = 10 * 1024 * 1024;
+
+/// Maximum file size that can be edited (1 GB) - matches TypeScript implementation
+const MAX_EDIT_FILE_SIZE: u64 = 1024 * 1024 * 1024;
+
+/// Curly quote characters for normalization
+const LEFT_SINGLE_CURLY: char = '\u{2018}'; // '
+const RIGHT_SINGLE_CURLY: char = '\u{2019}'; // '
+const LEFT_DOUBLE_CURLY: char = '\u{201C}'; // "
+const RIGHT_DOUBLE_CURLY: char = '\u{201D}'; // "
 
 /// Check whether a file appears to contain binary content by examining
 /// the first chunk for NUL bytes.
@@ -114,6 +123,14 @@ pub struct EditFileOutput {
     pub replace_all: bool,
     #[serde(rename = "gitDiff")]
     pub git_diff: Option<serde_json::Value>,
+}
+
+/// Metadata for tracking file read state
+#[derive(Debug, Clone)]
+pub struct FileReadState {
+    pub content: String,
+    pub timestamp: SystemTime,
+    pub is_partial_view: bool,
 }
 
 /// Result of a glob-based filename search.
@@ -281,31 +298,111 @@ pub fn edit_file(
     new_string: &str,
     replace_all: bool,
 ) -> io::Result<EditFileOutput> {
+    edit_file_with_validation(path, old_string, new_string, replace_all, None)
+}
+
+/// Performs an in-file string replacement with optional read state validation.
+/// This prevents race conditions where the file is modified between read and write.
+pub fn edit_file_with_validation(
+    path: &str,
+    old_string: &str,
+    new_string: &str,
+    replace_all: bool,
+    last_read_state: Option<&FileReadState>,
+) -> io::Result<EditFileOutput> {
     let absolute_path = normalize_path(path)?;
+    
+    // Check file size before reading (prevent OOM on multi-GB files)
+    let metadata = fs::metadata(&absolute_path)?;
+    if metadata.len() > MAX_EDIT_FILE_SIZE {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            format!(
+                "File is too large to edit ({} bytes). Maximum editable file size is {} bytes.",
+                metadata.len(),
+                MAX_EDIT_FILE_SIZE
+            ),
+        ));
+    }
+    
     let original_file = fs::read_to_string(&absolute_path)?;
+    
+    // Validate file hasn't been modified since last read
+    if let Some(read_state) = last_read_state {
+        let current_modified = metadata.modified()?;
+        if current_modified > read_state.timestamp {
+            // On Windows, timestamps can change without content changes
+            // Compare content as fallback to avoid false positives
+            if !read_state.is_partial_view && original_file == read_state.content {
+                // Content unchanged, safe to proceed
+            } else {
+                return Err(io::Error::new(
+                    io::ErrorKind::Other,
+                    "File has been modified since read, either by the user or by a linter. Read it again before attempting to write it.",
+                ));
+            }
+        }
+    }
+    
     if old_string == new_string {
         return Err(io::Error::new(
             io::ErrorKind::InvalidInput,
-            "old_string and new_string must differ",
+            "No changes to make: old_string and new_string are exactly the same.",
         ));
     }
-    if !original_file.contains(old_string) {
+    
+    // Normalize quotes in old_string to handle curly quotes
+    let normalized_old = normalize_quotes(old_string);
+    
+    // Try to find the actual string in file (handles quote normalization)
+    let actual_old_string = find_actual_string(&original_file, old_string)
+        .unwrap_or(old_string);
+    
+    if !original_file.contains(&actual_old_string) {
+        // Provide helpful error with suggestions
+        let suggestion = find_similar_string(&original_file, &actual_old_string);
+        let mut error_msg = format!("String to replace not found in file.\nString: {}", old_string);
+        if let Some(similar) = suggestion {
+            error_msg.push_str(&format!("\n\nDid you mean:\n{}", similar));
+        }
+        return Err(io::Error::new(io::ErrorKind::NotFound, error_msg));
+    }
+    
+    // Check for multiple occurrences
+    let match_count = original_file.matches(&actual_old_string).count();
+    if match_count > 1 && !replace_all {
         return Err(io::Error::new(
-            io::ErrorKind::NotFound,
-            "old_string not found in file",
+            io::ErrorKind::InvalidInput,
+            format!(
+                "Found {} matches of the string to replace, but replace_all is false. \
+                To replace all occurrences, set replace_all to true. \
+                To replace only one occurrence, please provide more context to uniquely identify the instance.\nString: {}",
+                match_count, old_string
+            ),
         ));
     }
+    
+    // Preserve curly quotes in new_string when file uses them
+    let actual_new_string = preserve_quote_style(old_string, &actual_old_string, new_string);
+    
+    // Strip trailing whitespace from new_string (except for Markdown files)
+    let final_new_string = if should_strip_trailing_whitespace(path) {
+        strip_trailing_whitespace(&actual_new_string)
+    } else {
+        actual_new_string
+    };
 
     let updated = if replace_all {
-        original_file.replace(old_string, new_string)
+        original_file.replace(&actual_old_string, &final_new_string)
     } else {
-        original_file.replacen(old_string, new_string, 1)
+        original_file.replacen(&actual_old_string, &final_new_string, 1)
     };
+    
     fs::write(&absolute_path, &updated)?;
 
     Ok(EditFileOutput {
         file_path: absolute_path.to_string_lossy().into_owned(),
-        old_string: old_string.to_owned(),
+        old_string: actual_old_string.to_owned(),
         new_string: new_string.to_owned(),
         original_file: original_file.clone(),
         structured_patch: make_patch(&original_file, &updated),
@@ -313,6 +410,273 @@ pub fn edit_file(
         replace_all,
         git_diff: None,
     })
+}
+
+/// Normalizes quotes by converting curly quotes to straight quotes
+fn normalize_quotes(s: &str) -> String {
+    s.chars()
+        .map(|c| match c {
+            LEFT_SINGLE_CURLY | RIGHT_SINGLE_CURLY => '\'',
+            LEFT_DOUBLE_CURLY | RIGHT_DOUBLE_CURLY => '"',
+            _ => c,
+        })
+        .collect()
+}
+
+/// Strips trailing whitespace from each line while preserving line endings
+fn strip_trailing_whitespace(s: &str) -> String {
+    s.lines()
+        .map(|line| line.trim_end())
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+/// Checks if trailing whitespace should be stripped for this file type
+fn should_strip_trailing_whitespace(path: &str) -> bool {
+    // Markdown uses two trailing spaces as hard line break - don't strip
+    !path.ends_with(".md") && !path.ends_with(".mdx")
+}
+
+/// Normalizes line endings to \n
+fn normalize_line_endings(s: &str) -> String {
+    s.replace("\r\n", "\n").replace('\r', "\n")
+}
+
+/// Finds the actual string in file content, accounting for quote normalization and line endings
+fn find_actual_string<'a>(file_content: &'a str, search_string: &str) -> Option<&'a str> {
+    // First try exact match
+    if let Some(pos) = file_content.find(search_string) {
+        return Some(&file_content[pos..pos + search_string.len()]);
+    }
+    
+    // Try with normalized quotes
+    let normalized_search = normalize_quotes(search_string);
+    let normalized_file = normalize_quotes(file_content);
+    
+    if let Some(pos) = normalized_file.find(&normalized_search) {
+        // Find the actual string in the original file
+        return Some(&file_content[pos..pos + search_string.len()]);
+    }
+    
+    // Try with normalized line endings (Windows \r\n vs Unix \n)
+    let search_normalized_lines = normalize_line_endings(search_string);
+    let file_normalized_lines = normalize_line_endings(file_content);
+    
+    if let Some(pos) = file_normalized_lines.find(&search_normalized_lines) {
+        // Calculate position in original file accounting for \r\n
+        let actual_pos = calculate_original_position(file_content, pos);
+        let actual_len = calculate_original_length(file_content, actual_pos, search_normalized_lines.len());
+        return Some(&file_content[actual_pos..actual_pos + actual_len]);
+    }
+    
+    // Try with both normalizations
+    let search_fully_normalized = normalize_line_endings(&normalize_quotes(search_string));
+    let file_fully_normalized = normalize_line_endings(&normalize_quotes(file_content));
+    
+    if let Some(pos) = file_fully_normalized.find(&search_fully_normalized) {
+        let actual_pos = calculate_original_position(file_content, pos);
+        let actual_len = calculate_original_length(file_content, actual_pos, search_fully_normalized.len());
+        return Some(&file_content[actual_pos..actual_pos + actual_len]);
+    }
+    
+    None
+}
+
+/// Calculates the position in original string accounting for \r\n line endings
+fn calculate_original_position(original: &str, normalized_pos: usize) -> usize {
+    let mut original_pos = 0;
+    let mut normalized_count = 0;
+    
+    let chars: Vec<char> = original.chars().collect();
+    let mut i = 0;
+    
+    while i < chars.len() && normalized_count < normalized_pos {
+        if i + 1 < chars.len() && chars[i] == '\r' && chars[i + 1] == '\n' {
+            // \r\n counts as 1 in normalized, but 2 in original
+            original_pos += 2;
+            normalized_count += 1;
+            i += 2;
+        } else {
+            original_pos += chars[i].len_utf8();
+            normalized_count += 1;
+            i += 1;
+        }
+    }
+    
+    original_pos
+}
+
+/// Calculates the length in original string accounting for \r\n line endings
+fn calculate_original_length(original: &str, start_pos: usize, normalized_len: usize) -> usize {
+    let substring = &original[start_pos..];
+    let mut original_len = 0;
+    let mut normalized_count = 0;
+    
+    let chars: Vec<char> = substring.chars().collect();
+    let mut i = 0;
+    
+    while i < chars.len() && normalized_count < normalized_len {
+        if i + 1 < chars.len() && chars[i] == '\r' && chars[i + 1] == '\n' {
+            original_len += 2;
+            normalized_count += 1;
+            i += 2;
+        } else {
+            original_len += chars[i].len_utf8();
+            normalized_count += 1;
+            i += 1;
+        }
+    }
+    
+    original_len
+}
+
+/// Preserves the quote style from the original file when applying edits
+fn preserve_quote_style(old_string: &str, actual_old_string: &str, new_string: &str) -> String {
+    // If they're the same, no normalization happened
+    if old_string == actual_old_string {
+        return new_string.to_owned();
+    }
+    
+    // Detect which curly quote types were in the file
+    let has_double_quotes = actual_old_string.contains(LEFT_DOUBLE_CURLY) 
+        || actual_old_string.contains(RIGHT_DOUBLE_CURLY);
+    let has_single_quotes = actual_old_string.contains(LEFT_SINGLE_CURLY) 
+        || actual_old_string.contains(RIGHT_SINGLE_CURLY);
+    
+    if !has_double_quotes && !has_single_quotes {
+        return new_string.to_owned();
+    }
+    
+    let mut result = new_string.to_owned();
+    
+    if has_double_quotes {
+        result = apply_curly_double_quotes(&result);
+    }
+    if has_single_quotes {
+        result = apply_curly_single_quotes(&result);
+    }
+    
+    result
+}
+
+/// Applies curly double quotes to straight quotes
+fn apply_curly_double_quotes(s: &str) -> String {
+    let chars: Vec<char> = s.chars().collect();
+    let mut result = String::new();
+    
+    for (i, &ch) in chars.iter().enumerate() {
+        if ch == '"' {
+            if is_opening_context(&chars, i) {
+                result.push(LEFT_DOUBLE_CURLY);
+            } else {
+                result.push(RIGHT_DOUBLE_CURLY);
+            }
+        } else {
+            result.push(ch);
+        }
+    }
+    
+    result
+}
+
+/// Applies curly single quotes to straight quotes (avoiding contractions)
+fn apply_curly_single_quotes(s: &str) -> String {
+    let chars: Vec<char> = s.chars().collect();
+    let mut result = String::new();
+    
+    for (i, &ch) in chars.iter().enumerate() {
+        if ch == '\'' {
+            // Don't convert apostrophes in contractions (e.g., "don't", "it's")
+            let prev = if i > 0 { Some(chars[i - 1]) } else { None };
+            let next = if i < chars.len() - 1 { Some(chars[i + 1]) } else { None };
+            
+            let prev_is_letter = prev.map_or(false, |c| c.is_alphabetic());
+            let next_is_letter = next.map_or(false, |c| c.is_alphabetic());
+            
+            if prev_is_letter && next_is_letter {
+                // Apostrophe in contraction - use right single curly
+                result.push(RIGHT_SINGLE_CURLY);
+            } else if is_opening_context(&chars, i) {
+                result.push(LEFT_SINGLE_CURLY);
+            } else {
+                result.push(RIGHT_SINGLE_CURLY);
+            }
+        } else {
+            result.push(ch);
+        }
+    }
+    
+    result
+}
+
+/// Determines if a quote at position is in an opening context
+fn is_opening_context(chars: &[char], index: usize) -> bool {
+    if index == 0 {
+        return true;
+    }
+    
+    let prev = chars[index - 1];
+    matches!(prev, ' ' | '\t' | '\n' | '\r' | '(' | '[' | '{' | '—' | '–')
+}
+
+/// Finds a similar string in the file content (for error suggestions)
+fn find_similar_string(file_content: &str, search_string: &str) -> Option<String> {
+    // Extract first meaningful line from search string (skip empty lines)
+    let search_first_line = search_string
+        .lines()
+        .find(|line| !line.trim().is_empty())
+        .unwrap_or("");
+    
+    if search_first_line.is_empty() {
+        return None;
+    }
+    
+    // Try to find a line that starts similarly
+    let search_start = search_first_line.trim().chars().take(20).collect::<String>();
+    
+    for line in file_content.lines() {
+        let line_start = line.trim().chars().take(20).collect::<String>();
+        if line_start == search_start {
+            // Found a line with same start - return a few lines of context
+            let line_index = file_content.lines().position(|l| l == line)?;
+            let context_lines: Vec<&str> = file_content
+                .lines()
+                .skip(line_index)
+                .take(3)
+                .collect();
+            return Some(context_lines.join("\n"));
+        }
+    }
+    
+    // Fallback: find lines containing key words
+    let search_words: Vec<&str> = search_string
+        .split_whitespace()
+        .filter(|w| w.len() > 3) // Only meaningful words
+        .take(5)
+        .collect();
+    
+    if search_words.is_empty() {
+        return None;
+    }
+    
+    let mut best_match: Option<(usize, &str)> = None;
+    let mut best_score = 0;
+    
+    for line in file_content.lines() {
+        let score = search_words.iter().filter(|&&word| line.contains(word)).count();
+        if score > best_score {
+            best_score = score;
+            best_match = Some((score, line));
+        }
+    }
+    
+    if let Some((score, line)) = best_match {
+        if score >= search_words.len().min(2) {
+            return Some(line.trim().to_owned());
+        }
+    }
+    
+    None
 }
 
 /// Expands a glob pattern and returns matching filenames.
@@ -689,12 +1053,25 @@ pub fn edit_file_in_workspace(
     replace_all: bool,
     workspace_root: &Path,
 ) -> io::Result<EditFileOutput> {
+    edit_file_in_workspace_with_validation(path, old_string, new_string, replace_all, workspace_root, None)
+}
+
+/// Edit a file with workspace boundary enforcement and read state validation.
+#[allow(dead_code)]
+pub fn edit_file_in_workspace_with_validation(
+    path: &str,
+    old_string: &str,
+    new_string: &str,
+    replace_all: bool,
+    workspace_root: &Path,
+    last_read_state: Option<&FileReadState>,
+) -> io::Result<EditFileOutput> {
     let absolute_path = normalize_path(path)?;
     let canonical_root = workspace_root
         .canonicalize()
         .unwrap_or_else(|_| workspace_root.to_path_buf());
     validate_workspace_boundary(&absolute_path, &canonical_root)?;
-    edit_file(path, old_string, new_string, replace_all)
+    edit_file_with_validation(path, old_string, new_string, replace_all, last_read_state)
 }
 
 /// Check whether a path is a symlink that resolves outside the workspace.
@@ -748,6 +1125,127 @@ mod tests {
         let output = edit_file(path.to_string_lossy().as_ref(), "alpha", "omega", true)
             .expect("edit should succeed");
         assert!(output.replace_all);
+        assert_eq!(output.new_string, "omega");
+    }
+
+    #[test]
+    fn detects_multiple_occurrences() {
+        let path = temp_path("multi-match.txt");
+        write_file(path.to_string_lossy().as_ref(), "foo bar foo baz foo")
+            .expect("initial write should succeed");
+        
+        // Should fail when replace_all is false and multiple matches exist
+        let result = edit_file(path.to_string_lossy().as_ref(), "foo", "qux", false);
+        assert!(result.is_err());
+        let error = result.unwrap_err();
+        assert!(error.to_string().contains("Found 3 matches"));
+        
+        // Should succeed with replace_all = true
+        let output = edit_file(path.to_string_lossy().as_ref(), "foo", "qux", true)
+            .expect("edit with replace_all should succeed");
+        assert!(output.replace_all);
+    }
+
+    #[test]
+    fn normalizes_curly_quotes() {
+        let path = temp_path("quotes.txt");
+        // File contains curly quotes (using Unicode escapes)
+        let content_with_curly = "He said \u{201C}hello\u{201D} and \u{2018}goodbye\u{2019}";
+        write_file(path.to_string_lossy().as_ref(), content_with_curly)
+            .expect("initial write should succeed");
+        
+        // Search with straight quotes should still find the text
+        let output = edit_file(
+            path.to_string_lossy().as_ref(),
+            "\"hello\"",
+            "\"hi\"",
+            false
+        ).expect("edit should succeed despite quote mismatch");
+        
+        // The actual old string should contain curly quotes
+        assert!(output.old_string.contains('\u{201C}') || output.old_string.contains('\u{201D}'));
+    }
+
+    #[test]
+    fn strips_trailing_whitespace() {
+        let path = temp_path("whitespace.txt");
+        write_file(path.to_string_lossy().as_ref(), "line1\nline2")
+            .expect("initial write should succeed");
+        
+        // New string has trailing spaces
+        let _output = edit_file(
+            path.to_string_lossy().as_ref(),
+            "line2",
+            "line2   ",
+            false
+        ).expect("edit should succeed");
+        
+        // Read back and verify trailing whitespace was stripped
+        let content = std::fs::read_to_string(&path).expect("read should succeed");
+        assert!(!content.contains("   "));
+    }
+
+    #[test]
+    fn preserves_markdown_trailing_whitespace() {
+        let path = temp_path("test.md");
+        write_file(path.to_string_lossy().as_ref(), "line1\nline2")
+            .expect("initial write should succeed");
+        
+        // Markdown files should preserve trailing spaces (hard line break)
+        let _output = edit_file(
+            path.to_string_lossy().as_ref(),
+            "line2",
+            "line2  ",
+            false
+        ).expect("edit should succeed");
+        
+        // Read back and verify trailing whitespace was preserved
+        let content = std::fs::read_to_string(&path).expect("read should succeed");
+        assert!(content.ends_with("  "));
+    }
+
+    #[test]
+    fn rejects_oversized_edits() {
+        let path = temp_path("huge-edit.txt");
+        // Create a file just under the limit
+        let content = "x".repeat((MAX_EDIT_FILE_SIZE - 100) as usize);
+        std::fs::write(&path, &content).expect("write should succeed");
+        
+        // Try to edit - should fail due to size
+        let result = edit_file(path.to_string_lossy().as_ref(), "x", "y", false);
+        assert!(result.is_err());
+        let error = result.unwrap_err();
+        assert!(error.to_string().contains("too large"));
+    }
+
+    #[test]
+    fn validates_file_modification_timestamp() {
+        let path = temp_path("timestamp-check.txt");
+        write_file(path.to_string_lossy().as_ref(), "original content")
+            .expect("initial write should succeed");
+        
+        // Simulate a read state from the past
+        let old_timestamp = SystemTime::now() - std::time::Duration::from_secs(10);
+        let read_state = FileReadState {
+            content: "original content".to_owned(),
+            timestamp: old_timestamp,
+            is_partial_view: false,
+        };
+        
+        // Modify the file
+        std::fs::write(&path, "modified content").expect("modification should succeed");
+        
+        // Try to edit with old read state - should fail
+        let result = edit_file_with_validation(
+            path.to_string_lossy().as_ref(),
+            "original",
+            "new",
+            false,
+            Some(&read_state)
+        );
+        assert!(result.is_err());
+        let error = result.unwrap_err();
+        assert!(error.to_string().contains("modified since read"));
     }
 
     #[test]
@@ -804,11 +1302,11 @@ mod tests {
         let outside = temp_path("symlink-target.txt");
         std::fs::write(&outside, "target content").expect("target should write");
 
-        let link_path = workspace.join("escape-link.txt");
         #[cfg(unix)]
         {
-            std::os::unix::fs::symlink(&outside, &link_path).expect("symlink should create");
-            assert!(is_symlink_escape(&link_path, &workspace).expect("check should succeed"));
+            let _link_path = workspace.join("escape-link.txt");
+            std::os::unix::fs::symlink(&outside, &_link_path).expect("symlink should create");
+            assert!(is_symlink_escape(&_link_path, &workspace).expect("check should succeed"));
         }
 
         // Non-symlink file should not be an escape

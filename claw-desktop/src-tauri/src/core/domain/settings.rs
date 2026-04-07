@@ -34,6 +34,8 @@ pub struct Settings {
     pub compact_config: CompactConfig,
     #[serde(default = "default_workspace_path")]
     pub workspace_path: String, // User's workspace directory for tool execution
+    #[serde(default = "default_user_language")]
+    pub user_language: String, // User's preferred language (e.g., "en", "vi")
 }
 
 fn default_workspace_path() -> String {
@@ -41,6 +43,10 @@ fn default_workspace_path() -> String {
     std::env::var("HOME")
         .or_else(|_| std::env::var("USERPROFILE")) // Windows fallback
         .unwrap_or_else(|_| ".".to_string())
+}
+
+fn default_user_language() -> String {
+    "en".to_string()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -96,6 +102,7 @@ impl Settings {
             selected_model: None,
             compact_config: CompactConfig::default(),
             workspace_path: default_workspace_path(),
+            user_language: default_user_language(),
         }
     }
 
@@ -120,6 +127,7 @@ impl Settings {
                     selected_model: None,
                     compact_config: CompactConfig::default(),
                     workspace_path: default_workspace_path(),
+                    user_language: default_user_language(),
                 }
             }
             Err(e) => {
@@ -145,6 +153,7 @@ impl Settings {
             selected_model: None,
             compact_config: CompactConfig::default(),
             workspace_path: default_workspace_path(),
+            user_language: default_user_language(),
         }
     }
 

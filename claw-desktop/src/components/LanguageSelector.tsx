@@ -28,7 +28,6 @@ export function LanguageSelector() {
     // Notify backend to update system prompt with new language
     try {
       await invoke('set_user_language', { language: lang });
-      console.log('[LanguageSelector] Language updated in backend:', lang);
     } catch (error) {
       console.error('[LanguageSelector] Failed to update language in backend:', error);
     }

@@ -1,5 +1,6 @@
 // ThinkingBlock — Minimal collapsible thinking indicator
 import { Brain, Loader2, ChevronDown } from 'lucide-react';
+import { AiThinkingIndicator } from '../../components/ui/ai-thinking-indicator';
 import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
 import { useState, useEffect } from 'react';
@@ -73,10 +74,8 @@ export function ThinkingBlock({ thinking, isStreaming = false }: ThinkingBlockPr
 
       {isStreaming && !thinking && (
         <div className="border-l-2 border-border/80 ml-1.5 mt-1 pl-3">
-          <div className="flex gap-1 text-muted-foreground py-1.5">
-            <span className="animate-bounce text-xs" style={{ animationDelay: '0ms' }}>●</span>
-            <span className="animate-bounce text-xs" style={{ animationDelay: '150ms' }}>●</span>
-            <span className="animate-bounce text-xs" style={{ animationDelay: '300ms' }}>●</span>
+          <div className="py-1.5">
+            <AiThinkingIndicator className="text-muted-foreground w-3.5 h-3.5 opacity-70" />
           </div>
         </div>
       )}

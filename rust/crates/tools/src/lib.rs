@@ -89,6 +89,9 @@ const WORKSPACE_EXCLUDED_TOOLS: &[&str] = &[
     
     // LSP (Language Server Protocol)
     "LSP",              // LSP queries - specialized for code intelligence
+    
+    // Search tools (performance-intensive)
+    "grep_search",      // Content search - can be slow on large codebases
 ];
 
 /// Get OS-specific tool exclusions

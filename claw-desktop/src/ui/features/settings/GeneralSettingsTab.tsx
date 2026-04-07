@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Sun, Moon, Languages } from 'lucide-react';
+import { invoke } from '@tauri-apps/api/core';
 import { cn } from '../../../lib/utils';
 
 export function GeneralSettingsTab() {
@@ -26,9 +27,17 @@ export function GeneralSettingsTab() {
     }
   };
 
-  const changeLanguage = (lang: string) => {
-    i18n.changeLanguage(lang);
+  const changeLanguage = async (lang: string) => {
+    // Update i18n
+    await i18n.changeLanguage(lang);
     localStorage.setItem('language', lang);
+    
+    // Notify backend to update system prompt with new language
+    try {
+      await invoke('set_user_language', { language: lang });
+    } catch (error) {
+      console.error('[GeneralSettingsTab] Failed to update backend:', error);
+    }
   };
 
   return (

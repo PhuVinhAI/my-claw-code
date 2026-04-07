@@ -404,12 +404,17 @@ pub async fn reload_system_prompt(state: State<'_, AppState>) -> Result<(), Stri
 /// Set user language preference (call when user changes language in UI)
 #[tauri::command]
 pub async fn set_user_language(language: String, state: State<'_, AppState>) -> Result<(), String> {
+    // 1. Update settings (persist to disk)
+    let mut settings = state.settings_manager.load()?;
+    settings.user_language = language.clone();
+    state.settings_manager.save(&settings)?;
+    
+    // 2. Update runtime via Actor
     let (tx, rx) = oneshot::channel();
-
     state
         .actor_tx
         .send(ActorCommand::SetUserLanguage {
-            language,
+            language: language.clone(),
             response_tx: tx,
         })
         .await
@@ -418,7 +423,7 @@ pub async fn set_user_language(language: String, state: State<'_, AppState>) -> 
     rx.await
         .map_err(|e| format!("Failed to receive response: {}", e))??;
     
-    // Reload system prompt with new language
+    // 3. Reload system prompt with new language
     reload_system_prompt(state).await
 }
 

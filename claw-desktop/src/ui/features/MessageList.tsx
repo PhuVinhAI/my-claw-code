@@ -5,6 +5,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { useChatStore } from '../../store';
 import { cn } from '../../lib/utils';
 import { renderToolBlock, ThinkingBlock, CompactBlock } from '../blocks';
+import { AiThinkingIndicator } from '../../components/ui/ai-thinking-indicator';
 import { parseThinkingTags, cleanSystemReminders } from '../../lib/parseThinking';
 import { MarkdownContent } from '../../components/MarkdownContent';
 import { useTextMeasurement } from '../../lib/useTextMeasurement';
@@ -437,17 +438,7 @@ export function MessageList() {
         {state.status === 'GENERATING' && !currentAssistantText && (
           <div className="flex w-full items-start justify-start mt-4">
             <div className="flex items-center gap-2 text-muted-foreground py-2">
-              <div className="flex gap-1">
-                <span className="animate-bounce text-xs" style={{ animationDelay: '0ms' }}>
-                  ●
-                </span>
-                <span className="animate-bounce text-xs" style={{ animationDelay: '150ms' }}>
-                  ●
-                </span>
-                <span className="animate-bounce text-xs" style={{ animationDelay: '300ms' }}>
-                  ●
-                </span>
-              </div>
+              <AiThinkingIndicator className="text-primary opacity-80" />
               <span className="text-xs font-medium">{t('messageList.thinking')}</span>
             </div>
           </div>

@@ -18,7 +18,7 @@ pub struct FileSessionRepository {
 }
 
 impl FileSessionRepository {
-    pub fn new(base_path: PathBuf) -> Result<Self, String> {
+    pub fn new(base_path: PathBuf, user_language: String) -> Result<Self, String> {
         // Tạo thư mục nếu chưa tồn tại
         fs::create_dir_all(&base_path)
             .map_err(|e| format!("Failed to create sessions directory: {}", e))?;
@@ -32,7 +32,7 @@ impl FileSessionRepository {
             base_path,
             current_working_dir: RwLock::new(String::new()), // Empty - chỉ set khi user chọn workspace
             current_work_mode: RwLock::new("normal".to_string()),
-            current_user_language: RwLock::new("en".to_string()), // Default to English
+            current_user_language: RwLock::new(user_language),
         })
     }
 
@@ -123,12 +123,16 @@ impl FileSessionRepository {
         Ok(())
     }
     
-    /// Update user language preference
+    /// Update user language preference (called when user changes language)
     pub fn set_user_language(&self, language: String) -> Result<(), String> {
         let mut current = self.current_user_language.write().unwrap();
-        *current = language.clone();
-        eprintln!("[REPO] User language updated to: {}", language);
+        *current = language;
         Ok(())
+    }
+    
+    /// Get current user language
+    pub fn get_user_language(&self) -> String {
+        self.current_user_language.read().unwrap().clone()
     }
 
     fn session_path(&self, session_id: &str) -> PathBuf {

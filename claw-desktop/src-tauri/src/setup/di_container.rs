@@ -58,16 +58,7 @@ async fn initialize_app_async(app_handle: AppHandle) -> Result<AppState, String>
     // 3. Create Permission Prompter
     let prompter = TauriPermissionAdapter::new(permission_state.clone(), event_publisher.clone());
 
-    // 3. Create Session Repository
-    let sessions_dir = app_handle
-        .path()
-        .app_data_dir()
-        .map_err(|e| format!("Failed to get app data dir: {}", e))?
-        .join("sessions");
-    let repository: Arc<dyn ISessionRepository> =
-        Arc::new(FileSessionRepository::new(sessions_dir)?);
-
-    // 3.5. Create Settings Manager
+    // 3. Create Settings Manager FIRST (để load user_language)
     let settings_path = app_handle
         .path()
         .app_data_dir()
@@ -75,12 +66,21 @@ async fn initialize_app_async(app_handle: AppHandle) -> Result<AppState, String>
         .join("settings.json");
     let settings_manager = Arc::new(SettingsManager::new(settings_path));
     
-    // Try to load settings and configure API client
+    // Try to load settings
     let settings = settings_manager.load().unwrap_or_else(|_| {
         eprintln!("Warning: Could not load settings, using empty settings");
         use crate::core::domain::settings::Settings;
         Settings::new()
     });
+    
+    // 3.5. Create Session Repository (with user_language from settings)
+    let sessions_dir = app_handle
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("Failed to get app data dir: {}", e))?
+        .join("sessions");
+    let repository: Arc<dyn ISessionRepository> =
+        Arc::new(FileSessionRepository::new(sessions_dir, settings.user_language.clone())?);
     
     // Get model configuration from settings or fallback to env
     let (model, api_key, base_url, provider_id) = if let Some(ref selected) = settings.selected_model {
