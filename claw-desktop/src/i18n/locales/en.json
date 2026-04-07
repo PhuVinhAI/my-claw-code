@@ -14,7 +14,10 @@
     "home": "Home",
     "openWorkspace": "Open Workspace",
     "removeWorkspace": "Remove workspace from list",
-    "allWorkspaces": "All"
+    "allWorkspaces": "All",
+    "goHome": "Go to Home",
+    "selectWorkspace": "Select Workspace Folder",
+    "closeSidebar": "Close Sidebar"
   },
   "sessionItem": {
     "save": "Save",

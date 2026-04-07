@@ -32,6 +32,7 @@ interface CustomDropdownProps {
   onProviderFilterChange?: (providers: string[]) => void;
   filterByProviderLabel?: string;
   noModelsFoundLabel?: string;
+  align?: 'start' | 'end'; // Align dropdown to start (left) or end (right)
 }
 
 export function CustomDropdown({
@@ -50,6 +51,7 @@ export function CustomDropdown({
   onProviderFilterChange,
   filterByProviderLabel = 'Filter by provider:',
   noModelsFoundLabel = 'No models found',
+  align = 'start',
 }: CustomDropdownProps) {
   const [open, setOpen] = useState(false);
   const [showProviderFilter, setShowProviderFilter] = useState(false);
@@ -123,7 +125,7 @@ export function CustomDropdown({
       <button
         onClick={() => setOpen(!open)}
         className={cn(
-          "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-[#888888] hover:text-[#e0e0e0] hover:bg-[#2a2a2a] transition-all duration-150",
+          "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-all duration-150",
           className
         )}
       >
@@ -140,13 +142,14 @@ export function CustomDropdown({
       {open && (
         <div
           className={cn(
-            "absolute bottom-full left-0 mb-2 w-max max-w-[280px] rounded-xl border border-[#3e3e42] bg-[#252526] animate-in fade-in slide-in-from-bottom-2 duration-150 z-[100] flex flex-col shadow-xl",
+            "absolute bottom-full mb-2 w-max max-w-[280px] rounded-xl border border-border/30 bg-popover animate-in fade-in slide-in-from-bottom-2 duration-150 z-[100] flex flex-col shadow-xl",
+            align === 'end' ? 'right-0' : 'left-0',
             dropdownClassName
           )}
         >
           {/* Sticky Search/Filter Section */}
           {showSearchFilter && onSearchChange && (
-            <div className="sticky top-0 bg-[#252526] z-10 border-b border-[#3e3e42]/30 p-2">
+            <div className="sticky top-0 bg-popover z-10 border-b border-border/20 p-2">
               <div className="relative">
                 <input
                   ref={searchInputRef}
@@ -154,7 +157,7 @@ export function CustomDropdown({
                   value={searchTerm || ''}
                   onChange={(e) => onSearchChange(e.target.value)}
                   placeholder={searchPlaceholder}
-                  className="w-full px-3 py-2 pr-9 text-sm bg-[#1e1e1e] border border-[#333333] rounded-lg focus:outline-none focus:border-[#454545] transition-all text-[#e0e0e0] placeholder:text-[#666666]"
+                  className="w-full px-3 py-2 pr-9 text-sm bg-card border border-input rounded-lg focus:outline-none focus:border-border transition-all text-foreground placeholder:text-muted-foreground"
                   onClick={(e) => e.stopPropagation()}
                 />
                 
@@ -167,16 +170,16 @@ export function CustomDropdown({
                       setShowProviderFilter(!showProviderFilter);
                     }}
                     className={cn(
-                      "absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded hover:bg-[#2a2a2a] transition-colors",
+                      "absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded hover:bg-muted transition-colors",
                       selectedProviders.length > 0
-                        ? "text-[#0078d4]"
-                        : "text-[#888888] hover:text-[#e0e0e0]"
+                        ? "text-primary"
+                        : "text-muted-foreground hover:text-foreground"
                     )}
                     title="Filter by provider"
                   >
                     <Filter className="h-3.5 w-3.5" />
                     {selectedProviders.length > 0 && (
-                      <span className="absolute top-0.5 right-0.5 h-1.5 w-1.5 bg-[#0078d4] rounded-full" />
+                      <span className="absolute top-0.5 right-0.5 h-1.5 w-1.5 bg-primary rounded-full" />
                     )}
                   </button>
                 )}
@@ -185,8 +188,8 @@ export function CustomDropdown({
               {/* Provider Filter Dropdown */}
               {showProviderFilter && providers && providers.length > 1 && onProviderFilterChange && (
                 <div className="mt-2">
-                  <div className="bg-[#1e1e1e] rounded-lg p-2 border border-[#3e3e42]/30">
-                    <div className="text-xs font-medium text-[#888888] mb-2 px-1">{filterByProviderLabel}</div>
+                  <div className="bg-card rounded-lg p-2 border border-border/20">
+                    <div className="text-xs font-medium text-muted-foreground mb-2 px-1">{filterByProviderLabel}</div>
                     <div className="flex flex-wrap gap-1.5">
                       {providers.map((provider) => (
                         <button
@@ -198,8 +201,8 @@ export function CustomDropdown({
                           className={cn(
                             "px-2.5 py-1 text-xs rounded-md transition-all duration-150",
                             selectedProviders.includes(provider.id)
-                              ? "bg-[#0078d4] text-[#ffffff] font-medium"
-                              : "bg-[#2a2a2a] text-[#888888] hover:bg-[#333333] hover:text-[#e0e0e0]"
+                              ? "bg-primary text-primary-foreground font-medium"
+                              : "bg-muted text-muted-foreground hover:bg-secondary hover:text-foreground"
                           )}
                         >
                           {provider.name}
@@ -215,14 +218,14 @@ export function CustomDropdown({
           {/* Scrollable Options List */}
           <div className="overflow-y-auto p-1">
             {options.length === 0 ? (
-              <div className="px-3 py-4 text-sm text-[#888888] text-center">
+              <div className="px-3 py-4 text-sm text-muted-foreground text-center">
                 {noModelsFoundLabel}
               </div>
             ) : (
               Object.entries(groupedOptions).map(([groupName, groupOptions], groupIndex) => (
             <div key={groupName}>
               {groupName !== 'default' && (
-                <div className="px-3 py-2 text-xs font-semibold text-[#888888]">
+                <div className="px-3 py-2 text-xs font-semibold text-muted-foreground">
                   {groupName}
                 </div>
               )}
@@ -235,9 +238,9 @@ export function CustomDropdown({
                       "flex w-full items-center gap-3 rounded-sm px-2 py-1.5 text-sm transition-colors duration-150",
                       isSelected(option.id)
                         ? multiSelect
-                          ? "bg-[#0078d4]/10 text-[#0078d4] font-semibold"
-                          : "bg-[#37373d] text-[#ffffff] font-semibold"
-                        : "text-[#cccccc] hover:bg-[#2a2d2e] hover:text-[#ffffff]"
+                          ? "bg-primary/10 text-primary font-semibold"
+                          : "bg-accent text-accent-foreground font-semibold"
+                        : "text-popover-foreground hover:bg-muted hover:text-foreground"
                     )}
                     title={option.label}
                   >
@@ -246,8 +249,8 @@ export function CustomDropdown({
                         className={cn(
                           "h-4 w-4 rounded-[4px] border flex items-center justify-center shrink-0",
                           isSelected(option.id)
-                            ? "bg-[#0078d4] border-[#0078d4] text-[#ffffff]"
-                            : "border-[#888888]"
+                            ? "bg-primary border-primary text-primary-foreground"
+                            : "border-muted-foreground"
                         )}
                       >
                         {isSelected(option.id) && (
@@ -273,7 +276,7 @@ export function CustomDropdown({
                 ))}
               </div>
               {groupIndex < Object.entries(groupedOptions).length - 1 && (
-                <div className="my-1 h-px bg-[#3e3e42]" />
+                <div className="my-1 h-px bg-border/30" />
               )}
             </div>
           ))

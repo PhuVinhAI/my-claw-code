@@ -34,8 +34,9 @@ export function LanguageSelector() {
       options={languageOptions}
       value={i18n.language}
       onChange={handleLanguageChange}
-      className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm font-medium text-[#888888] hover:text-[#e0e0e0] px-1.5 sm:px-2 py-1 sm:py-1.5 rounded-md hover:bg-[#2a2a2a] transition-colors"
+      className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm font-medium text-muted-foreground hover:text-foreground px-1.5 sm:px-2 py-1 sm:py-1.5 rounded-md hover:bg-muted transition-colors"
       dropdownClassName="min-w-[160px] sm:min-w-[180px]"
+      align="end"
     />
   );
 }

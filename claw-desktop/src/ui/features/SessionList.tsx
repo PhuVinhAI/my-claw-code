@@ -4,9 +4,10 @@ import { useTranslation } from 'react-i18next';
 import { useChatStore } from '../../store/useChatStore';
 import { SessionItem } from './SessionItem';
 import { LanguageSelector } from '../../components/LanguageSelector';
-import { Plus, Settings, Sun, Moon, PanelLeftClose, ChevronDown, X, Search, Filter } from 'lucide-react';
+import { Plus, Settings, Sun, Moon, PanelLeftClose, ChevronDown, X, Search, Filter, Home, FolderOpen } from 'lucide-react';
 import { cn } from '../../lib/utils';
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from '../../components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '../../components/ui/dropdown-menu';
+import { invoke } from '@tauri-apps/api/core';
 
 
 
@@ -34,7 +35,7 @@ interface SessionListProps {
 export function SessionList({ onOpenSettings, onCloseSidebar }: SessionListProps) {
 
   const { t } = useTranslation();
-  const { sessions, currentSessionId, isLoadingSessions, recentWorkspaces, removeWorkspace } = useChatStore();
+  const { sessions, currentSessionId, isLoadingSessions, recentWorkspaces, removeWorkspace, workMode, workspacePath } = useChatStore();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedWorkspace, setSelectedWorkspace] = useState<string>('all'); // 'all' | 'home' | workspace_path
@@ -139,12 +140,27 @@ export function SessionList({ onOpenSettings, onCloseSidebar }: SessionListProps
       groups[key].push(s);
     });
 
-    const uniqueKeys = Array.from(new Set(keys)).sort();
+    const uniqueKeys = Array.from(new Set(keys));
     if (hasHome && !uniqueKeys.includes('home')) uniqueKeys.push('home');
 
+    // Sắp xếp: workspace hiện tại lên đầu, home ở giữa, các workspace khác theo thứ tự
+    const currentWorkspaceKey = workMode === 'workspace' && workspacePath ? workspacePath : null;
+    
+    const sortedKeys = uniqueKeys.sort((a, b) => {
+      // Current workspace lên đầu
+      if (a === currentWorkspaceKey) return -1;
+      if (b === currentWorkspaceKey) return 1;
+      
+      // Home luôn ở vị trí thứ 2 (sau current workspace nếu có)
+      if (a === 'home') return currentWorkspaceKey ? 1 : -1;
+      if (b === 'home') return currentWorkspaceKey ? -1 : 1;
+      
+      // Các workspace khác sort theo tên
+      return a.localeCompare(b);
+    });
 
-    return { groups, keys: uniqueKeys };
-  }, [sessions, recentWorkspaces, searchQuery, selectedWorkspace]);
+    return { groups, keys: sortedKeys };
+  }, [sessions, recentWorkspaces, searchQuery, selectedWorkspace, workMode, workspacePath]);
 
 
 
@@ -161,11 +177,53 @@ export function SessionList({ onOpenSettings, onCloseSidebar }: SessionListProps
     setCollapsedGroups(prev => ({ ...prev, [groupKey]: !prev[groupKey] }));
   };
 
+  const handleGoHome = async () => {
+    await setWorkMode('normal');
+  };
+
+  const handleOpenWorkspace = async () => {
+    try {
+      const selected = await invoke<string | null>('select_folder');
+      
+      if (selected) {
+        await setWorkMode('workspace', selected);
+      }
+    } catch (e) {
+      console.error('Failed to open workspace:', e);
+    }
+  };
+
   return (
 
     <div className="flex flex-col h-full bg-[#141414] relative">
-      {/* Header - Single row với search và actions */}
-      <div className="shrink-0 px-3 pt-4 pb-3">
+      {/* Header - 2 rows: buttons + search/filter */}
+      <div className="shrink-0 px-3 pt-4 pb-3 space-y-2">
+        {/* Row 1: Home + Open Workspace buttons */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleGoHome}
+            className={cn(
+              "flex-1 flex items-center justify-center gap-1.5 h-7 px-2 rounded-md text-xs font-medium transition-colors",
+              workMode === 'normal'
+                ? "bg-accent text-accent-foreground"
+                : "bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground"
+            )}
+            title={t('sessionList.goHome', 'Go to Home')}
+          >
+            <Home className="w-3.5 h-3.5" />
+            <span>{t('sessionList.home')}</span>
+          </button>
+          <button
+            onClick={handleOpenWorkspace}
+            className="flex-1 flex items-center justify-center gap-1.5 h-7 px-2 rounded-md text-xs font-medium bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+            title={t('sessionList.openWorkspace', 'Open Workspace')}
+          >
+            <FolderOpen className="w-3.5 h-3.5" />
+            <span>{t('sessionList.openWorkspace', 'Workspace')}</span>
+          </button>
+        </div>
+        
+        {/* Row 2: Search + Filter */}
         <div className="flex items-center gap-2">
           {/* Close sidebar button */}
           {onCloseSidebar && (
@@ -180,27 +238,29 @@ export function SessionList({ onOpenSettings, onCloseSidebar }: SessionListProps
           
           {/* Search input - flex-1 */}
           <div className="relative flex-1">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#666666] pointer-events-none" />
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder={t('sessionList.searchPlaceholder')}
-              className="w-full h-7 pl-8 pr-2 text-xs bg-[#1e1e1e] border border-[#333333] rounded-md outline-none focus:border-[#454545] transition-all text-[#e0e0e0] placeholder:text-[#666666]"
+              className="w-full h-7 pl-8 pr-2 text-xs bg-card border border-border rounded-md outline-none focus:border-border transition-all text-foreground placeholder:text-muted-foreground"
             />
           </div>
           
           {/* Filter dropdown button */}
           <DropdownMenu>
-            <DropdownMenuTrigger className="flex items-center justify-center h-7 w-7 rounded-md hover:bg-[#2a2a2a] text-[#888888] hover:text-[#e0e0e0] transition-colors shrink-0">
+            <DropdownMenuTrigger className="flex items-center justify-center h-7 w-7 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0">
               <Filter className="w-3.5 h-3.5" />
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48 bg-[#252526] border-[#3e3e42] p-1.5">
+            <DropdownMenuContent align="end" className="w-48 bg-popover border-border/30 p-1.5">
               <DropdownMenuItem 
                 onClick={() => setSelectedWorkspace('all')}
                 className={cn(
-                  "cursor-pointer text-xs px-2 py-1.5 rounded-sm text-[#cccccc] hover:bg-[#2a2d2e] hover:text-[#ffffff] transition-colors mb-1",
-                  selectedWorkspace === 'all' && "bg-[#37373d] text-[#ffffff]"
+                  "cursor-pointer text-xs px-2 py-1.5 rounded-sm transition-colors mb-1",
+                  selectedWorkspace === 'all' 
+                    ? "bg-accent text-accent-foreground font-semibold" 
+                    : "text-popover-foreground hover:bg-muted hover:text-foreground"
                 )}
               >
                 {t('sessionList.allWorkspaces', 'All')}
@@ -208,22 +268,26 @@ export function SessionList({ onOpenSettings, onCloseSidebar }: SessionListProps
               <DropdownMenuItem 
                 onClick={() => setSelectedWorkspace('home')}
                 className={cn(
-                  "cursor-pointer text-xs px-2 py-1.5 rounded-sm text-[#cccccc] hover:bg-[#2a2d2e] hover:text-[#ffffff] transition-colors mb-1",
-                  selectedWorkspace === 'home' && "bg-[#37373d] text-[#ffffff]"
+                  "cursor-pointer text-xs px-2 py-1.5 rounded-sm transition-colors mb-1",
+                  selectedWorkspace === 'home' 
+                    ? "bg-accent text-accent-foreground font-semibold" 
+                    : "text-popover-foreground hover:bg-muted hover:text-foreground"
                 )}
               >
                 {t('sessionList.home')}
               </DropdownMenuItem>
               {recentWorkspaces && recentWorkspaces.length > 0 && (
                 <>
-                  <div className="h-px bg-[#3e3e42] my-1.5" />
+                  <div className="h-px bg-border/30 my-1.5" />
                   {recentWorkspaces.map(wsPath => (
                     <DropdownMenuItem 
                       key={wsPath}
                       onClick={() => setSelectedWorkspace(wsPath)}
                       className={cn(
-                        "cursor-pointer text-xs px-2 py-1.5 rounded-sm text-[#cccccc] hover:bg-[#2a2d2e] hover:text-[#ffffff] transition-colors mb-1 last:mb-0",
-                        selectedWorkspace === wsPath && "bg-[#37373d] text-[#ffffff]"
+                        "cursor-pointer text-xs px-2 py-1.5 rounded-sm transition-colors mb-1 last:mb-0",
+                        selectedWorkspace === wsPath 
+                          ? "bg-accent text-accent-foreground font-semibold" 
+                          : "text-popover-foreground hover:bg-muted hover:text-foreground"
                       )}
                       title={wsPath}
                     >

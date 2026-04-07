@@ -14,7 +14,10 @@
     "home": "Home",
     "openWorkspace": "Mở Workspace",
     "removeWorkspace": "Xóa workspace khỏi danh sách",
-    "allWorkspaces": "Tất cả"
+    "allWorkspaces": "Tất cả",
+    "goHome": "Về Home",
+    "selectWorkspace": "Chọn Thư Mục Workspace",
+    "closeSidebar": "Đóng Sidebar"
   },
   "sessionItem": {
     "save": "Lưu",

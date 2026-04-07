@@ -17,7 +17,7 @@ export function ChatInput() {
 
   const toolsRef = useRef<HTMLDivElement>(null);
 
-  const { state, messages, sendPrompt, stopGeneration, workMode, selectedTools, setSelectedTools, currentTokenUsage, lastUserText } = useChatStore();
+  const { state, messages, sendPrompt, stopGeneration, workMode, workspacePath, selectedTools, setSelectedTools, currentTokenUsage, lastUserText } = useChatStore();
   const { settings } = useSettingsStore();
   const isGenerating = state.status !== 'IDLE';
   const isEmpty = messages.length === 0;
@@ -132,7 +132,29 @@ export function ChatInput() {
   };
 
   const inputCard = (
-    <div className="flex flex-col rounded-xl sm:rounded-2xl bg-[#212121] border border-[#242424] transition-all duration-200 shadow-lg">
+    <div className="flex flex-col rounded-xl sm:rounded-2xl bg-card border border-border transition-all duration-200 shadow-lg">
+      {/* Header - Hiển thị workspace context */}
+      {workMode === 'workspace' && workspacePath && (
+        <div className="flex items-center gap-2 px-4 pt-3 pb-2 border-b border-border">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+            </svg>
+            <span className="font-medium">{workspacePath.split(/[/\\]/).pop() || workspacePath}</span>
+          </div>
+        </div>
+      )}
+      {workMode === 'normal' && (
+        <div className="flex items-center gap-2 px-4 pt-3 pb-2 border-b border-border">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+            </svg>
+            <span className="font-medium">{t('sessionList.home')}</span>
+          </div>
+        </div>
+      )}
+      
       {/* Textarea */}
       <Textarea
         value={input}
@@ -172,7 +194,7 @@ export function ChatInput() {
                 </button>
 
                 {toolsOpen && (
-                  <div className="absolute bottom-full left-0 mb-2 min-w-[180px] sm:min-w-[200px] rounded-xl border border-[#3e3e42] bg-[#252526] p-1 space-y-0.5 animate-in fade-in slide-in-from-bottom-2 duration-150 z-50">
+                  <div className="absolute bottom-full left-0 mb-2 min-w-[180px] sm:min-w-[200px] rounded-xl border border-border/30 bg-popover p-1 space-y-1 animate-in fade-in slide-in-from-bottom-2 duration-150 z-50 shadow-xl">
                     {availableTools.map((tool) => (
                       <button
                         key={tool.id}
@@ -180,15 +202,15 @@ export function ChatInput() {
                         className={cn(
                           "flex w-full items-center gap-2 sm:gap-3 rounded-sm px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm transition-colors duration-150",
                           selectedTools.includes(tool.id)
-                            ? "bg-[#37373d] text-[#ffffff] font-semibold"
-                            : "text-[#cccccc] hover:bg-[#2a2d2e] hover:text-[#ffffff]"
+                            ? "bg-accent text-accent-foreground font-semibold"
+                            : "text-popover-foreground hover:bg-muted hover:text-foreground"
                         )}
                       >
                         <div className={cn(
                           "h-3.5 w-3.5 sm:h-4 sm:w-4 rounded-[4px] border flex items-center justify-center",
                           selectedTools.includes(tool.id)
-                            ? "bg-[#ffffff] border-[#ffffff] text-[#141414]"
-                            : "border-[#888888]"
+                            ? "bg-foreground border-foreground text-background"
+                            : "border-muted-foreground"
                         )}>
                           {selectedTools.includes(tool.id) && (
                             <svg className="h-2.5 w-2.5 sm:h-3 sm:w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>

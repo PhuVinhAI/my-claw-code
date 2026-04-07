@@ -101,16 +101,13 @@ export function SessionItem({ session, isActive }: SessionItemProps) {
   return (
     <div
       className={cn(
-        'group relative flex items-center gap-2 px-1 py-1 rounded-sm cursor-pointer transition-colors border border-transparent',
+        'group relative flex items-center gap-2 px-2 py-1 rounded-sm cursor-pointer transition-colors border border-transparent',
         isActive
           ? 'text-foreground font-semibold'
           : 'text-muted-foreground hover:text-foreground'
       )}
       onClick={handleClick}
     >
-      <div className="flex shrink-0 w-3 items-center justify-center">
-        <div className={cn("w-1.5 h-1.5 rounded-full", isActive ? "bg-foreground" : "bg-muted-foreground/40")} />
-      </div>
       <div className="flex-1 min-w-0">
         <p className="text-[12px] truncate">
 
@@ -139,19 +136,19 @@ export function SessionItem({ session, isActive }: SessionItemProps) {
           <>
             <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
             <div 
-              className="absolute right-0 top-full mt-1 min-w-[120px] rounded-lg border border-[#3e3e42] bg-[#252526] p-1 shadow-md z-50 animate-in fade-in slide-in-from-top-2 duration-150"
+              className="absolute right-0 top-full mt-1 min-w-[120px] rounded-lg border border-border/30 bg-popover p-1 shadow-xl z-50 animate-in fade-in slide-in-from-top-2 duration-150"
               onClick={(e) => e.stopPropagation()}
             >
               <button
                 onClick={(e) => { e.stopPropagation(); setMenuOpen(false); setIsEditing(true); setEditTitle(session.title); }}
-                className="flex w-full items-center gap-1.5 rounded-sm px-2 py-1.5 text-xs font-medium text-[#cccccc] hover:bg-[#2a2d2e] hover:text-[#ffffff] transition-colors"
+                className="flex w-full items-center gap-1.5 rounded-sm px-2 py-1.5 text-xs font-medium text-popover-foreground hover:bg-muted hover:text-foreground transition-colors"
               >
                 <Edit2 className="w-3.5 h-3.5" />
                 <span>{t('sessionItem.rename')}</span>
               </button>
               <button
                 onClick={(e) => { e.stopPropagation(); handleDelete(); }}
-                className="flex w-full items-center gap-1.5 rounded-sm px-2 py-1.5 text-xs font-medium text-[#f48771] hover:bg-[#5a1d1d] hover:text-[#ff6b6b] transition-colors"
+                className="flex w-full items-center gap-1.5 rounded-sm px-2 py-1.5 text-xs font-medium text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-colors"
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 <span>{t('sessionItem.delete')}</span>
