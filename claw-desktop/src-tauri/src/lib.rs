@@ -11,12 +11,23 @@ pub use setup::di_container::initialize_app;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    // Initialize logging FIRST
-    if let Err(e) = setup::logging::init_logging() {
-        eprintln!("Failed to initialize logging: {}", e);
-    }
+    // Initialize logging FIRST - Returns session metadata
+    let session_metadata = match setup::logging::init_logging() {
+        Ok(metadata) => {
+            tracing::info!("Logging initialized successfully");
+            Some(metadata)
+        }
+        Err(e) => {
+            eprintln!("Failed to initialize logging: {}", e);
+            None
+        }
+    };
     
     tracing::info!("Starting Claw Desktop...");
+    if let Some(ref metadata) = session_metadata {
+        tracing::info!("Session ID: {}", metadata.session_id);
+        tracing::info!("Log directory: {}", metadata.log_directory.display());
+    }
     
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())

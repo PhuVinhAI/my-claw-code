@@ -9,6 +9,9 @@
 .omx/
 .clawd-agents/
 
+# Desktop session logs (dev mode)
+/logs/
+
 # Build artifacts
 target/
 *.exe

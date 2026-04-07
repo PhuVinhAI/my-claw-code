@@ -1,27 +1,26 @@
-// Logging Setup - Structured logging với tracing
-use std::path::PathBuf;
+// Logging Setup - Session-based structured logging
+use std::sync::Arc;
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Layer};
-use tracing_appender::rolling::{RollingFileAppender, Rotation};
 
-/// Initialize logging system
-/// - Console output: INFO level (colored)
-/// - File output: DEBUG level (JSON format for parsing)
-/// - Log files: ~/.local/share/claw-desktop/logs/claw-desktop-YYYY-MM-DD.log
-pub fn init_logging() -> Result<(), String> {
-    // Get log directory
-    let log_dir = get_log_directory()?;
+use super::session_logger::{SessionLogger, SessionLoggerLayer, SessionMetadata};
+
+/// Initialize logging system with session-based JSON logging
+/// 
+/// Architecture:
+/// - Console output: INFO level (human-readable)
+/// - Session-based JSON files: DEBUG level
+///   - Directory: logs/YYYY-MM-DD/session-{timestamp}-{id}/
+///   - Files: events-001.json, events-002.json, ... (1000 lines each)
+///   - Metadata: session.json
+/// 
+/// Returns: SessionMetadata for tracking current session
+pub fn init_logging() -> Result<SessionMetadata, String> {
+    // Create session logger
+    let session_logger = Arc::new(SessionLogger::new()?);
+    let metadata = session_logger.metadata().clone();
     
-    // Create rolling file appender (daily rotation)
-    let file_appender = RollingFileAppender::new(
-        Rotation::DAILY,
-        log_dir,
-        "claw-desktop.log"
-    );
-    
-    // File layer: JSON format, DEBUG level
-    let file_layer = fmt::layer()
-        .json()
-        .with_writer(file_appender)
+    // Session logger layer: JSON format, DEBUG level
+    let session_layer = SessionLoggerLayer::new(session_logger.clone())
         .with_filter(EnvFilter::new("debug"));
     
     // Console layer: Human-readable, INFO level
@@ -32,26 +31,13 @@ pub fn init_logging() -> Result<(), String> {
     
     // Combine layers
     tracing_subscriber::registry()
-        .with(file_layer)
+        .with(session_layer)
         .with(console_layer)
         .init();
     
     tracing::info!("Logging initialized");
-    tracing::info!("Log directory: {}", get_log_directory()?.display());
+    tracing::info!("Session ID: {}", metadata.session_id);
+    tracing::info!("Log directory: {}", metadata.log_directory.display());
     
-    Ok(())
-}
-
-/// Get log directory path
-fn get_log_directory() -> Result<PathBuf, String> {
-    let data_dir = dirs::data_dir()
-        .ok_or_else(|| "Failed to get data directory".to_string())?;
-    
-    let log_dir = data_dir.join("claw-desktop").join("logs");
-    
-    // Create directory if not exists
-    std::fs::create_dir_all(&log_dir)
-        .map_err(|e| format!("Failed to create log directory: {}", e))?;
-    
-    Ok(log_dir)
+    Ok(metadata)
 }
