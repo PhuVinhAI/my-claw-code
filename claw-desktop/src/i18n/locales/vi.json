@@ -10,7 +10,9 @@
     "loadMore": "{{count}} hội thoại nữa...",
     "settings": "Cài đặt",
     "theme": "Đổi giao diện (Sáng/Tối)",
-    "language": "Ngôn ngữ"
+    "language": "Ngôn ngữ",
+    "home": "Home",
+    "openWorkspace": "Mở Workspace"
   },
   "sessionItem": {
     "save": "Lưu",

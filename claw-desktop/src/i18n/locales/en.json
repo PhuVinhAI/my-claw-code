@@ -10,7 +10,9 @@
     "loadMore": "{{count}} more conversations...",
     "settings": "Settings",
     "theme": "Toggle theme (Light/Dark)",
-    "language": "Language"
+    "language": "Language",
+    "home": "Home",
+    "openWorkspace": "Open Workspace"
   },
   "sessionItem": {
     "save": "Save",

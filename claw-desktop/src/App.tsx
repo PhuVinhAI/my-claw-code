@@ -78,7 +78,8 @@ function App() {
 
 
 
-          ${sidebarOpen ? 'w-64 sm:w-72 lg:w-80' : 'w-0'}
+          ${sidebarOpen ? 'w-56 sm:w-64' : 'w-0'}
+
           overflow-hidden
         `}
       >

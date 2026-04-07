@@ -101,21 +101,23 @@ export function SessionItem({ session, isActive }: SessionItemProps) {
   return (
     <div
       className={cn(
-        'group relative flex items-center gap-2 sm:gap-3 px-2 sm:px-3 py-2 sm:py-2.5 mb-1 rounded-lg cursor-pointer transition-colors border border-transparent',
+        'group relative flex items-center gap-2 px-1 py-1 rounded-sm cursor-pointer transition-colors border border-transparent',
         isActive
-          ? 'bg-accent text-accent-foreground'
-          : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
+          ? 'text-foreground font-semibold'
+          : 'text-muted-foreground hover:text-foreground'
       )}
       onClick={handleClick}
     >
+      <div className="flex shrink-0 w-3 items-center justify-center">
+        <div className={cn("w-1.5 h-1.5 rounded-full", isActive ? "bg-foreground" : "bg-muted-foreground/40")} />
+      </div>
       <div className="flex-1 min-w-0">
-        <p className={cn(
-          'text-xs sm:text-sm truncate',
-          isActive ? 'font-medium text-foreground' : 'font-medium'
-        )}>
+        <p className="text-[12px] truncate">
+
           {session.title}
         </p>
-        <p className="text-[10px] sm:text-[11px] text-muted-foreground mt-0.5 truncate">
+        <p className="text-[9px] text-muted-foreground opacity-60 truncate">
+
           {formatDate(session.updated_at)}
         </p>
       </div>
