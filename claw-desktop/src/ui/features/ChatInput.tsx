@@ -156,7 +156,10 @@ export function ChatInput() {
         value={input}
         onChange={(e) => setInput(e.target.value)}
         onKeyDown={handleKeyDown}
-        placeholder={t('chatInput.placeholder')}
+        placeholder={workMode === 'workspace' 
+          ? t('chatInput.placeholderWorkspace') 
+          : t('chatInput.placeholderNormal')
+        }
         className={cn(
           "w-full resize-none border-none shadow-none placeholder:text-muted-foreground focus-visible:ring-0",
           "!bg-transparent text-foreground chat-input-scroll",

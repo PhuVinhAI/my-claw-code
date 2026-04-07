@@ -29,6 +29,8 @@
   },
   "chatInput": {
     "placeholder": "Plan, Build...",
+    "placeholderNormal": "Ask me anything...",
+    "placeholderWorkspace": "Ask about your project...",
 
 
     "send": "Send message",
@@ -67,7 +69,7 @@
   "settings": {
     "title": "Settings",
     "back": "Back",
-    "general": "General",
+    "generalCategory": "General",
     "aiProviders": "AI Providers",
     "aiProvidersDescription": "Manage API providers and models",
     "contextSettings": "Context Settings",
@@ -92,7 +94,16 @@
     "noModels": "No models yet",
     "selectProvider": "Select a provider to view models",
     "fillAllFields": "Please fill in all fields",
-    "confirmDeleteModel": "Are you sure you want to delete this model?"
+    "confirmDeleteModel": "Are you sure you want to delete this model?",
+    "general": {
+      "title": "General",
+      "theme": "Theme",
+      "themeDescription": "Choose your preferred color theme",
+      "light": "Light",
+      "dark": "Dark",
+      "language": "Language",
+      "languageDescription": "Select your preferred language"
+    }
   },
   "kiloModelsBrowser": {
     "title": "Models from Kilo Gateway",

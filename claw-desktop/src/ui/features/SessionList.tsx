@@ -3,8 +3,7 @@ import { useState, useRef, useMemo, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useChatStore } from '../../store/useChatStore';
 import { SessionItem } from './SessionItem';
-import { LanguageSelector } from '../../components/LanguageSelector';
-import { Plus, Settings, Sun, Moon, PanelLeftClose, ChevronDown, ChevronRight, X, Search, Filter, Home, FolderOpen } from 'lucide-react';
+import { Plus, Settings, PanelLeftClose, ChevronDown, ChevronRight, X, Search, Filter, Home, FolderOpen } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '../../components/ui/dropdown-menu';
 import { invoke } from '@tauri-apps/api/core';
@@ -42,35 +41,7 @@ export function SessionList({ onOpenSettings, onCloseSidebar }: SessionListProps
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
 
-
-  const [isDark, setIsDark] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const isDarkSet = document.documentElement.classList.contains('dark') || localStorage.getItem('theme') === 'dark';
-    setIsDark(isDarkSet);
-    if (isDarkSet) {
-      document.documentElement.classList.add('dark');
-      document.documentElement.classList.remove('light');
-    } else {
-      document.documentElement.classList.remove('dark');
-      document.documentElement.classList.add('light');
-    }
-  }, []);
-
-  const toggleTheme = () => {
-    const newDark = !isDark;
-    setIsDark(newDark);
-    if (newDark) {
-      document.documentElement.classList.add('dark');
-      document.documentElement.classList.remove('light');
-      localStorage.setItem('theme', 'dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-      document.documentElement.classList.add('light');
-      localStorage.setItem('theme', 'light');
-    }
-  };
 
   const { setWorkMode } = useChatStore();
 
@@ -330,7 +301,7 @@ export function SessionList({ onOpenSettings, onCloseSidebar }: SessionListProps
 
                 <div key={groupKey} className="group/folder mx-1">
                   <div 
-                    className="flex items-center justify-between px-1 mb-1.5 cursor-pointer hover:bg-muted/50 rounded-sm py-1 transition-colors"
+                    className="flex items-center justify-between px-1 mb-1.5 cursor-pointer rounded-sm py-1 transition-colors"
                     onClick={(e) => toggleGroup(groupKey, e)}
                   >
                     <div className="flex items-center gap-1.5 overflow-hidden">
@@ -402,29 +373,16 @@ export function SessionList({ onOpenSettings, onCloseSidebar }: SessionListProps
 
       {/* Footer */}
       <div className="shrink-0 flex items-center justify-between px-2 py-1.5 border-t border-border/10">
-        <div className="flex">
-          <button
-            onClick={onOpenSettings}
-            className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground px-2 py-1 rounded-md hover:bg-muted transition-colors group"
-            title={t('sessionList.settings')}
-          >
-            <Settings className="w-3.5 h-3.5 transition-transform group-hover:rotate-45" />
-            <span className="text-xs font-medium leading-none tracking-wide">
-              {t('sessionList.settings')}
-            </span>
-          </button>
-        </div>
-        
-        <div className="flex items-center gap-1">
-           <LanguageSelector />
-          <button
-            onClick={toggleTheme}
-            className="flex items-center justify-center h-7 w-7 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-            title={t('sessionList.theme')}
-          >
-            {isDark ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
-          </button>
-        </div>
+        <button
+          onClick={onOpenSettings}
+          className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground px-2 py-1 rounded-md hover:bg-muted transition-colors group"
+          title={t('sessionList.settings')}
+        >
+          <Settings className="w-3.5 h-3.5 transition-transform group-hover:rotate-45" />
+          <span className="text-xs font-medium leading-none tracking-wide">
+            {t('sessionList.settings')}
+          </span>
+        </button>
       </div>
 
 

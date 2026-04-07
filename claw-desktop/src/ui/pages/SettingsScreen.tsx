@@ -2,21 +2,22 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSettingsStore } from '../../store/useSettingsStore';
+import { GeneralSettingsTab } from '../features/settings/GeneralSettingsTab';
 import { AISettingsTab } from '../features/settings/AISettingsTab';
 import { ContextSettingsTab } from '../features/settings/ContextSettingsTab';
-import { ArrowLeft, Bot, MessageSquare } from 'lucide-react';
+import { ArrowLeft, Bot, MessageSquare, Settings2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
 interface SettingsScreenProps {
   onBack: () => void;
 }
 
-type TabType = 'ai' | 'context';
+type TabType = 'general' | 'ai' | 'context';
 
 export function SettingsScreen({ onBack }: SettingsScreenProps) {
   const { t } = useTranslation();
   const { loadSettings } = useSettingsStore();
-  const [activeTab, setActiveTab] = useState<TabType>('ai');
+  const [activeTab, setActiveTab] = useState<TabType>('general');
 
   useEffect(() => {
     loadSettings();
@@ -41,8 +42,20 @@ export function SettingsScreen({ onBack }: SettingsScreenProps) {
         <div className="flex-1 overflow-y-auto px-2 py-3">
           <div className="space-y-0.5">
             <div className="px-2.5 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              {t('settings.general')}
+              {t('settings.generalCategory')}
             </div>
+            <button
+              onClick={() => setActiveTab('general')}
+              className={cn(
+                "flex items-center gap-2 w-full px-2.5 py-2 rounded-md text-sm transition-colors",
+                activeTab === 'general'
+                  ? "bg-accent text-accent-foreground"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+              )}
+            >
+              <Settings2 className="w-4 h-4" />
+              {t('settings.general.title', 'General')}
+            </button>
             <button
               onClick={() => setActiveTab('ai')}
               className={cn(
@@ -74,6 +87,7 @@ export function SettingsScreen({ onBack }: SettingsScreenProps) {
       {/* Content Area - Only show active tab */}
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-4xl mx-auto py-10 px-6">
+          {activeTab === 'general' && <GeneralSettingsTab />}
           {activeTab === 'ai' && <AISettingsTab />}
           {activeTab === 'context' && <ContextSettingsTab />}
         </div>

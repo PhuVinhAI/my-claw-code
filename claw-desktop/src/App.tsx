@@ -4,6 +4,7 @@ import { MessageList, ChatInput, PermissionModal, SessionList, ErrorBanner } fro
 import { OnboardingScreen } from './ui/pages/OnboardingScreen';
 import { SettingsScreen } from './ui/pages/SettingsScreen';
 import { TitleBar } from './components/TitleBar';
+import { ResizablePanel } from './components/ResizablePanel';
 import { PanelLeft } from 'lucide-react';
 
 import { invoke } from '@tauri-apps/api/core';
@@ -85,15 +86,20 @@ function App() {
 
 
       {/* Sidebar */}
-      <div
-        className={`
-          shrink-0 transition-all duration-300 ease-in-out border-r border-border bg-sidebar
-          ${sidebarOpen ? 'w-56 sm:w-64' : 'w-0'}
-          overflow-hidden
-        `}
+      <ResizablePanel
+        isOpen={sidebarOpen}
+        defaultWidth={240}
+        minWidth={200}
+        maxWidth={400}
+        storageKey="sidebarWidth"
+        side="left"
+        className="border-r border-border bg-sidebar"
       >
-        <SessionList onOpenSettings={() => setCurrentScreen('settings')} onCloseSidebar={() => setSidebarOpen(false)} />
-      </div>
+        <SessionList 
+          onOpenSettings={() => setCurrentScreen('settings')} 
+          onCloseSidebar={() => setSidebarOpen(false)} 
+        />
+      </ResizablePanel>
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0">
