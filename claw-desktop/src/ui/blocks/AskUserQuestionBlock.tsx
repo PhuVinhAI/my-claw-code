@@ -190,7 +190,7 @@ export function AskUserQuestionBlock({
       {/* Error Message */}
       {isError && output && (
         <div className="text-[10px] sm:text-xs text-red-600 dark:text-red-400 bg-red-500/10 px-2 py-1.5 rounded-md border border-red-500/20">
-          {output}
+          {output === 'Prompt cancelled by user' ? t('question.cancelledByUser') : output}
         </div>
       )}
     </div>

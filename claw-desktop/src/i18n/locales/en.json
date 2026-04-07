@@ -330,6 +330,7 @@
     "title": "Question",
     "waiting": "Waiting for answer…",
     "cancelled": "Cancelled",
+    "cancelledByUser": "Prompt cancelled by user",
     "error": "Error",
     "answered": "Answered",
     "yourAnswer": "Your answer",

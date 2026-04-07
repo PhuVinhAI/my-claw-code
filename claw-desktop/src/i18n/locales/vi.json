@@ -330,6 +330,7 @@
     "title": "Câu hỏi",
     "waiting": "Đang chờ trả lời…",
     "cancelled": "Đã hủy",
+    "cancelledByUser": "Câu hỏi đã bị hủy bởi người dùng",
     "error": "Lỗi",
     "answered": "Đã trả lời",
     "yourAnswer": "Câu trả lời của bạn",
