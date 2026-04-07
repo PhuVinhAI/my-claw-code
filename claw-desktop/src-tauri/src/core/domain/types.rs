@@ -33,16 +33,16 @@ impl From<&runtime::Session> for SessionDto {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum StreamEvent {
-    TextDelta { delta: String },
-    ToolUse { id: String, name: String, input: String },
-    ToolResult { tool_use_id: String, output: String, is_error: bool, is_cancelled: bool, is_timed_out: bool },
-    ToolOutputChunk { tool_use_id: String, chunk: String }, // Real-time output streaming
-    Usage { usage: TokenUsage },
-    MessageStop,
-    Error { message: String },
-    SystemMessage { message: String }, // System notification (e.g., tool changes)
-    CompactStarted { estimated_tokens: usize, max_tokens: usize }, // Auto-compact bắt đầu
-    CompactCompleted { removed_count: usize, summary: String, new_estimated_tokens: usize, max_tokens: usize }, // Auto-compact hoàn thành
+    TextDelta { delta: String, turn_id: String },
+    ToolUse { id: String, name: String, input: String, turn_id: String },
+    ToolResult { tool_use_id: String, output: String, is_error: bool, is_cancelled: bool, is_timed_out: bool, turn_id: String },
+    ToolOutputChunk { tool_use_id: String, chunk: String, turn_id: String }, // Real-time output streaming
+    Usage { usage: TokenUsage, turn_id: String },
+    MessageStop { turn_id: String },
+    Error { message: String, turn_id: String },
+    SystemMessage { message: String }, // System notification (e.g., tool changes) - no turn_id (global)
+    CompactStarted { estimated_tokens: usize, max_tokens: usize, turn_id: String }, // Auto-compact bắt đầu
+    CompactCompleted { removed_count: usize, summary: String, new_estimated_tokens: usize, max_tokens: usize, turn_id: String }, // Auto-compact hoàn thành
 }
 
 /// Permission request event

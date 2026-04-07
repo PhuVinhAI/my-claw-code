@@ -15,9 +15,12 @@ use crate::core::domain::types::StreamEvent;
 pub enum ActorCommand {
     Prompt {
         text: String,
+        turn_id: String, // Turn ID from frontend
         response_tx: oneshot::Sender<Result<TurnSummary, RuntimeError>>,
     },
-    Cancel,
+    Cancel {
+        response_tx: oneshot::Sender<()>, // Confirm cancel processed
+    },
     LoadSession {
         session_id: String,
         work_mode: String,
@@ -149,9 +152,9 @@ impl ChatSessionActor {
             tracing::debug!(command_type = %command_type, "Received actor command");
             
             match command {
-                ActorCommand::Prompt { text, response_tx } => {
-                    tracing::info!(text_len = text.len(), "Processing Prompt command");
-                    let result = self.handle_prompt(text).await;
+                ActorCommand::Prompt { text, turn_id, response_tx } => {
+                    tracing::info!(text_len = text.len(), turn_id = %turn_id, "Processing Prompt command");
+                    let result = self.handle_prompt(text, turn_id).await;
                     match &result {
                         Ok(summary) => {
                             tracing::info!(
@@ -161,16 +164,22 @@ impl ChatSessionActor {
                         }
                         Err(e) => {
                             tracing::error!(error = %e, "Prompt failed");
-                            // Emit error event to frontend
+                            // Emit error event to frontend with error turn_id
                             let error_msg = format!("{}", e);
-                            self.event_publisher.publish_stream_event(StreamEvent::Error { message: error_msg });
+                            let error_turn_id = format!("error-{}", uuid::Uuid::new_v4());
+                            self.event_publisher.publish_stream_event(StreamEvent::Error { 
+                                message: error_msg,
+                                turn_id: error_turn_id,
+                            });
                         }
                     }
                     let _ = response_tx.send(result);
                 }
-                ActorCommand::Cancel => {
+                ActorCommand::Cancel { response_tx } => {
                     tracing::info!("Processing Cancel command");
                     self.handle_cancel();
+                    // Confirm cancel processed
+                    let _ = response_tx.send(());
                 }
                 ActorCommand::LoadSession {
                     session_id,
@@ -252,19 +261,36 @@ impl ChatSessionActor {
         }
     }
 
-    async fn handle_prompt(&mut self, text: String) -> Result<TurnSummary, RuntimeError> {
+    async fn handle_prompt(&mut self, text: String, turn_id: String) -> Result<TurnSummary, RuntimeError> {
         use crate::core::domain::logging_helpers::{log_turn_for_ai, log_tool_execution_for_ai, log_api_call_for_ai};
-        
-        let turn_id = uuid::Uuid::new_v4().to_string();
         
         tracing::info!(
             turn_id = %turn_id,
             text_len = text.len(),
-            "🎯 TURN_START"
+            "🎯 TURN_START (turn_id from frontend)"
         );
         
-        // Reset cancel flag at the START of new prompt (prevent race condition)
+        // Check if cancel flag is still set from previous turn
+        let flag_before = self.cancel_flag.load(std::sync::atomic::Ordering::Relaxed);
+        if flag_before {
+            tracing::warn!(
+                turn_id = %turn_id,
+                "Cancel flag still set at turn start - resetting"
+            );
+        }
+        
+        // Reset cancel flag at the START of new prompt
+        // Cancel command is now synchronous, so this is safe
         self.cancel_flag.store(false, std::sync::atomic::Ordering::Relaxed);
+        
+        tracing::debug!(
+            turn_id = %turn_id,
+            "Cancel flag reset, starting new turn"
+        );
+        
+        // Set turn_id in API client and tool executor for event emission
+        self.runtime.api_client_mut().set_turn_id(turn_id.clone());
+        self.runtime.tool_executor_mut().set_turn_id(turn_id.clone());
         
         // Check if Antigravity provider (needs token accumulation)
         let is_antigravity = self.is_antigravity_provider();
@@ -309,6 +335,7 @@ impl ChatSessionActor {
         
         // Clone for usage callback
         let cumulative_usage_clone = cumulative_usage_shared.clone();
+        let turn_id_for_callback = turn_id.clone(); // Clone turn_id for callbacks
         
         // Use extension's run_turn_with_callback for real-time tool event emission
         let turn_id_clone = turn_id.clone();
@@ -353,6 +380,7 @@ impl ChatSessionActor {
                                     is_error: *is_error,
                                     is_cancelled: *is_cancelled,
                                     is_timed_out: *is_timed_out,
+                                    turn_id: turn_id_for_callback.clone(),
                                 },
                             );
                         }
@@ -388,6 +416,7 @@ impl ChatSessionActor {
                     event_publisher.publish_stream_event(
                         crate::core::domain::types::StreamEvent::Usage {
                             usage: usage_to_emit.clone(),
+                            turn_id: turn_id_for_callback.clone(),
                         },
                     );
                     
@@ -421,7 +450,9 @@ impl ChatSessionActor {
             
             // Emit MessageStop to notify frontend
             event_publisher.publish_stream_event(
-                crate::core::domain::types::StreamEvent::MessageStop,
+                crate::core::domain::types::StreamEvent::MessageStop {
+                    turn_id: turn_id.clone(),
+                },
             );
             
             // Return cancelled error
@@ -486,6 +517,7 @@ impl ChatSessionActor {
                                         is_error: *is_error,
                                         is_cancelled: *is_cancelled,
                                         is_timed_out: *is_timed_out,
+                                        turn_id: turn_id.clone(),
                                     },
                                 );
                             }
@@ -496,14 +528,16 @@ impl ChatSessionActor {
             
             // Emit MessageStop TRƯỚC KHI compact để UI chuyển về IDLE ngay
             event_publisher.publish_stream_event(
-                crate::core::domain::types::StreamEvent::MessageStop,
+                crate::core::domain::types::StreamEvent::MessageStop {
+                    turn_id: turn_id.clone(),
+                },
             );
             
             // Perform compact
-            self.perform_compact();
+            self.perform_compact(&turn_id);
         } else {
             // Normal auto-compact check (fallback nếu chưa compact)
-            self.check_and_auto_compact();
+            self.check_and_auto_compact(&turn_id);
         }
         
         // Emit final estimated usage for models that don't provide usage (like Gemini)
@@ -521,6 +555,7 @@ impl ChatSessionActor {
                 self.event_publisher.publish_stream_event(
                     crate::core::domain::types::StreamEvent::Usage {
                         usage: estimated_usage,
+                        turn_id: turn_id.clone(),
                     }
                 );
             }
@@ -536,7 +571,7 @@ impl ChatSessionActor {
     }
 
     /// Check và auto-compact session nếu token vượt ngưỡng
-    fn check_and_auto_compact(&mut self) {
+    fn check_and_auto_compact(&mut self, turn_id: &str) {
         // Load settings để lấy config và model max_context
         let settings = match self.settings_manager.load() {
             Ok(s) => s,
@@ -573,12 +608,12 @@ impl ChatSessionActor {
         let estimated_tokens = self.runtime.estimated_tokens();
         
         if estimated_tokens >= threshold {
-            self.perform_compact();
+            self.perform_compact(turn_id);
         }
     }
     
     /// Perform compaction (extracted for reuse)
-    fn perform_compact(&mut self) {
+    fn perform_compact(&mut self, turn_id: &str) {
         // Load settings để lấy config
         let settings = match self.settings_manager.load() {
             Ok(s) => s,
@@ -620,6 +655,7 @@ impl ChatSessionActor {
             crate::core::domain::types::StreamEvent::CompactStarted {
                 estimated_tokens,
                 max_tokens,
+                turn_id: turn_id.to_string(),
             }
         );
         
@@ -644,6 +680,7 @@ impl ChatSessionActor {
                     summary: result.formatted_summary,
                     new_estimated_tokens,
                     max_tokens,
+                    turn_id: turn_id.to_string(),
                 }
             );
             
@@ -676,6 +713,7 @@ impl ChatSessionActor {
                             cache_creation_input_tokens: total_usage.cache_creation_input_tokens,
                             cache_read_input_tokens: total_usage.cache_read_input_tokens,
                         },
+                        turn_id: turn_id.to_string(),
                     }
                 );
             } else {
@@ -689,6 +727,7 @@ impl ChatSessionActor {
                 self.event_publisher.publish_stream_event(
                     crate::core::domain::types::StreamEvent::Usage {
                         usage: estimated_usage,
+                        turn_id: turn_id.to_string(),
                     }
                 );
             }
@@ -698,17 +737,33 @@ impl ChatSessionActor {
     }
 
     fn handle_cancel(&mut self) {
-        eprintln!("[ACTOR] Cancelling current operation");
+        tracing::info!("🛑 CANCEL_START - Processing cancel command");
         
-        // Cancel flag đã được set bởi cancel_prompt command
-        // Runtime sẽ check flag này và stop
+        // Cancel flag đã được set bởi cancel_prompt command TRƯỚC KHI gọi handle_cancel
+        // Verify flag is set
+        let flag_value = self.cancel_flag.load(std::sync::atomic::Ordering::Relaxed);
+        tracing::debug!(cancel_flag = flag_value, "Cancel flag status");
+        
+        if !flag_value {
+            tracing::warn!("Cancel command received but flag not set - this shouldn't happen");
+        }
+        
+        // Generate a cancel turn_id (không phải turn thật, chỉ để mark cancelled events)
+        let cancel_turn_id = format!("cancel-{}", uuid::Uuid::new_v4());
         
         // Emit MessageStop để frontend biết đã cancel
+        // UI sẽ ignore event này vì turn_id không match currentTurnId
+        // Nhưng vẫn emit để có log đầy đủ
         self.event_publisher.publish_stream_event(
-            crate::core::domain::types::StreamEvent::MessageStop,
+            crate::core::domain::types::StreamEvent::MessageStop {
+                turn_id: cancel_turn_id.clone(),
+            },
         );
         
-        eprintln!("[ACTOR] Cancel command processed");
+        tracing::info!(
+            cancel_turn_id = %cancel_turn_id,
+            "🛑 CANCEL_COMPLETE - Cancel command processed, MessageStop emitted"
+        );
     }
 
     fn handle_load_session(&mut self, session_id: String, work_mode: String, workspace_path: Option<String>) -> Result<(), String> {
@@ -719,9 +774,12 @@ impl ChatSessionActor {
         self.runtime.replace_session(session);
         
         // Update current session ID
-        self.current_session_id = Some(session_id);
+        self.current_session_id = Some(session_id.clone());
         
         let session = self.runtime.session();
+        
+        // Generate special turn_id for load events
+        let load_turn_id = format!("load-{}", session_id);
         
         // For Antigravity: recalculate cumulative usage from all assistant messages in session
         if self.is_antigravity_provider() {
@@ -751,6 +809,7 @@ impl ChatSessionActor {
                             cache_creation_input_tokens: total_usage.cache_creation_input_tokens,
                             cache_read_input_tokens: total_usage.cache_read_input_tokens,
                         },
+                        turn_id: load_turn_id.clone(),
                     },
                 );
             } else {
@@ -772,6 +831,7 @@ impl ChatSessionActor {
                                     cache_creation_input_tokens: usage.cache_creation_input_tokens,
                                     cache_read_input_tokens: usage.cache_read_input_tokens,
                                 },
+                                turn_id: load_turn_id.clone(),
                             },
                         );
                     } else {

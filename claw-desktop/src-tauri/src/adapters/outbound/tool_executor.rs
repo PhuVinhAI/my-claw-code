@@ -18,6 +18,8 @@ pub struct TauriToolExecutor {
     pty_executor: Arc<PtyExecutor>, // Make Arc to share with commands
     work_mode: Arc<Mutex<WorkMode>>,
     selected_tools: Arc<Mutex<Vec<String>>>, // Normal mode: user-selected tools
+    event_publisher: Arc<dyn IEventPublisher>, // For emitting tool cancellation events
+    current_turn_id: Arc<std::sync::Mutex<String>>, // Track current turn ID
 }
 
 impl TauriToolExecutor {
@@ -43,7 +45,23 @@ impl TauriToolExecutor {
             pty_executor,
             work_mode,
             selected_tools: Arc::new(Mutex::new(Vec::new())), // Mặc định: không có tools
+            event_publisher,
+            current_turn_id: Arc::new(std::sync::Mutex::new(String::new())),
         }
+    }
+    
+    /// Set current turn ID for event emission
+    pub fn set_turn_id(&self, turn_id: String) {
+        let mut current = self.current_turn_id.lock().unwrap();
+        *current = turn_id.clone();
+        // Also set in pty_executor
+        self.pty_executor.set_turn_id(turn_id);
+    }
+    
+    /// Get current turn ID
+    fn get_turn_id(&self) -> String {
+        let current = self.current_turn_id.lock().unwrap();
+        current.clone()
     }
     
     /// Get PTY executor for cancelling specific tools
@@ -274,6 +292,22 @@ impl ToolExecutor for TauriToolExecutor {
                     true,
                     Some(duration_ms)
                 );
+                
+                // CRITICAL: Emit ToolResult event with is_cancelled=true
+                // This ensures UI knows tool was cancelled and can update state
+                if !tool_use_id.is_empty() {
+                    let turn_id = self.get_turn_id();
+                    self.event_publisher.publish_stream_event(
+                        crate::core::domain::types::StreamEvent::ToolResult {
+                            tool_use_id: tool_use_id.to_string(),
+                            output: "Tool execution cancelled by user".to_string(),
+                            is_error: false,
+                            is_cancelled: true,
+                            is_timed_out: false,
+                            turn_id,
+                        }
+                    );
+                }
                 
                 Err(ToolError::new("Tool execution cancelled by user".to_string()))
             }

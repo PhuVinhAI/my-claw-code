@@ -16,6 +16,7 @@ interface ChatStore {
   currentTokenUsage: TokenUsage | null; // Current turn token usage
   errorMessage: string | null; // Error message to display to user
   lastUserText: string | null; // Last user message text (for restore on error)
+  currentTurnId: string | null; // Track current turn ID to filter events
 
   // Session Management
   sessions: SessionMetadata[];
@@ -65,6 +66,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   currentTokenUsage: null,
   errorMessage: null,
   lastUserText: null,
+  currentTurnId: null, // Initialize as null
   sessions: [],
   currentSessionId: null,
   isLoadingSessions: false,
@@ -93,6 +95,11 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
     console.log('[STORE] sendPrompt called with text:', text.substring(0, 50) + '...');
 
+    // Generate new turn ID for this prompt
+    const turnId = `turn-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    set({ currentTurnId: turnId });
+    console.log('[STORE] New turn ID:', turnId);
+
     // Create new session ONLY if none exists AND this is the first message
     if (!currentSessionId) {
       // Generate new session ID
@@ -115,8 +122,8 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     dispatch({ type: 'USER_SENT_PROMPT', text });
 
     try {
-      console.log('[STORE] Calling gateway.sendPrompt...');
-      await gateway.sendPrompt(text);
+      console.log('[STORE] Calling gateway.sendPrompt with turn_id:', turnId);
+      await gateway.sendPrompt(text, turnId);
       console.log('[STORE] gateway.sendPrompt completed');
       // Clear lastUserText on successful send
       set({ lastUserText: null });
@@ -573,7 +580,20 @@ export function initializeChatStore() {
   }
 
   gateway.onStreamEvent((event: StreamEvent) => {
-    console.log('[STORE] Received stream event:', event.type);
+    console.log('[STORE] Received stream event:', event.type, 'turn_id:', (event as any).turn_id);
+    
+    // Filter events by turn_id (ignore events from old turns)
+    // system_message doesn't have turn_id (global events)
+    if (event.type !== 'system_message') {
+      const eventTurnId = (event as any).turn_id;
+      const currentTurnId = useChatStore.getState().currentTurnId;
+      
+      if (eventTurnId && currentTurnId && eventTurnId !== currentTurnId) {
+        console.log('[STORE] Ignoring event from old turn:', eventTurnId, 'current:', currentTurnId);
+        return; // Ignore events from old turns
+      }
+    }
+    
     switch (event.type) {
       case 'text_delta':
         appendTextDelta(event.delta);

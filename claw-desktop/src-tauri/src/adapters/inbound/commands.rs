@@ -8,8 +8,8 @@ use crate::setup::app_state::AppState;
 
 /// Send prompt command - Non-blocking (fire and forget)
 #[tauri::command]
-pub async fn send_prompt(text: String, state: State<'_, AppState>) -> Result<(), String> {
-    tracing::info!(text_len = text.len(), "send_prompt command called");
+pub async fn send_prompt(text: String, turn_id: String, state: State<'_, AppState>) -> Result<(), String> {
+    tracing::info!(text_len = text.len(), turn_id = %turn_id, "send_prompt command called");
     tracing::debug!(text_preview = %text.chars().take(100).collect::<String>(), "Prompt text preview");
     
     // DON'T reset cancel_flag here - Actor will reset it when starting new prompt
@@ -20,18 +20,18 @@ pub async fn send_prompt(text: String, state: State<'_, AppState>) -> Result<(),
     tokio::spawn(async move {
         let (tx, rx) = oneshot::channel();
         
-        tracing::debug!("Sending ActorCommand::Prompt to actor");
-        if let Err(e) = actor_tx.send(ActorCommand::Prompt { text, response_tx: tx }).await {
-            tracing::error!(error = %e, "Failed to send prompt to actor");
+        tracing::debug!(turn_id = %turn_id, "Sending ActorCommand::Prompt to actor");
+        if let Err(e) = actor_tx.send(ActorCommand::Prompt { text, turn_id: turn_id.clone(), response_tx: tx }).await {
+            tracing::error!(error = %e, turn_id = %turn_id, "Failed to send prompt to actor");
             return;
         }
         
-        tracing::debug!("Waiting for actor response");
+        tracing::debug!(turn_id = %turn_id, "Waiting for actor response");
         // Await response trong background task (không block UI)
         match rx.await {
-            Ok(Ok(_summary)) => tracing::info!("Actor completed successfully"),
-            Ok(Err(e)) => tracing::error!(error = %e, "Actor returned error"),
-            Err(e) => tracing::error!(error = %e, "Failed to receive response"),
+            Ok(Ok(_summary)) => tracing::info!(turn_id = %turn_id, "Actor completed successfully"),
+            Ok(Err(e)) => tracing::error!(error = %e, turn_id = %turn_id, "Actor returned error"),
+            Err(e) => tracing::error!(error = %e, turn_id = %turn_id, "Failed to receive response"),
         }
     });
 
@@ -126,10 +126,10 @@ pub async fn get_session(state: State<'_, AppState>) -> Result<crate::core::doma
 
 /// Dừng quá trình tạo phản hồi của AI
 #[tauri::command]
-pub fn cancel_prompt(state: State<'_, AppState>) -> Result<(), String> {
-    eprintln!("[COMMAND] cancel_prompt called - cancelling all operations");
+pub async fn cancel_prompt(state: State<'_, AppState>) -> Result<(), String> {
+    tracing::info!("cancel_prompt command called - cancelling all operations");
     
-    // Set global cancel flag
+    // Set global cancel flag FIRST (tools check this immediately)
     state.cancel_flag.store(true, Ordering::Relaxed);
     
     // Send cancel event to tool executor
@@ -137,25 +137,31 @@ pub fn cancel_prompt(state: State<'_, AppState>) -> Result<(), String> {
     
     // Cancel ALL running PTY processes
     let running_tools = state.pty_executor.get_running_tools();
-    eprintln!("[COMMAND] Cancelling {} running tools", running_tools.len());
+    tracing::info!(tool_count = running_tools.len(), "Cancelling running tools");
     
     for tool_id in running_tools {
         if let Err(e) = state.pty_executor.cancel_tool(&tool_id) {
-            eprintln!("[COMMAND] Failed to cancel tool {}: {}", tool_id, e);
+            tracing::error!(tool_id = %tool_id, error = %e, "Failed to cancel tool");
         }
     }
     
-    // Send Cancel command to Actor (non-blocking)
-    let actor_tx = state.actor_tx.clone();
-    tauri::async_runtime::spawn(async move {
-        if let Err(e) = actor_tx.send(ActorCommand::Cancel).await {
-            eprintln!("[COMMAND] Failed to send Cancel to actor: {}", e);
-        } else {
-            eprintln!("[COMMAND] Cancel command sent to actor");
-        }
-    });
+    // Send Cancel command to Actor and WAIT for confirmation
+    // This ensures Cancel is fully processed BEFORE any subsequent Prompt command
+    let (tx, rx) = oneshot::channel();
     
-    eprintln!("[COMMAND] All cancel signals sent");
+    state
+        .actor_tx
+        .send(ActorCommand::Cancel { response_tx: tx })
+        .await
+        .map_err(|e| format!("Failed to send Cancel to actor: {}", e))?;
+    
+    tracing::info!("Cancel command sent to actor, waiting for confirmation");
+    
+    // Wait for Actor to confirm cancel processed
+    rx.await
+        .map_err(|e| format!("Failed to receive cancel confirmation: {}", e))?;
+    
+    tracing::info!("Cancel command confirmed by actor");
     Ok(())
 }
 

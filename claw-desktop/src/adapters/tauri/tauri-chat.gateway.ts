@@ -5,8 +5,8 @@ import { IChatGateway, UnsubscribeFn } from '../../core/gateways';
 import { StreamEvent, PermissionRequest, Session, SessionMetadata } from '../../core/entities';
 
 export class TauriChatGateway implements IChatGateway {
-  async sendPrompt(text: string): Promise<void> {
-    await invoke('send_prompt', { text });
+  async sendPrompt(text: string, turnId: string): Promise<void> {
+    await invoke('send_prompt', { text, turnId });
   }
 
   async answerPermission(requestId: string, allow: boolean): Promise<void> {

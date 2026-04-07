@@ -56,6 +56,11 @@ const WORKSPACE_EXCLUDED_TOOLS: &[&str] = &[
     // Worker management
     "WorkerCreate",     // Worker process management
     "WorkerTerminate",  // Worker process management
+    "WorkerGet",        // Worker status checking
+    "WorkerSendPrompt", // Worker task delegation
+    "WorkerAwaitReady", // Worker readiness waiting
+    "WorkerObserve",    // Worker terminal observation
+    "WorkerResolveTrust", // Worker trust resolution
     
     // Team management
     "TeamCreate",       // Sub-agent team management
@@ -78,6 +83,9 @@ const WORKSPACE_EXCLUDED_TOOLS: &[&str] = &[
     // Remote/testing
     "RemoteTrigger",    // Remote action triggering - specialized
     "TestingPermission",// Permission testing - development only
+    
+    // LSP (Language Server Protocol)
+    "LSP",              // LSP queries - specialized for code intelligence
 ];
 
 /// Get OS-specific tool exclusions

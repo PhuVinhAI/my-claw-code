@@ -15,6 +15,7 @@ pub struct TauriApiClient {
     tool_definitions: Vec<api::ToolDefinition>,
     model: String,
     cancel_flag: Arc<AtomicBool>,
+    current_turn_id: Arc<std::sync::Mutex<String>>, // Track current turn ID for event emission
 }
 
 impl TauriApiClient {
@@ -32,6 +33,7 @@ impl TauriApiClient {
             tool_definitions,
             model: model.to_string(),
             cancel_flag,
+            current_turn_id: Arc::new(std::sync::Mutex::new(String::new())),
         })
     }
     
@@ -58,7 +60,20 @@ impl TauriApiClient {
             tool_definitions,
             model: model.to_string(),
             cancel_flag,
+            current_turn_id: Arc::new(std::sync::Mutex::new(String::new())),
         })
+    }
+    
+    /// Set current turn ID for event emission
+    pub fn set_turn_id(&self, turn_id: String) {
+        let mut current = self.current_turn_id.lock().unwrap();
+        *current = turn_id;
+    }
+    
+    /// Get current turn ID
+    fn get_turn_id(&self) -> String {
+        let current = self.current_turn_id.lock().unwrap();
+        current.clone()
     }
     
     /// Update tool definitions (called when work mode changes)
@@ -129,6 +144,7 @@ impl ApiClient for TauriApiClient {
         // Use block_in_place to allow blocking in async context
         let client = self.client.clone();
         let event_publisher = self.event_publisher.clone();
+        let turn_id = self.get_turn_id(); // Get current turn_id
 
         tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
@@ -144,7 +160,9 @@ impl ApiClient for TauriApiClient {
                     // Check nếu user bấm nút dừng (Cancel)
                     if self.cancel_flag.load(Ordering::Relaxed) {
                         event_publisher.publish_stream_event(
-                            crate::core::domain::types::StreamEvent::MessageStop,
+                            crate::core::domain::types::StreamEvent::MessageStop {
+                                turn_id: turn_id.clone(),
+                            },
                         );
                         assistant_events.push(AssistantEvent::MessageStop);
                         break;
@@ -171,6 +189,7 @@ impl ApiClient for TauriApiClient {
                                             event_publisher.publish_stream_event(
                                                 crate::core::domain::types::StreamEvent::TextDelta {
                                                     delta: text.clone(),
+                                                    turn_id: turn_id.clone(),
                                                 },
                                             );
                                             assistant_events
@@ -216,6 +235,7 @@ impl ApiClient for TauriApiClient {
                                                 id: id.clone(),
                                                 name: name.clone(),
                                                 input: input.clone(),
+                                                turn_id: turn_id.clone(),
                                             },
                                         );
                                         assistant_events.push(AssistantEvent::ToolUse {
@@ -248,6 +268,7 @@ impl ApiClient for TauriApiClient {
                                         event_publisher.publish_stream_event(
                                             crate::core::domain::types::StreamEvent::Usage {
                                                 usage: token_usage.clone(),
+                                                turn_id: turn_id.clone(),
                                             },
                                         );
                                         
@@ -256,7 +277,9 @@ impl ApiClient for TauriApiClient {
                                 }
                                 ApiStreamEvent::MessageStop(_) => {
                                     event_publisher.publish_stream_event(
-                                        crate::core::domain::types::StreamEvent::MessageStop,
+                                        crate::core::domain::types::StreamEvent::MessageStop {
+                                            turn_id: turn_id.clone(),
+                                        },
                                     );
                                     assistant_events.push(AssistantEvent::MessageStop);
                                 }

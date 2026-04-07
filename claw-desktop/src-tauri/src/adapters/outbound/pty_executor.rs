@@ -27,6 +27,7 @@ pub struct PtyExecutor {
     running_processes: Arc<Mutex<HashMap<String, ToolProcess>>>, // tool_use_id -> process control
     detached_processes: Arc<Mutex<HashMap<String, DetachedProcess>>>, // tool_use_id -> detached child
     workspace_path: PathBuf, // CRITICAL: Working directory for commands
+    current_turn_id: Arc<std::sync::Mutex<String>>, // Track current turn ID for event emission
 }
 
 impl PtyExecutor {
@@ -43,7 +44,20 @@ impl PtyExecutor {
             running_processes: Arc::new(Mutex::new(HashMap::new())),
             detached_processes: Arc::new(Mutex::new(HashMap::new())),
             workspace_path,
+            current_turn_id: Arc::new(std::sync::Mutex::new(String::new())),
         }
+    }
+    
+    /// Set current turn ID for event emission
+    pub fn set_turn_id(&self, turn_id: String) {
+        let mut current = self.current_turn_id.lock().unwrap();
+        *current = turn_id;
+    }
+    
+    /// Get current turn ID
+    fn get_turn_id(&self) -> String {
+        let current = self.current_turn_id.lock().unwrap();
+        current.clone()
     }
 
     /// Cancel a specific tool execution by tool_use_id
@@ -112,6 +126,9 @@ impl PtyExecutor {
         tool_use_id: &str,
         timeout_secs: Option<u64>, // Timeout in seconds
     ) -> Result<String, String> {
+        // Get current turn_id for event emission
+        let turn_id = self.get_turn_id();
+        
         // Create per-tool control flags
         let tool_process = ToolProcess {
             cancel_flag: Arc::new(AtomicBool::new(false)),
@@ -183,6 +200,7 @@ impl PtyExecutor {
         let cancel_flag = self.cancel_flag.clone();
         let tool_cancel_flag_reader = tool_process.cancel_flag.clone();
         let tool_detach_flag_reader = tool_process.detach_flag.clone();
+        let turn_id_for_thread = turn_id.clone(); // Clone turn_id for thread
 
         // Shared output buffer
         let output_buffer = Arc::new(Mutex::new(String::new()));
@@ -224,6 +242,7 @@ impl PtyExecutor {
                                 is_error: false,
                                 is_cancelled: false,
                                 is_timed_out: false,
+                                turn_id: turn_id_for_thread.clone(),
                             });
                         }
                         break;
@@ -254,6 +273,7 @@ impl PtyExecutor {
                             event_publisher.publish_stream_event(StreamEvent::ToolOutputChunk {
                                 tool_use_id: tool_use_id_owned.clone(),
                                 chunk: warning,
+                                turn_id: turn_id_for_thread.clone(),
                             });
                             
                             // Continue reading to drain pipe but don't accumulate
@@ -270,6 +290,7 @@ impl PtyExecutor {
                         event_publisher.publish_stream_event(StreamEvent::ToolOutputChunk {
                             tool_use_id: tool_use_id_owned.clone(),
                             chunk: text,
+                            turn_id: turn_id_for_thread.clone(),
                         });
                     }
                     Err(e) => {
