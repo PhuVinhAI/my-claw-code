@@ -231,12 +231,15 @@ async fn initialize_app_async(app_handle: AppHandle) -> Result<AppState, String>
     );
 
     // 15. Spawn Actor task in background thread (actor is !Send due to HookProgressReporter)
-    // Use std::thread instead of tokio::spawn
+    // Use std::thread with tokio::spawn instead of block_on to support block_in_place
     std::thread::spawn(move || {
         let rt = tokio::runtime::Runtime::new().unwrap();
-        rt.block_on(async {
+        // Use spawn instead of block_on to allow block_in_place in handle_prompt
+        let handle = rt.spawn(async move {
             actor.run().await;
         });
+        // Block on the spawned task
+        rt.block_on(handle).expect("Actor task panicked");
     });
 
     // 16. Return AppState

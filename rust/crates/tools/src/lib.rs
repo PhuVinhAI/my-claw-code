@@ -61,6 +61,7 @@ const WORKSPACE_EXCLUDED_TOOLS: &[&str] = &[
     "WorkerAwaitReady", // Worker readiness waiting
     "WorkerObserve",    // Worker terminal observation
     "WorkerResolveTrust", // Worker trust resolution
+    "WorkerRestart",    // Worker restart after failure
     
     // Team management
     "TeamCreate",       // Sub-agent team management

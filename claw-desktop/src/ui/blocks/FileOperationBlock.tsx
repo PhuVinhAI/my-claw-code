@@ -174,7 +174,7 @@ export function FileOperationBlock({
               <div className="rounded-lg overflow-hidden border border-border/30 bg-background">
                 <div className="max-h-96 overflow-auto font-mono text-[11px] leading-relaxed">
                   {parsedOutput.structuredPatch.map((hunk, hunkIdx) => (
-                    <div key={hunkIdx}>
+                    <div key={hunkIdx} className="min-w-full inline-block">
                       {/* Hunk header */}
                       <div className="bg-muted/30 px-3 py-1 text-[10px] text-muted-foreground/70 font-semibold border-b border-border/30">
                         @@ -{hunk.oldStart},{hunk.oldLines} +{hunk.newStart},{hunk.newLines} @@
@@ -189,7 +189,7 @@ export function FileOperationBlock({
                           <div
                             key={lineIdx}
                             className={cn(
-                              'px-3 py-0.5 whitespace-pre',
+                              'px-3 py-0.5 whitespace-pre min-w-full inline-block',
                               isAddition && 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
                               isDeletion && 'bg-red-500/10 text-red-600 dark:text-red-400',
                               isContext && 'bg-background text-foreground/80'
