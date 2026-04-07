@@ -4,13 +4,8 @@ import { useTranslation } from 'react-i18next';
 import { useChatStore } from '../../store';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { Textarea } from '../../components/ui/textarea';
-import { Send, Square, FolderOpen, ChevronDown } from 'lucide-react';
-
-
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuItem, DropdownMenuGroup } from '../../components/ui/dropdown-menu';
+import { Send, Square, ChevronDown } from 'lucide-react';
 import { cn } from '../../lib/utils';
-import { invoke } from '@tauri-apps/api/core';
-
 
 import { ModelSelector } from './ModelSelector';
 import { TokenCounter } from './TokenCounter';
@@ -22,7 +17,7 @@ export function ChatInput() {
 
   const toolsRef = useRef<HTMLDivElement>(null);
 
-  const { state, messages, sendPrompt, stopGeneration, workMode, workspacePath, setWorkMode, selectedTools, setSelectedTools, recentWorkspaces, currentTokenUsage, lastUserText } = useChatStore();
+  const { state, messages, sendPrompt, stopGeneration, workMode, selectedTools, setSelectedTools, currentTokenUsage, lastUserText } = useChatStore();
   const { settings } = useSettingsStore();
   const isGenerating = state.status !== 'IDLE';
   const isEmpty = messages.length === 0;
@@ -128,19 +123,6 @@ export function ChatInput() {
     }
   };
 
-
-  const handleSelectNewFolder = async () => {
-    try {
-      const selectedPath = await invoke<string | null>('select_and_set_workspace');
-      if (selectedPath) {
-        await setWorkMode('workspace', selectedPath);
-      }
-    } catch (e) {
-      console.error('Failed to select workspace:', e);
-      alert(t('chatInput.selectWorkspaceError', { error: String(e) }));
-    }
-  };
-
   const handleToolToggle = async (toolId: string) => {
     const newTools = selectedTools.includes(toolId)
       ? selectedTools.filter(t => t !== toolId)
@@ -150,14 +132,7 @@ export function ChatInput() {
   };
 
   const inputCard = (
-    <div className="flex flex-col rounded-xl sm:rounded-2xl bg-card border border-border transition-all duration-200 focus-within:ring-1 focus-within:ring-primary/20 shadow-lg">
-
-
-
-
-
-
-
+    <div className="flex flex-col rounded-xl sm:rounded-2xl bg-[#212121] border border-[#242424] transition-all duration-200 shadow-lg">
       {/* Textarea */}
       <Textarea
         value={input}
@@ -197,23 +172,23 @@ export function ChatInput() {
                 </button>
 
                 {toolsOpen && (
-                  <div className="absolute bottom-full left-0 mb-2 min-w-[180px] sm:min-w-[200px] rounded-xl border border-border bg-popover p-2 space-y-1 animate-in fade-in slide-in-from-bottom-2 duration-150 z-50">
+                  <div className="absolute bottom-full left-0 mb-2 min-w-[180px] sm:min-w-[200px] rounded-xl border border-[#3e3e42] bg-[#252526] p-1 space-y-0.5 animate-in fade-in slide-in-from-bottom-2 duration-150 z-50">
                     {availableTools.map((tool) => (
                       <button
                         key={tool.id}
                         onClick={() => handleToolToggle(tool.id)}
                         className={cn(
-                          "flex w-full items-center gap-2 sm:gap-3 rounded-lg px-2 sm:px-3 py-2 sm:py-3 text-xs sm:text-sm transition-colors duration-150",
+                          "flex w-full items-center gap-2 sm:gap-3 rounded-sm px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm transition-colors duration-150",
                           selectedTools.includes(tool.id)
-                            ? "bg-primary/10 text-primary font-semibold"
-                            : "text-foreground hover:bg-muted"
+                            ? "bg-[#37373d] text-[#ffffff] font-semibold"
+                            : "text-[#cccccc] hover:bg-[#2a2d2e] hover:text-[#ffffff]"
                         )}
                       >
                         <div className={cn(
                           "h-3.5 w-3.5 sm:h-4 sm:w-4 rounded-[4px] border flex items-center justify-center",
                           selectedTools.includes(tool.id)
-                            ? "bg-primary border-primary text-primary-foreground"
-                            : "border-muted-foreground"
+                            ? "bg-[#ffffff] border-[#ffffff] text-[#141414]"
+                            : "border-[#888888]"
                         )}>
                           {selectedTools.includes(tool.id) && (
                             <svg className="h-2.5 w-2.5 sm:h-3 sm:w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
@@ -288,46 +263,6 @@ export function ChatInput() {
           </p>
         </div>
         <div className="w-full max-w-2xl lg:max-w-3xl flex flex-col gap-2 relative">
-          {workMode === 'workspace' && (
-            <div className="flex items-center gap-2 pl-2 text-sm text-foreground">
-              <DropdownMenu>
-                <DropdownMenuTrigger className="flex items-center gap-1 font-medium hover:text-foreground/80 outline-none">
-                  <span>{workspacePath ? (workspacePath.split(/[/\\]/).pop() || workspacePath) : t('chatInput.noWorkspace')}</span>
-                  <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-64">
-                  <DropdownMenuGroup>
-                    <DropdownMenuLabel>{t('chatInput.recentFoldersTitle')}</DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    {(!recentWorkspaces || recentWorkspaces.length === 0) && (
-                      <DropdownMenuItem disabled>{t('chatInput.recentFoldersEmpty')}</DropdownMenuItem>
-                    )}
-                    {recentWorkspaces?.map(path => (
-                      <DropdownMenuItem
-                        key={path}
-                        onClick={() => setWorkMode('workspace', path)}
-                        className="cursor-pointer"
-                        title={path}
-                      >
-                        <FolderOpen className="w-4 h-4 mr-2 shrink-0 text-muted-foreground" />
-                        <div className="flex flex-col min-w-0">
-                          <span className="truncate font-medium">{path.split(/[/\\]/).pop() || path}</span>
-                          <span className="truncate text-[10px] text-muted-foreground">{path}</span>
-                        </div>
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuGroup>
-                </DropdownMenuContent>
-              </DropdownMenu>
-              <button
-                onClick={handleSelectNewFolder}
-                className="flex items-center justify-center p-1 rounded-sm hover:bg-muted text-muted-foreground transition-colors"
-                title={t('chatInput.selectFolder')}
-              >
-                <FolderOpen className="w-4 h-4" />
-              </button>
-            </div>
-          )}
           {inputCard}
         </div>
 
@@ -337,53 +272,9 @@ export function ChatInput() {
 
   return (
     <div className="sticky bottom-0 z-10 pointer-events-none px-4 sm:px-6 pb-6 pt-8 bg-gradient-to-t from-background via-background/80 to-transparent">
-
-
-
       <div className="max-w-2xl lg:max-w-3xl mx-auto pointer-events-auto flex flex-col gap-2 relative">
-        {workMode === 'workspace' && (
-          <div className="absolute bottom-[100%] left-0 mb-1 flex items-center gap-2 pl-2 text-sm text-foreground">
-            <DropdownMenu>
-              <DropdownMenuTrigger className="flex items-center gap-1 font-medium hover:text-foreground/80 outline-none">
-                <span>{workspacePath ? (workspacePath.split(/[/\\]/).pop() || workspacePath) : t('chatInput.noWorkspace')}</span>
-                <ChevronDown className="w-4 h-4 text-muted-foreground" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-64">
-                <DropdownMenuGroup>
-                  <DropdownMenuLabel>{t('chatInput.recentFoldersTitle')}</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  {(!recentWorkspaces || recentWorkspaces.length === 0) && (
-                    <DropdownMenuItem disabled>{t('chatInput.recentFoldersEmpty')}</DropdownMenuItem>
-                  )}
-                  {recentWorkspaces?.map(path => (
-                    <DropdownMenuItem
-                      key={path}
-                      onClick={() => setWorkMode('workspace', path)}
-                      className="cursor-pointer"
-                      title={path}
-                    >
-                      <FolderOpen className="w-4 h-4 mr-2 shrink-0 text-muted-foreground" />
-                      <div className="flex flex-col min-w-0">
-                        <span className="truncate font-medium">{path.split(/[/\\]/).pop() || path}</span>
-                        <span className="truncate text-[10px] text-muted-foreground">{path}</span>
-                      </div>
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuGroup>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <button
-              onClick={handleSelectNewFolder}
-              className="flex items-center justify-center p-1 rounded-sm hover:bg-muted text-muted-foreground transition-colors"
-              title={t('chatInput.selectFolder')}
-            >
-              <FolderOpen className="w-4 h-4" />
-            </button>
-          </div>
-        )}
         {inputCard}
       </div>
-
     </div>
   );
 }

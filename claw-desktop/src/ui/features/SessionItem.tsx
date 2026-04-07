@@ -139,21 +139,21 @@ export function SessionItem({ session, isActive }: SessionItemProps) {
           <>
             <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
             <div 
-              className="absolute right-0 top-full mt-1 sm:mt-1.5 min-w-[140px] sm:min-w-[150px] rounded-xl border border-border bg-popover p-1 shadow-md z-50 animate-in fade-in slide-in-from-top-2 duration-150"
+              className="absolute right-0 top-full mt-1 min-w-[120px] rounded-lg border border-[#3e3e42] bg-[#252526] p-1 shadow-md z-50 animate-in fade-in slide-in-from-top-2 duration-150"
               onClick={(e) => e.stopPropagation()}
             >
               <button
                 onClick={(e) => { e.stopPropagation(); setMenuOpen(false); setIsEditing(true); setEditTitle(session.title); }}
-                className="flex w-full items-center gap-1.5 sm:gap-2 rounded-md px-2 sm:px-2.5 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                className="flex w-full items-center gap-1.5 rounded-sm px-2 py-1.5 text-xs font-medium text-[#cccccc] hover:bg-[#2a2d2e] hover:text-[#ffffff] transition-colors"
               >
-                <Edit2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <Edit2 className="w-3.5 h-3.5" />
                 <span>{t('sessionItem.rename')}</span>
               </button>
               <button
                 onClick={(e) => { e.stopPropagation(); handleDelete(); }}
-                className="flex w-full items-center gap-1.5 sm:gap-2 rounded-md px-2 sm:px-2.5 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-red-500 hover:bg-red-500 hover:text-white transition-colors"
+                className="flex w-full items-center gap-1.5 rounded-sm px-2 py-1.5 text-xs font-medium text-[#f48771] hover:bg-[#5a1d1d] hover:text-[#ff6b6b] transition-colors"
               >
-                <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <Trash2 className="w-3.5 h-3.5" />
                 <span>{t('sessionItem.delete')}</span>
               </button>
             </div>

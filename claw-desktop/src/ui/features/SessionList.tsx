@@ -1,11 +1,12 @@
 // SessionList — Sidebar with search, skeleton loading, lazy scroll
-import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
+import { useState, useRef, useMemo, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useChatStore } from '../../store/useChatStore';
 import { SessionItem } from './SessionItem';
 import { LanguageSelector } from '../../components/LanguageSelector';
-import { Plus, Settings, Sun, Moon, PanelLeftClose, FolderPlus, ChevronDown } from 'lucide-react';
+import { Plus, Settings, Sun, Moon, PanelLeftClose, ChevronDown, X, Search, Filter } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from '../../components/ui/dropdown-menu';
 
 
 
@@ -33,8 +34,10 @@ interface SessionListProps {
 export function SessionList({ onOpenSettings, onCloseSidebar }: SessionListProps) {
 
   const { t } = useTranslation();
-  const { sessions, currentSessionId, isLoadingSessions, createNewSession, recentWorkspaces } = useChatStore();
+  const { sessions, currentSessionId, isLoadingSessions, recentWorkspaces, removeWorkspace } = useChatStore();
 
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedWorkspace, setSelectedWorkspace] = useState<string>('all'); // 'all' | 'home' | workspace_path
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
 
@@ -82,6 +85,28 @@ export function SessionList({ onOpenSettings, onCloseSidebar }: SessionListProps
   };
 
   const groupedSessions = useMemo(() => {
+    // Filter sessions theo search query và selected workspace
+    let filteredSessions = sessions;
+    
+    // Filter by search query
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filteredSessions = filteredSessions.filter(s => 
+        s.title.toLowerCase().includes(query) || 
+        s.preview.toLowerCase().includes(query)
+      );
+    }
+    
+    // Filter by workspace
+    if (selectedWorkspace !== 'all') {
+      filteredSessions = filteredSessions.filter(s => {
+        if (selectedWorkspace === 'home') {
+          return s.work_mode !== 'workspace' || !s.workspace_path;
+        } else {
+          return s.work_mode === 'workspace' && s.workspace_path === selectedWorkspace;
+        }
+      });
+    }
 
     const groups: Record<string, typeof sessions> = {};
     const keys: string[] = [];
@@ -96,7 +121,7 @@ export function SessionList({ onOpenSettings, onCloseSidebar }: SessionListProps
 
     let hasHome = false;
 
-    sessions.forEach((s) => {
+    filteredSessions.forEach((s) => {
 
       let key = 'home';
       if (s.work_mode === 'workspace' && s.workspace_path) {
@@ -119,7 +144,7 @@ export function SessionList({ onOpenSettings, onCloseSidebar }: SessionListProps
 
 
     return { groups, keys: uniqueKeys };
-  }, [sessions, recentWorkspaces]);
+  }, [sessions, recentWorkspaces, searchQuery, selectedWorkspace]);
 
 
 
@@ -131,11 +156,6 @@ export function SessionList({ onOpenSettings, onCloseSidebar }: SessionListProps
     }
   };
 
-
-  const visibleCountForGroup = (groupKey: string) => {
-    return visibleCount; // Currently applying global visible count for simplicity, can be localized per group
-  };
-
   const toggleGroup = (groupKey: string, e: React.MouseEvent) => {
     e.stopPropagation();
     setCollapsedGroups(prev => ({ ...prev, [groupKey]: !prev[groupKey] }));
@@ -144,25 +164,77 @@ export function SessionList({ onOpenSettings, onCloseSidebar }: SessionListProps
   return (
 
     <div className="flex flex-col h-full bg-[#141414] relative">
-      <div className="shrink-0 flex items-center justify-between px-3 pt-4 pb-2">
-        <div className="flex flex-1 items-center gap-2">
+      {/* Header - Single row với search và actions */}
+      <div className="shrink-0 px-3 pt-4 pb-3">
+        <div className="flex items-center gap-2">
+          {/* Close sidebar button */}
           {onCloseSidebar && (
             <button
               onClick={onCloseSidebar}
-              className="flex items-center justify-center h-6 w-6 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+              className="flex items-center justify-center h-7 w-7 rounded-md hover:bg-[#2a2a2a] text-[#888888] hover:text-[#e0e0e0] transition-colors shrink-0"
               title={t('sessionList.closeSidebar', 'Close Sidebar')}
             >
               <PanelLeftClose className="w-3.5 h-3.5" />
             </button>
           )}
+          
+          {/* Search input - flex-1 */}
+          <div className="relative flex-1">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#666666] pointer-events-none" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={t('sessionList.searchPlaceholder')}
+              className="w-full h-7 pl-8 pr-2 text-xs bg-[#1e1e1e] border border-[#333333] rounded-md outline-none focus:border-[#454545] transition-all text-[#e0e0e0] placeholder:text-[#666666]"
+            />
+          </div>
+          
+          {/* Filter dropdown button */}
+          <DropdownMenu>
+            <DropdownMenuTrigger className="flex items-center justify-center h-7 w-7 rounded-md hover:bg-[#2a2a2a] text-[#888888] hover:text-[#e0e0e0] transition-colors shrink-0">
+              <Filter className="w-3.5 h-3.5" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48 bg-[#252526] border-[#3e3e42] p-1.5">
+              <DropdownMenuItem 
+                onClick={() => setSelectedWorkspace('all')}
+                className={cn(
+                  "cursor-pointer text-xs px-2 py-1.5 rounded-sm text-[#cccccc] hover:bg-[#2a2d2e] hover:text-[#ffffff] transition-colors mb-1",
+                  selectedWorkspace === 'all' && "bg-[#37373d] text-[#ffffff]"
+                )}
+              >
+                {t('sessionList.allWorkspaces', 'All')}
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                onClick={() => setSelectedWorkspace('home')}
+                className={cn(
+                  "cursor-pointer text-xs px-2 py-1.5 rounded-sm text-[#cccccc] hover:bg-[#2a2d2e] hover:text-[#ffffff] transition-colors mb-1",
+                  selectedWorkspace === 'home' && "bg-[#37373d] text-[#ffffff]"
+                )}
+              >
+                {t('sessionList.home')}
+              </DropdownMenuItem>
+              {recentWorkspaces && recentWorkspaces.length > 0 && (
+                <>
+                  <div className="h-px bg-[#3e3e42] my-1.5" />
+                  {recentWorkspaces.map(wsPath => (
+                    <DropdownMenuItem 
+                      key={wsPath}
+                      onClick={() => setSelectedWorkspace(wsPath)}
+                      className={cn(
+                        "cursor-pointer text-xs px-2 py-1.5 rounded-sm text-[#cccccc] hover:bg-[#2a2d2e] hover:text-[#ffffff] transition-colors mb-1 last:mb-0",
+                        selectedWorkspace === wsPath && "bg-[#37373d] text-[#ffffff]"
+                      )}
+                      title={wsPath}
+                    >
+                      <span className="truncate">{wsPath.split(/[/\\]/).pop() || wsPath}</span>
+                    </DropdownMenuItem>
+                  ))}
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
-        <button
-          onClick={createNewSession}
-          className="flex items-center justify-center p-1.5 ml-1 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-          title={t('sessionList.newChat')}
-        >
-          <Plus className="w-3.5 h-3.5" />
-        </button>
       </div>
 
       {/* Body */}
@@ -171,23 +243,7 @@ export function SessionList({ onOpenSettings, onCloseSidebar }: SessionListProps
         onScroll={handleScroll}
         className="flex-1 overflow-y-auto px-1.5 sm:px-2 py-2 sm:py-3"
       >
-        <div className="mb-4 mt-2 px-2">
-            <button
-              onClick={async () => {
-                const { invoke } = await import('@tauri-apps/api/core');
-                try {
-                  const path = await invoke<string | null>('select_and_set_workspace');
-                  if (path) await setWorkMode('workspace', path);
-                } catch (e) {
-                  console.error(e);
-                }
-              }}
-              className="flex w-full items-center gap-2 px-2 py-2 text-[12px] font-medium text-muted-foreground hover:text-foreground rounded-md hover:bg-muted transition-colors opacity-80 hover:opacity-100"
-            >
-              <FolderPlus className="w-3.5 h-3.5" />
-              <span>{t('sessionList.openWorkspace')}</span>
-            </button>
-        </div>
+        {/* Xóa nút "Open Workspace" - không cần nữa */}
 
         {isLoadingSessions ? (
 
@@ -218,14 +274,24 @@ export function SessionList({ onOpenSettings, onCloseSidebar }: SessionListProps
                         {groupName}
                       </span>
                     </div>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); handleNewSessionInWorkspace(groupKey); }}
-
-                      className="opacity-0 group-hover/folder:opacity-100 p-0.5 rounded-sm hover:bg-muted text-muted-foreground hover:text-foreground transition-all"
-                      title={t('sessionList.newChat')}
-                    >
-                      <Plus className="w-3 h-3" />
-                    </button>
+                    <div className="flex items-center gap-1 opacity-0 group-hover/folder:opacity-100 transition-opacity">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleNewSessionInWorkspace(groupKey); }}
+                        className="p-0.5 rounded-sm hover:bg-muted text-muted-foreground hover:text-foreground transition-all"
+                        title={t('sessionList.newChat')}
+                      >
+                        <Plus className="w-3 h-3" />
+                      </button>
+                      {groupKey !== 'home' && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); removeWorkspace(groupKey); }}
+                          className="p-0.5 rounded-sm hover:bg-red-500/20 text-muted-foreground hover:text-red-500 transition-all"
+                          title={t('sessionList.removeWorkspace', 'Remove workspace from list')}
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
                   </div>
                   {!collapsedGroups[groupKey] && (
                     <div className="space-y-0.5">

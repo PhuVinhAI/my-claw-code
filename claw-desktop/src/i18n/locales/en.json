@@ -12,7 +12,9 @@
     "theme": "Toggle theme (Light/Dark)",
     "language": "Language",
     "home": "Home",
-    "openWorkspace": "Open Workspace"
+    "openWorkspace": "Open Workspace",
+    "removeWorkspace": "Remove workspace from list",
+    "allWorkspaces": "All"
   },
   "sessionItem": {
     "save": "Save",

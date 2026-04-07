@@ -12,7 +12,9 @@
     "theme": "Đổi giao diện (Sáng/Tối)",
     "language": "Ngôn ngữ",
     "home": "Home",
-    "openWorkspace": "Mở Workspace"
+    "openWorkspace": "Mở Workspace",
+    "removeWorkspace": "Xóa workspace khỏi danh sách",
+    "allWorkspaces": "Tất cả"
   },
   "sessionItem": {
     "save": "Lưu",

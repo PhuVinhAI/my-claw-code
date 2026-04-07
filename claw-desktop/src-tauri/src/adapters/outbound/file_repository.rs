@@ -223,41 +223,68 @@ impl ISessionRepository for FileSessionRepository {
     fn list_with_metadata(&self) -> Result<Vec<SessionMetadata>, String> {
         let mut metadata_list = Vec::new();
         
-        // CHỈ scan folder của mode hiện tại (không scan tất cả folders)
-        let folder_path = self.current_active_folder();
+        // Scan TẤT CẢ folders (normal + all workspace hashes)
+        // để hiển thị tất cả sessions từ Home + tất cả Workspaces
         
-        // Create folder if not exists
-        if !folder_path.exists() {
-            fs::create_dir_all(&folder_path)
-                .map_err(|e| format!("Failed to create sessions folder: {}", e))?;
-            return Ok(Vec::new());
-        }
-        
-        // Scan sessions in current active folder only
-        let session_entries = fs::read_dir(&folder_path)
-            .map_err(|e| format!("Failed to read sessions folder: {}", e))?;
-        
-        for session_entry in session_entries {
-            let session_entry = session_entry.map_err(|e| format!("Failed to read session entry: {}", e))?;
-            let path = session_entry.path();
+        // Helper function để scan một folder
+        let mut scan_folder = |folder_path: &PathBuf| -> Result<(), String> {
+            if !folder_path.exists() {
+                return Ok(());
+            }
             
-            // Only process .meta.json files
-            if path.extension().and_then(|s| s.to_str()) == Some("json") {
-                if let Some(filename) = path.file_name().and_then(|s| s.to_str()) {
-                    if filename.ends_with(".meta.json") {
-                        let session_id = filename.trim_end_matches(".meta.json");
-                        
-                        // Load metadata
-                        let metadata_content = fs::read_to_string(&path)
-                            .map_err(|e| format!("Failed to read metadata: {}", e))?;
-                        match serde_json::from_str::<SessionMetadata>(&metadata_content) {
-                            Ok(meta) => metadata_list.push(meta),
-                            Err(e) => {
-                                eprintln!("Failed to parse metadata for {}: {}", session_id, e);
+            let session_entries = fs::read_dir(folder_path)
+                .map_err(|e| format!("Failed to read sessions folder: {}", e))?;
+            
+            for session_entry in session_entries {
+                let session_entry = session_entry.map_err(|e| format!("Failed to read session entry: {}", e))?;
+                let path = session_entry.path();
+                
+                // Only process .meta.json files
+                if path.extension().and_then(|s| s.to_str()) == Some("json") {
+                    if let Some(filename) = path.file_name().and_then(|s| s.to_str()) {
+                        if filename.ends_with(".meta.json") {
+                            // Load metadata
+                            let metadata_content = fs::read_to_string(&path)
+                                .map_err(|e| format!("Failed to read metadata: {}", e))?;
+                            match serde_json::from_str::<SessionMetadata>(&metadata_content) {
+                                Ok(meta) => metadata_list.push(meta),
+                                Err(e) => {
+                                    let session_id = filename.trim_end_matches(".meta.json");
+                                    eprintln!("Failed to parse metadata for {}: {}", session_id, e);
+                                }
                             }
                         }
                     }
                 }
+            }
+            Ok(())
+        };
+        
+        // 1. Scan "normal" folder (Home sessions)
+        let normal_folder = self.base_path.join("normal");
+        scan_folder(&normal_folder)?;
+        
+        // 2. Scan all workspace folders (hash folders)
+        let base_entries = fs::read_dir(&self.base_path)
+            .map_err(|e| format!("Failed to read base sessions directory: {}", e))?;
+        
+        for base_entry in base_entries {
+            let base_entry = base_entry.map_err(|e| format!("Failed to read base entry: {}", e))?;
+            let folder_path = base_entry.path();
+            
+            // Skip if not a directory
+            if !folder_path.is_dir() {
+                continue;
+            }
+            
+            // Skip "normal" folder (already scanned)
+            if let Some(folder_name) = folder_path.file_name().and_then(|s| s.to_str()) {
+                if folder_name == "normal" {
+                    continue;
+                }
+                
+                // This is a workspace hash folder - scan it
+                scan_folder(&folder_path)?;
             }
         }
 

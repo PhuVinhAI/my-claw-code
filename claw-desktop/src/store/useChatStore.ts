@@ -51,6 +51,7 @@ interface ChatStore {
   setWorkMode: (mode: WorkMode, workspacePath?: string) => Promise<void>;
   setSelectedTools: (tools: string[]) => Promise<void>; // Set selected tools for Normal mode
   addRecentWorkspace: (path: string) => void;
+  removeWorkspace: (workspacePath: string) => void; // Remove workspace from recent list
 
   // Internal
   appendTextDelta: (delta: string) => void;
@@ -79,6 +80,14 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     set((prev) => {
       const filtered = prev.recentWorkspaces.filter(p => p !== path);
       const updated = [path, ...filtered].slice(0, 5); // Giữ tối đa 5 lịch sử
+      localStorage.setItem('claw_recent_workspaces', JSON.stringify(updated));
+      return { recentWorkspaces: updated };
+    });
+  },
+
+  removeWorkspace: (workspacePath: string) => {
+    set((prev) => {
+      const updated = prev.recentWorkspaces.filter(p => p !== workspacePath);
       localStorage.setItem('claw_recent_workspaces', JSON.stringify(updated));
       return { recentWorkspaces: updated };
     });
