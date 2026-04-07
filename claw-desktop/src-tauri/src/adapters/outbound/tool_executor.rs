@@ -22,6 +22,8 @@ pub struct TauriToolExecutor {
     event_publisher: Arc<dyn IEventPublisher>, // For emitting tool cancellation events
     current_turn_id: Arc<std::sync::Mutex<String>>, // Track current turn ID
     prompt_registry: Arc<PromptRegistry>, // For PromptUser tool
+    // CRITICAL: Track turn_id when tool starts to prevent stale cancels
+    tool_start_turn_id: Arc<std::sync::Mutex<String>>,
 }
 
 impl TauriToolExecutor {
@@ -51,6 +53,7 @@ impl TauriToolExecutor {
             event_publisher,
             current_turn_id: Arc::new(std::sync::Mutex::new(String::new())),
             prompt_registry,
+            tool_start_turn_id: Arc::new(std::sync::Mutex::new(String::new())),
         }
     }
     
@@ -71,10 +74,16 @@ impl TauriToolExecutor {
     /// Drain cancel channel to remove stale cancel signals
     /// MUST be called at the start of each new turn to prevent race conditions
     pub fn drain_cancel_channel(&self) {
+        // CRITICAL: Drain crossbeam channel (not broadcast)
+        // This removes any stale cancel signals from previous turns
+        
         let mut drained_count = 0;
+        
+        // Drain all pending messages
         while self.cancel_rx.try_recv().is_ok() {
             drained_count += 1;
         }
+        
         if drained_count > 0 {
             tracing::debug!(
                 drained_count = drained_count,
@@ -157,6 +166,20 @@ impl ToolExecutor for TauriToolExecutor {
             tool_use_id = %tool_use_id,
             input_len = input.len(),
             "🔧 TOOL_EXEC_START"
+        );
+        
+        // CRITICAL: Capture turn_id when tool STARTS to validate cancel later
+        let tool_turn_id = self.get_turn_id();
+        {
+            let mut start_turn = self.tool_start_turn_id.lock().unwrap();
+            *start_turn = tool_turn_id.clone();
+        }
+        
+        tracing::debug!(
+            tool_name = %tool_name,
+            tool_use_id = %tool_use_id,
+            turn_id = %tool_turn_id,
+            "Tool execution started in turn"
         );
         
         // VALIDATE: Check if tool is allowed based on work mode and selected tools
@@ -331,40 +354,83 @@ impl ToolExecutor for TauriToolExecutor {
                 }
             }
             recv(self.cancel_rx) -> _ => {
-                let duration_ms = start_time.elapsed().as_millis() as u64;
-                tracing::warn!(
-                    tool_name = %tool_name,
-                    duration_ms = duration_ms,
-                    "🛑 TOOL_EXEC_CANCELLED"
-                );
+                // CRITICAL: Validate turn_id to prevent stale cancel from affecting new turn
+                let current_turn_id = self.get_turn_id();
+                let start_turn_id = self.tool_start_turn_id.lock().unwrap().clone();
                 
-                // Log for AI
-                log_tool_execution_for_ai(
-                    tool_use_id,
-                    tool_name,
-                    input,
-                    None,
-                    true,
-                    Some(duration_ms)
-                );
-                
-                // CRITICAL: Emit ToolResult event with is_cancelled=true
-                // This ensures UI knows tool was cancelled and can update state
-                if !tool_use_id.is_empty() {
-                    let turn_id = self.get_turn_id();
-                    self.event_publisher.publish_stream_event(
-                        crate::core::domain::types::StreamEvent::ToolResult {
-                            tool_use_id: tool_use_id.to_string(),
-                            output: "Tool execution cancelled by user".to_string(),
-                            is_error: false,
-                            is_cancelled: true,
-                            is_timed_out: false,
-                            turn_id,
-                        }
+                if current_turn_id != start_turn_id {
+                    // Cancel is from DIFFERENT turn (stale) - IGNORE IT
+                    tracing::warn!(
+                        tool_name = %tool_name,
+                        tool_use_id = %tool_use_id,
+                        start_turn_id = %start_turn_id,
+                        current_turn_id = %current_turn_id,
+                        "🛡️ IGNORED STALE CANCEL - Tool started in different turn, continuing execution"
                     );
+                    
+                    // Continue waiting for result (recursive select - wait again)
+                    // This is safe because we're in a select! block
+                    match result_rx.recv() {
+                        Ok(tool_result) => {
+                            let duration_ms = start_time.elapsed().as_millis() as u64;
+                            tool_result.map_err(|e| {
+                                tracing::error!(tool_name = %tool_name, error = %e, "Tool execution failed");
+                                log_tool_execution_for_ai(tool_use_id, tool_name, input, None, true, Some(duration_ms));
+                                ToolError::new(e)
+                            }).map(|output| {
+                                tracing::info!(
+                                    tool_name = %tool_name,
+                                    output_len = output.len(),
+                                    duration_ms = duration_ms,
+                                    "✅ TOOL_EXEC_SUCCESS (after ignoring stale cancel)"
+                                );
+                                log_tool_execution_for_ai(tool_use_id, tool_name, input, Some(&output), false, Some(duration_ms));
+                                output
+                            })
+                        }
+                        Err(_) => {
+                            tracing::error!(tool_name = %tool_name, "Tool execution thread disconnected");
+                            Err(ToolError::new("Tool execution failed unexpectedly".to_string()))
+                        }
+                    }
+                } else {
+                    // Cancel is for THIS turn - honor it
+                    let duration_ms = start_time.elapsed().as_millis() as u64;
+                    tracing::warn!(
+                        tool_name = %tool_name,
+                        duration_ms = duration_ms,
+                        turn_id = %current_turn_id,
+                        "🛑 TOOL_EXEC_CANCELLED (valid cancel for current turn)"
+                    );
+                    
+                    // Log for AI
+                    log_tool_execution_for_ai(
+                        tool_use_id,
+                        tool_name,
+                        input,
+                        None,
+                        true,
+                        Some(duration_ms)
+                    );
+                    
+                    // CRITICAL: Emit ToolResult event with is_cancelled=true
+                    // This ensures UI knows tool was cancelled and can update state
+                    if !tool_use_id.is_empty() {
+                        let turn_id = self.get_turn_id();
+                        self.event_publisher.publish_stream_event(
+                            crate::core::domain::types::StreamEvent::ToolResult {
+                                tool_use_id: tool_use_id.to_string(),
+                                output: "Tool execution cancelled by user".to_string(),
+                                is_error: false,
+                                is_cancelled: true,
+                                is_timed_out: false,
+                                turn_id,
+                            }
+                        );
+                    }
+                    
+                    Err(ToolError::new("Tool execution cancelled by user".to_string()))
                 }
-                
-                Err(ToolError::new("Tool execution cancelled by user".to_string()))
             }
         }
     }
