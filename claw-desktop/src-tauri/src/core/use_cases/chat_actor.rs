@@ -85,6 +85,10 @@ pub enum ActorCommand {
         provider_id: String,
         response_tx: oneshot::Sender<Result<(), String>>,
     },
+    SetUserLanguage {
+        language: String,
+        response_tx: oneshot::Sender<Result<(), String>>,
+    },
 }
 
 /// ChatSessionActor - Chạy trên tokio::task độc lập
@@ -255,6 +259,11 @@ impl ChatSessionActor {
                 ActorCommand::ReloadApiClient { model, base_url, api_key, provider_id, response_tx } => {
                     tracing::info!(model = %model, "Processing ReloadApiClient command");
                     let result = self.handle_reload_api_client(model, base_url, api_key, provider_id);
+                    let _ = response_tx.send(result);
+                }
+                ActorCommand::SetUserLanguage { language, response_tx } => {
+                    tracing::info!(language = %language, "Processing SetUserLanguage command");
+                    let result = self.session_repository.set_user_language(language);
                     let _ = response_tx.send(result);
                 }
             }
@@ -908,6 +917,9 @@ impl ChatSessionActor {
             (home_cwd, false)
         };
         
+        // Get user language preference from session repository
+        let user_language = self.session_repository.get_user_language().ok();
+        
         // Reload system prompt with work mode info
         let date = chrono::Local::now().format("%Y-%m-%d").to_string();
         let os_name = std::env::consts::OS.to_string();
@@ -919,6 +931,7 @@ impl ChatSessionActor {
             os_name, 
             os_version,
             include_workspace_context,
+            user_language,
         )
         .map_err(|e| format!("Failed to load system prompt: {}", e))?;
         

@@ -14,6 +14,7 @@ pub struct FileSessionRepository {
     base_path: PathBuf,
     current_working_dir: RwLock<String>, // Interior mutability for thread-safe updates
     current_work_mode: RwLock<String>, // "normal" or "workspace"
+    current_user_language: RwLock<String>, // User language preference (e.g., "en", "vi")
 }
 
 impl FileSessionRepository {
@@ -31,6 +32,7 @@ impl FileSessionRepository {
             base_path,
             current_working_dir: RwLock::new(String::new()), // Empty - chỉ set khi user chọn workspace
             current_work_mode: RwLock::new("normal".to_string()),
+            current_user_language: RwLock::new("en".to_string()), // Default to English
         })
     }
 
@@ -118,6 +120,14 @@ impl FileSessionRepository {
         }
         
         eprintln!("[REPO] Work mode updated to: {}", work_mode);
+        Ok(())
+    }
+    
+    /// Update user language preference
+    pub fn set_user_language(&self, language: String) -> Result<(), String> {
+        let mut current = self.current_user_language.write().unwrap();
+        *current = language.clone();
+        eprintln!("[REPO] User language updated to: {}", language);
         Ok(())
     }
 
@@ -368,5 +378,14 @@ impl ISessionRepository for FileSessionRepository {
         } else {
             Ok(Some(workdir.clone()))
         }
+    }
+    
+    fn set_user_language(&self, language: String) -> Result<(), String> {
+        self.set_user_language(language)
+    }
+    
+    fn get_user_language(&self) -> Result<String, String> {
+        let lang = self.current_user_language.read().unwrap();
+        Ok(lang.clone())
     }
 }

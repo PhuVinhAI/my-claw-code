@@ -25,4 +25,6 @@ pub trait ISessionRepository: Send + Sync {
     fn set_work_mode(&self, work_mode: String) -> Result<(), String>;
     fn get_work_mode(&self) -> Result<String, String>;
     fn get_workspace_path(&self) -> Result<Option<String>, String>;
+    fn set_user_language(&self, language: String) -> Result<(), String>;
+    fn get_user_language(&self) -> Result<String, String>;
 }

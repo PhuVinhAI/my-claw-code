@@ -207,6 +207,7 @@ async fn initialize_app_async(app_handle: AppHandle) -> Result<AppState, String>
         std::env::consts::OS,
         "claw-desktop",
         false, // Normal mode: no git/directory tree
+        None,  // No language preference at init (will be set later)
     )
     .map_err(|e| format!("Failed to load system prompt: {}", e))?;
 

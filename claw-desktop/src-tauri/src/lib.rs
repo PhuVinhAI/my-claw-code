@@ -58,6 +58,7 @@ pub fn run() {
             get_working_directory,
             select_and_set_workspace,
             reload_system_prompt,
+            set_user_language,
             send_tool_input,
             cancel_tool_execution,
             detach_tool_execution,

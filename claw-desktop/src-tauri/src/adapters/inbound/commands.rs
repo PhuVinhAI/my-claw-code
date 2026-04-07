@@ -401,6 +401,27 @@ pub async fn reload_system_prompt(state: State<'_, AppState>) -> Result<(), Stri
         .map_err(|e| format!("Failed to receive response: {}", e))?
 }
 
+/// Set user language preference (call when user changes language in UI)
+#[tauri::command]
+pub async fn set_user_language(language: String, state: State<'_, AppState>) -> Result<(), String> {
+    let (tx, rx) = oneshot::channel();
+
+    state
+        .actor_tx
+        .send(ActorCommand::SetUserLanguage {
+            language,
+            response_tx: tx,
+        })
+        .await
+        .map_err(|e| format!("Failed to send set user language: {}", e))?;
+
+    rx.await
+        .map_err(|e| format!("Failed to receive response: {}", e))??;
+    
+    // Reload system prompt with new language
+    reload_system_prompt(state).await
+}
+
 /// Send input to interactive tool (stdin)
 #[tauri::command]
 pub async fn send_tool_input(

@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { Languages } from 'lucide-react';
 import { CustomDropdown, DropdownOption } from './ui/custom-dropdown';
+import { invoke } from '@tauri-apps/api/core';
 
 export function LanguageSelector() {
   const { i18n, t } = useTranslation();
@@ -18,9 +19,19 @@ export function LanguageSelector() {
     },
   ];
 
-  const handleLanguageChange = (value: string | string[]) => {
+  const handleLanguageChange = async (value: string | string[]) => {
     const lang = Array.isArray(value) ? value[0] : value;
-    i18n.changeLanguage(lang);
+    
+    // Update i18n
+    await i18n.changeLanguage(lang);
+    
+    // Notify backend to update system prompt with new language
+    try {
+      await invoke('set_user_language', { language: lang });
+      console.log('[LanguageSelector] Language updated in backend:', lang);
+    } catch (error) {
+      console.error('[LanguageSelector] Failed to update language in backend:', error);
+    }
   };
 
   return (
