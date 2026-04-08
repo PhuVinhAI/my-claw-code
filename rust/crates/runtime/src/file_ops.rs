@@ -9,6 +9,8 @@ use regex::RegexBuilder;
 use serde::{Deserialize, Serialize};
 use walkdir::WalkDir;
 
+use crate::edit_replacers::{get_replacers, ReplacementMatch};
+
 /// Maximum file size that can be read (10 MB).
 const MAX_READ_SIZE: u64 = 10 * 1024 * 1024;
 
@@ -344,46 +346,57 @@ pub fn edit_file_with_validation(
         }
     }
     
-    if old_string == new_string {
-        return Err(io::Error::new(
-            io::ErrorKind::InvalidInput,
-            "No changes to make: old_string and new_string are exactly the same.",
-        ));
+    // Note: We don't check old_string == new_string here because:
+    // 1. Smart replacers may match differently than exact string
+    // 2. The actual matched text might differ from old_string
+    // 3. We'll check if actual changes are needed after matching
+    
+    // Try smart replacers in order from strict to relaxed
+    let replacers = get_replacers();
+    let mut all_matches: Vec<ReplacementMatch> = Vec::new();
+    let mut used_replacer_name = "";
+    
+    for replacer in replacers.iter() {
+        let matches = replacer.find_matches(&original_file, old_string);
+        if !matches.is_empty() {
+            all_matches = matches;
+            used_replacer_name = replacer.name();
+            break;
+        }
     }
     
-    // Normalize quotes in old_string to handle curly quotes
-    let normalized_old = normalize_quotes(old_string);
-    
-    // Try to find the actual string in file (handles quote normalization)
-    let actual_old_string = find_actual_string(&original_file, old_string)
-        .unwrap_or(old_string);
-    
-    if !original_file.contains(&actual_old_string) {
-        // Provide helpful error with suggestions
-        let suggestion = find_similar_string(&original_file, &actual_old_string);
-        let mut error_msg = format!("String to replace not found in file.\nString: {}", old_string);
+    // No matches found with any replacer
+    if all_matches.is_empty() {
+        let suggestion = find_similar_string(&original_file, old_string);
+        let mut error_msg = format!(
+            "Could not find oldString in the file. It must match exactly, including whitespace, indentation, and line endings.\n\nString to find:\n{}", 
+            old_string
+        );
         if let Some(similar) = suggestion {
             error_msg.push_str(&format!("\n\nDid you mean:\n{}", similar));
+            error_msg.push_str("\n\nHint: The string was found but may have different whitespace, indentation, or line endings. Try using the exact text from the file.");
+        } else {
+            error_msg.push_str("\n\nHint: No similar text found. Make sure you're editing the correct file and the text hasn't been modified.");
         }
         return Err(io::Error::new(io::ErrorKind::NotFound, error_msg));
     }
     
     // Check for multiple occurrences
-    let match_count = original_file.matches(&actual_old_string).count();
-    if match_count > 1 && !replace_all {
+    if all_matches.len() > 1 && !replace_all {
         return Err(io::Error::new(
             io::ErrorKind::InvalidInput,
             format!(
-                "Found {} matches of the string to replace, but replace_all is false. \
-                To replace all occurrences, set replace_all to true. \
-                To replace only one occurrence, please provide more context to uniquely identify the instance.\nString: {}",
-                match_count, old_string
+                "Found {} matches for oldString. Provide more surrounding context to make the match unique, or set replace_all to true.\n\nMatched using: {}\nString: {}",
+                all_matches.len(),
+                used_replacer_name,
+                old_string
             ),
         ));
     }
     
     // Preserve curly quotes in new_string when file uses them
-    let actual_new_string = preserve_quote_style(old_string, &actual_old_string, new_string);
+    let actual_old_string = &all_matches[0].matched_text;
+    let actual_new_string = preserve_quote_style(old_string, actual_old_string, new_string);
     
     // Strip trailing whitespace from new_string (except for Markdown files)
     let final_new_string = if should_strip_trailing_whitespace(path) {
@@ -391,18 +404,70 @@ pub fn edit_file_with_validation(
     } else {
         actual_new_string
     };
-
-    let updated = if replace_all {
-        original_file.replace(&actual_old_string, &final_new_string)
+    
+    // Check if there are actual changes to make
+    if replace_all {
+        // For replace_all, check if any match differs from new_string
+        let has_changes = all_matches.iter().any(|m| m.matched_text != final_new_string);
+        if !has_changes {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "No changes to make: all matched strings are already identical to new_string.",
+            ));
+        }
     } else {
-        original_file.replacen(&actual_old_string, &final_new_string, 1)
+        // For single replace, check if the matched text differs from new_string
+        if all_matches[0].matched_text == final_new_string {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "No changes to make: matched string is already identical to new_string.",
+            ));
+        }
+    }
+
+    // Apply replacements - use safe string replacement to avoid panic on invalid byte indices
+    let updated = if replace_all {
+        // Replace all matches in reverse order to maintain positions
+        let mut result = original_file.clone();
+        for m in all_matches.iter().rev() {
+            // Validate byte indices are on char boundaries
+            if !result.is_char_boundary(m.start) || !result.is_char_boundary(m.end) {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    format!(
+                        "Internal error: Invalid byte indices for replacement (start={}, end={}). This is a bug in the replacer.",
+                        m.start, m.end
+                    ),
+                ));
+            }
+            result.replace_range(m.start..m.end, &final_new_string);
+        }
+        result
+    } else {
+        // Replace only the first match
+        let m = &all_matches[0];
+        let mut result = original_file.clone();
+        
+        // Validate byte indices are on char boundaries
+        if !result.is_char_boundary(m.start) || !result.is_char_boundary(m.end) {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!(
+                    "Internal error: Invalid byte indices for replacement (start={}, end={}). This is a bug in the replacer.",
+                    m.start, m.end
+                ),
+            ));
+        }
+        
+        result.replace_range(m.start..m.end, &final_new_string);
+        result
     };
     
     fs::write(&absolute_path, &updated)?;
 
     Ok(EditFileOutput {
         file_path: absolute_path.to_string_lossy().into_owned(),
-        old_string: actual_old_string.to_owned(),
+        old_string: all_matches[0].matched_text.clone(),
         new_string: new_string.to_owned(),
         original_file: original_file.clone(),
         structured_patch: make_patch(&original_file, &updated),
