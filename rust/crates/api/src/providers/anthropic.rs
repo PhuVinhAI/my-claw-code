@@ -930,6 +930,15 @@ const fn is_retryable_status(status: reqwest::StatusCode) -> bool {
 fn strip_unsupported_beta_body_fields(body: &mut Value) {
     if let Some(object) = body.as_object_mut() {
         object.remove("betas");
+        // These fields are OpenAI-compatible only; Anthropic rejects them.
+        object.remove("frequency_penalty");
+        object.remove("presence_penalty");
+        // Anthropic uses "stop_sequences" not "stop". Convert if present.
+        if let Some(stop_val) = object.remove("stop") {
+            if stop_val.as_array().map_or(false, |a| !a.is_empty()) {
+                object.insert("stop_sequences".to_string(), stop_val);
+            }
+        }
     }
 }
 
@@ -1259,6 +1268,7 @@ mod tests {
             tools: None,
             tool_choice: None,
             stream: false,
+        ..Default::default()
         };
 
         assert!(request.with_streaming().stream);
@@ -1439,6 +1449,46 @@ mod tests {
     }
 
     #[test]
+    fn strip_removes_openai_only_fields_and_converts_stop() {
+        let mut body = serde_json::json!({
+            "model": "claude-sonnet-4-6",
+            "max_tokens": 1024,
+            "temperature": 0.7,
+            "frequency_penalty": 0.5,
+            "presence_penalty": 0.3,
+            "stop": ["\n"],
+        });
+
+        super::strip_unsupported_beta_body_fields(&mut body);
+
+        // temperature is kept (Anthropic supports it)
+        assert_eq!(body["temperature"], serde_json::json!(0.7));
+        // frequency_penalty and presence_penalty are removed
+        assert!(body.get("frequency_penalty").is_none(),
+            "frequency_penalty must be stripped for Anthropic");
+        assert!(body.get("presence_penalty").is_none(),
+            "presence_penalty must be stripped for Anthropic");
+        // stop is renamed to stop_sequences
+        assert!(body.get("stop").is_none(), "stop must be renamed");
+        assert_eq!(body["stop_sequences"], serde_json::json!(["\n"]));
+    }
+
+    #[test]
+    fn strip_does_not_add_empty_stop_sequences() {
+        let mut body = serde_json::json!({
+            "model": "claude-sonnet-4-6",
+            "max_tokens": 1024,
+            "stop": [],
+        });
+
+        super::strip_unsupported_beta_body_fields(&mut body);
+
+        assert!(body.get("stop").is_none());
+        assert!(body.get("stop_sequences").is_none(),
+            "empty stop should not produce stop_sequences");
+    }
+
+    #[test]
     fn rendered_request_body_strips_betas_for_standard_messages_endpoint() {
         let client = AnthropicClient::new("test-key").with_beta("tools-2026-04-01");
         let request = MessageRequest {
@@ -1449,6 +1499,7 @@ mod tests {
             tools: None,
             tool_choice: None,
             stream: false,
+        ..Default::default()
         };
 
         let mut rendered = client
