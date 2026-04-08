@@ -1,6 +1,6 @@
 // Tool Executor Adapter for Tauri
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::AtomicBool;
 use std::sync::Mutex;
 use runtime::{ToolExecutor, ToolError};
 use tools::GlobalToolRegistry;

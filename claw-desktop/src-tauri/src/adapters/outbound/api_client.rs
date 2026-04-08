@@ -130,6 +130,11 @@ impl ApiClient for TauriApiClient {
                 Some(ToolChoice::Auto)
             },
             stream: true,
+            temperature: None,
+            top_p: None,
+            frequency_penalty: None,
+            presence_penalty: None,
+            stop: None,
         };
         
         // Log API call for AI
