@@ -976,3 +976,46 @@ pub async fn submit_prompt_answer(
     tracing::info!(tool_use_id = %tool_use_id, "Answer submitted successfully");
     Ok(())
 }
+
+/// Save context to file - Opens save dialog and writes context content
+#[tauri::command]
+pub async fn save_context_to_file(
+    content: String,
+    default_filename: Option<String>,
+    app: tauri::AppHandle,
+) -> Result<String, String> {
+    use tauri_plugin_dialog::DialogExt;
+    use std::path::PathBuf;
+    
+    tracing::info!(content_len = content.len(), "save_context_to_file command called");
+    
+    // Open save dialog
+    let file_path = app
+        .dialog()
+        .file()
+        .set_title("Save Context")
+        .set_file_name(default_filename.unwrap_or_else(|| "context.txt".to_string()))
+        .add_filter("Text Files", &["txt"])
+        .add_filter("Markdown Files", &["md"])
+        .add_filter("All Files", &["*"])
+        .blocking_save_file();
+    
+    match file_path {
+        Some(path) => {
+            // Convert FilePath to PathBuf
+            let path_buf = PathBuf::from(path.to_string());
+            
+            // Write content to file
+            std::fs::write(&path_buf, content)
+                .map_err(|e| format!("Failed to write file: {}", e))?;
+            
+            let path_str = path_buf.to_string_lossy().to_string();
+            tracing::info!(path = %path_str, "Context saved successfully");
+            Ok(path_str)
+        }
+        None => {
+            tracing::info!("User cancelled save dialog");
+            Err("User cancelled".to_string())
+        }
+    }
+}

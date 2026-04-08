@@ -169,6 +169,23 @@
     "showDiff": "Xem thay đổi",
     "hideDiff": "Ẩn thay đổi"
   },
+  "contextGenerator": {
+    "title": "Tạo Context",
+    "files": "files",
+    "tokens": "tokens",
+    "stopped": "Đã dừng",
+    "error": "Lỗi",
+    "copy": "Sao chép",
+    "copied": "Đã sao chép",
+    "download": "Tải về",
+    "saving": "Đang lưu...",
+    "showPreview": "Xem trước",
+    "hidePreview": "Ẩn",
+    "withLineNumbers": "Có số dòng",
+    "withoutComments": "Không comment",
+    "removeDebugLogs": "Xóa debug logs",
+    "excluded": "Loại trừ"
+  },
   "webSearch": {
     "search": "Tìm kiếm web",
     "fetch": "Lấy nội dung web",

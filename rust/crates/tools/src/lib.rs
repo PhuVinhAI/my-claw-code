@@ -3,6 +3,8 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::{Duration, Instant};
 
+pub mod context_generator;
+
 use api::{
     max_tokens_for_model, resolve_model_alias, ApiError, ContentBlockDelta, InputContentBlock,
     InputMessage, MessageRequest, MessageResponse, OutputContentBlock, ProviderClient,
@@ -1337,6 +1339,44 @@ pub fn mvp_tool_specs() -> Vec<ToolSpec> {
             }),
             required_permission: PermissionMode::ReadOnly,
         },
+        ToolSpec {
+            name: "GenerateContext",
+            description: "Generate a comprehensive context document from workspace files. Useful for creating project overviews, documentation, or context for other AI tools.",
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "file_paths": {
+                        "type": "array",
+                        "items": { "type": "string" },
+                        "description": "List of relative file paths to include in the context"
+                    },
+                    "with_line_numbers": {
+                        "type": "boolean",
+                        "description": "Include line numbers in file contents",
+                        "default": false
+                    },
+                    "without_comments": {
+                        "type": "boolean",
+                        "description": "Remove comments from code files",
+                        "default": false
+                    },
+                    "remove_debug_logs": {
+                        "type": "boolean",
+                        "description": "Remove debug log statements (console.log, println!, etc.)",
+                        "default": false
+                    },
+                    "exclude_extensions": {
+                        "type": "array",
+                        "items": { "type": "string" },
+                        "description": "File extensions to exclude (e.g., ['log', 'tmp'])",
+                        "default": []
+                    }
+                },
+                "required": ["file_paths"],
+                "additionalProperties": false
+            }),
+            required_permission: PermissionMode::ReadOnly,
+        },
     ]
 }
 
@@ -1415,6 +1455,9 @@ fn execute_tool_with_enforcer(
         }
         "PromptUser" => {
             from_value::<PromptUserInput>(input).and_then(run_prompt_user)
+        }
+        "GenerateContext" => {
+            from_value::<GenerateContextInput>(input).and_then(run_generate_context)
         }
         "TaskCreate" => from_value::<TaskCreateInput>(input).and_then(run_task_create),
         "RunTaskPacket" => from_value::<TaskPacket>(input).and_then(run_task_packet),
@@ -1527,6 +1570,43 @@ fn run_prompt_user(input: PromptUserInput) -> Result<String, String> {
         "options": input.options,
         "status": "pending",
         "message": "Waiting for user response..."
+    }))
+}
+
+// GenerateContext - Create comprehensive context from workspace files
+#[allow(clippy::needless_pass_by_value)]
+fn run_generate_context(input: GenerateContextInput) -> Result<String, String> {
+    use crate::context_generator::{generate_context_from_files, ContextOptions};
+    use std::env;
+    
+    // Get current working directory
+    let cwd = env::current_dir().map_err(|e| format!("Failed to get current directory: {}", e))?;
+    let root_path = cwd.to_string_lossy().to_string();
+    
+    let options = ContextOptions {
+        with_line_numbers: input.with_line_numbers,
+        without_comments: input.without_comments,
+        remove_debug_logs: input.remove_debug_logs,
+        exclude_extensions: input.exclude_extensions,
+    };
+    
+    let context = generate_context_from_files(&root_path, &input.file_paths, &options)?;
+    
+    // Calculate token count (char_count / 4.0)
+    let char_count = context.chars().count();
+    let token_count = (char_count as f64 / 4.0).ceil() as usize;
+    
+    // Return context wrapped in JSON for consistent tool output
+    to_pretty_json(json!({
+        "context": context,
+        "file_count": input.file_paths.len(),
+        "token_count": token_count,
+        "options": {
+            "with_line_numbers": options.with_line_numbers,
+            "without_comments": options.without_comments,
+            "remove_debug_logs": options.remove_debug_logs,
+            "exclude_extensions": options.exclude_extensions
+        }
     }))
 }
 
@@ -2415,6 +2495,19 @@ struct PromptUserInput {
     question: String,
     #[serde(default)]
     options: Option<Vec<String>>,
+}
+
+#[derive(Debug, Deserialize)]
+struct GenerateContextInput {
+    file_paths: Vec<String>,
+    #[serde(default)]
+    with_line_numbers: bool,
+    #[serde(default)]
+    without_comments: bool,
+    #[serde(default)]
+    remove_debug_logs: bool,
+    #[serde(default)]
+    exclude_extensions: Vec<String>,
 }
 
 #[derive(Debug, Deserialize)]

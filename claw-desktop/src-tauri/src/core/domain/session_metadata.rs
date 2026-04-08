@@ -54,16 +54,40 @@ impl SessionMetadata {
         match first_user_message {
             Some(msg) => {
                 let cleaned = msg.trim().replace('\n', " ");
-                let title = if cleaned.len() > 50 {
-                    format!("{}...", &cleaned[..50])
+                
+                // Safe UTF-8 truncation using char_indices
+                let title = if cleaned.chars().count() > 50 {
+                    let mut end_idx = 0;
+                    for (idx, _) in cleaned.char_indices().take(50) {
+                        end_idx = idx;
+                    }
+                    // Move to next char boundary
+                    if let Some((next_idx, _)) = cleaned.char_indices().nth(50) {
+                        end_idx = next_idx;
+                    } else {
+                        end_idx = cleaned.len();
+                    }
+                    format!("{}...", &cleaned[..end_idx])
                 } else {
                     cleaned.clone()
                 };
-                let preview = if cleaned.len() > 100 {
-                    format!("{}...", &cleaned[..100])
+                
+                let preview = if cleaned.chars().count() > 100 {
+                    let mut end_idx = 0;
+                    for (idx, _) in cleaned.char_indices().take(100) {
+                        end_idx = idx;
+                    }
+                    // Move to next char boundary
+                    if let Some((next_idx, _)) = cleaned.char_indices().nth(100) {
+                        end_idx = next_idx;
+                    } else {
+                        end_idx = cleaned.len();
+                    }
+                    format!("{}...", &cleaned[..end_idx])
                 } else {
                     cleaned
                 };
+                
                 (title, preview)
             }
             None => {

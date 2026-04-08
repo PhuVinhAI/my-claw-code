@@ -90,6 +90,7 @@ pub fn run() {
             reload_tool_definitions,
             set_selected_tools,
             open_external_terminal,
+            save_context_to_file,
             // Settings commands
             check_onboarding_complete,
             get_settings,

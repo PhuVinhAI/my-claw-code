@@ -169,6 +169,23 @@
     "showDiff": "Show changes",
     "hideDiff": "Hide changes"
   },
+  "contextGenerator": {
+    "title": "Generate Context",
+    "files": "files",
+    "tokens": "tokens",
+    "stopped": "Stopped",
+    "error": "Error",
+    "copy": "Copy",
+    "copied": "Copied",
+    "download": "Download",
+    "saving": "Saving...",
+    "showPreview": "Show preview",
+    "hidePreview": "Hide",
+    "withLineNumbers": "With line numbers",
+    "withoutComments": "Without comments",
+    "removeDebugLogs": "Remove debug logs",
+    "excluded": "Excluded"
+  },
   "webSearch": {
     "search": "Web search",
     "fetch": "Fetch web content",

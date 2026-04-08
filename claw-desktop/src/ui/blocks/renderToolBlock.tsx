@@ -11,6 +11,7 @@ import { DelegationBlock } from './DelegationBlock';
 import { DirectoryListBlock } from './DirectoryListBlock';
 import { LSPBlock } from './LSPBlock';
 import { AskUserQuestionBlock } from './AskUserQuestionBlock';
+import { ContextGeneratorBlock } from './ContextGeneratorBlock';
 
 interface RenderToolBlockProps {
   toolUseBlock: ContentBlock;
@@ -198,6 +199,18 @@ export function renderToolBlock({ toolUseBlock, toolResultBlock, detachedTools }
         options={parsedInput.options}
         toolUseId={toolUseId || undefined}
         output={toolOutput}
+        isError={isError}
+        isPending={isPending}
+        isCancelled={isCancelledState}
+      />
+    );
+  }
+
+  // GenerateContext - Context generation with download
+  if (toolName === 'GenerateContext') {
+    return (
+      <ContextGeneratorBlock
+        toolOutput={toolOutput}
         isError={isError}
         isPending={isPending}
         isCancelled={isCancelledState}
