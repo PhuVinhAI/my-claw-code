@@ -357,7 +357,19 @@
     "docs": "View full documentation",
     "quickAdd": "Quick add models",
     "added": "Added",
-    "add": "Add"
+    "add": "Add",
+    "loading": "Loading models...",
+    "loadError": "Failed to load models",
+    "retry": "Retry",
+    "noModelsFound": "No models found",
+    "allTab": "All",
+    "claudeTab": "Claude",
+    "geminiTab": "Gemini",
+    "refresh": "Refresh"
+  },
+  "kilo": {
+    "apiKeyRequired": "API key required to use Kilo Gateway",
+    "getYourApiKey": "Get your API key"
   },
   "lsp": {
     "diagnostics": "Diagnostics",
@@ -441,9 +453,7 @@
     "generateCommitMessage": "Generate commit message with AI",
     "commit": "Commit",
     "push": "Push",
-    "commitAndPush": "Commit & Push",
     "commitAndSync": "Commit & Sync",
-    "stagedFilesCount": "{{count}} file(s) staged",
-    "refresh": "Refresh"
+    "stagedFilesCount": "{{count}} file(s) staged"
   }
 }

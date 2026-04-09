@@ -46,7 +46,7 @@ fn default_workspace_path() -> String {
 }
 
 fn default_user_language() -> String {
-    "en".to_string()
+    "vi".to_string()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

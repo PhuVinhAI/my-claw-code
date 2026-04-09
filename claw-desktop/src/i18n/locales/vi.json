@@ -357,7 +357,19 @@
     "docs": "Xem hướng dẫn đầy đủ",
     "quickAdd": "Thêm nhanh models",
     "added": "Đã thêm",
-    "add": "Thêm"
+    "add": "Thêm",
+    "loading": "Đang tải models...",
+    "loadError": "Không thể tải models",
+    "retry": "Thử lại",
+    "noModelsFound": "Không tìm thấy model",
+    "allTab": "Tất cả",
+    "claudeTab": "Claude",
+    "geminiTab": "Gemini",
+    "refresh": "Làm mới"
+  },
+  "kilo": {
+    "apiKeyRequired": "Cần API key để sử dụng Kilo Gateway",
+    "getYourApiKey": "Lấy API key của bạn"
   },
   "lsp": {
     "diagnostics": "Chẩn đoán",
@@ -441,9 +453,7 @@
     "generateCommitMessage": "Tạo commit message bằng AI",
     "commit": "Commit",
     "push": "Push",
-    "commitAndPush": "Commit & Push",
     "commitAndSync": "Commit & Sync",
-    "stagedFilesCount": "{{count}} file đã stage",
-    "refresh": "Làm mới"
+    "stagedFilesCount": "{{count}} file đã stage"
   }
 }

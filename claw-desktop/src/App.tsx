@@ -110,22 +110,22 @@ function App() {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Header Bar with Workspace Path - Only show when has messages */}
-        {!isEmpty && (
-          <div className="h-9 border-b border-border bg-background/95 backdrop-blur-sm flex items-center px-3 gap-3 shrink-0">
-            {/* Left: Sidebar Toggle + Workspace Path */}
-            <div className="flex items-center gap-2 flex-1 min-w-0">
-              {!sidebarOpen && (
-                <button
-                  onClick={() => setSidebarOpen(true)}
-                  className="flex items-center justify-center p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-all duration-150 shrink-0"
-                  title="Mở Sidebar"
-                >
-                  <PanelLeft className="w-4 h-4" />
-                </button>
-              )}
-              
-              {/* Workspace Path */}
+        {/* Header Bar - Always visible */}
+        <div className="h-9 border-b border-border bg-background/95 backdrop-blur-sm flex items-center px-3 gap-3 shrink-0">
+          {/* Left: Sidebar Toggle + Workspace Path (only show path when has messages) */}
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            {!sidebarOpen && (
+              <button
+                onClick={() => setSidebarOpen(true)}
+                className="flex items-center justify-center p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-all duration-150 shrink-0"
+                title="Mở Sidebar"
+              >
+                <PanelLeft className="w-4 h-4" />
+              </button>
+            )}
+            
+            {/* Workspace Path - Only show when has messages */}
+            {!isEmpty && (
               <div className="flex items-center gap-1.5 min-w-0">
                 {workMode === 'workspace' && workspacePath ? (
                   <>
@@ -144,27 +144,27 @@ function App() {
                   </>
                 )}
               </div>
-            </div>
-
-            {/* Right: Panel Toggle */}
-            {!isPanelOpen && (
-              <button
-                onClick={() => {
-                  setActiveTab('terminal');
-                  // Create first terminal if none exists
-                  const tabs = useTerminalStore.getState().tabs;
-                  if (tabs.length === 0) {
-                    createTab();
-                  }
-                }}
-                className="flex items-center justify-center p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-all duration-150 shrink-0"
-                title="Mở Panel"
-              >
-                <PanelRight className="w-4 h-4" />
-              </button>
             )}
           </div>
-        )}
+
+          {/* Right: Panel Toggle */}
+          {!isPanelOpen && (
+            <button
+              onClick={() => {
+                setActiveTab('terminal');
+                // Create first terminal if none exists
+                const tabs = useTerminalStore.getState().tabs;
+                if (tabs.length === 0) {
+                  createTab();
+                }
+              }}
+              className="flex items-center justify-center p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-all duration-150 shrink-0"
+              title="Mở Panel"
+            >
+              <PanelRight className="w-4 h-4" />
+            </button>
+          )}
+        </div>
 
         {/* Chat Area */}
         {isEmpty ? (

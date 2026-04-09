@@ -1,52 +1,73 @@
 // Onboarding Screen - Antigravity Setup Wizard
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { Model } from '../../core/entities';
 import { Button } from '../../components/ui/button';
 import { invoke } from '@tauri-apps/api/core';
-import { Sparkles, ArrowRight, Check, ExternalLink, Server, AlertCircle, CheckCircle } from 'lucide-react';
+import { Sparkles, ArrowRight, Check, ExternalLink, Server, AlertCircle, CheckCircle, Loader2, RefreshCw } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { fetchAntigravityModels, AntigravityModel } from '../features/settings/fetchAntigravityModels';
 
 interface OnboardingScreenProps {
   onComplete: () => void;
 }
 
-// Predefined Antigravity models
-const ANTIGRAVITY_MODELS = {
-  claude: [
-    { id: 'claude-opus-4-6-thinking', name: 'Claude Opus 4.6 (Thinking)', max_context: 200000 },
-    { id: 'claude-sonnet-4-6', name: 'Claude Sonnet 4.6', max_context: 200000 },
-  ],
-  gemini: [
-    { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash', max_context: 1000000 },
-    { id: 'gemini-2.5-flash-lite', name: 'Gemini 2.5 Flash Lite', max_context: 1000000 },
-    { id: 'gemini-2.5-flash-thinking', name: 'Gemini 2.5 Flash (Thinking)', max_context: 1000000 },
-    { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro', max_context: 1000000 },
-    { id: 'gemini-3-flash', name: 'Gemini 3 Flash', max_context: 1000000 },
-    { id: 'gemini-3-flash-agent', name: 'Gemini 3 Flash Agent', max_context: 1000000 },
-    { id: 'gemini-3-pro-high', name: 'Gemini 3 Pro High', max_context: 1000000 },
-    { id: 'gemini-3-pro-low', name: 'Gemini 3 Pro Low', max_context: 1000000 },
-    { id: 'gemini-3.1-flash-image', name: 'Gemini 3.1 Flash Image', max_context: 1000000 },
-    { id: 'gemini-3.1-flash-lite', name: 'Gemini 3.1 Flash Lite', max_context: 1000000 },
-    { id: 'gemini-3.1-pro-high', name: 'Gemini 3.1 Pro High', max_context: 1000000 },
-    { id: 'gemini-3.1-pro-low', name: 'Gemini 3.1 Pro Low', max_context: 1000000 },
-  ],
-};
+// Skeleton loading component
+function ModelSkeleton() {
+  return (
+    <div className="flex items-center justify-between p-2.5 rounded-md border border-border animate-pulse">
+      <div className="flex-1 min-w-0 mr-2">
+        <div className="h-3.5 bg-muted rounded w-3/4 mb-1.5"></div>
+        <div className="flex items-center gap-2">
+          <div className="h-3 bg-muted rounded w-1/2"></div>
+          <div className="h-3 bg-muted rounded w-12"></div>
+        </div>
+      </div>
+      <div className="h-4 w-4 bg-muted rounded"></div>
+    </div>
+  );
+}
 
 export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
+  const { t } = useTranslation();
   const [step, setStep] = useState(0);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<'idle' | 'success' | 'error'>('idle');
   const [testError, setTestError] = useState('');
   const [selectedModels, setSelectedModels] = useState<Model[]>([]);
-  const [selectedTab, setSelectedTab] = useState<'claude' | 'gemini'>('claude');
+  const [selectedTab, setSelectedTab] = useState<'claude' | 'gemini' | 'all'>('all');
   const [loading, setLoading] = useState(false);
+  const [models, setModels] = useState<AntigravityModel[]>([]);
+  const [modelsLoading, setModelsLoading] = useState(false);
+  const [modelsError, setModelsError] = useState<string | null>(null);
   const { loadSettings, addModel, setSelectedModel } = useSettingsStore();
 
   // Load settings on mount
   useEffect(() => {
     loadSettings();
   }, [loadSettings]);
+
+  // Fetch models when entering step 2
+  useEffect(() => {
+    if (step === 2 && models.length === 0) {
+      loadModels();
+    }
+  }, [step]);
+
+  const loadModels = async () => {
+    setModelsLoading(true);
+    setModelsError(null);
+    try {
+      const fetchedModels = await fetchAntigravityModels('http://localhost:8080');
+      setModels(fetchedModels);
+    } catch (err) {
+      setModelsError(err instanceof Error ? err.message : 'Failed to fetch models');
+      console.error('[ONBOARDING] Error fetching models:', err);
+    } finally {
+      setModelsLoading(false);
+    }
+  };
 
   const handleTestConnection = async () => {
     setTesting(true);
@@ -77,7 +98,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
 
   const handleComplete = async () => {
     if (selectedModels.length === 0) {
-      alert('Vui lòng chọn ít nhất 1 model');
+      alert(t('onboarding.selectAtLeastOne'));
       return;
     }
 
@@ -93,7 +114,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
 
       onComplete();
     } catch (error) {
-      alert(`Lỗi: ${error}`);
+      alert(t('onboarding.error', { error: String(error) }));
     } finally {
       setLoading(false);
     }
@@ -110,10 +131,10 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                 <Sparkles className="w-10 h-10 text-primary" />
               </div>
               <h1 className="text-4xl font-bold mb-4 tracking-tight">
-                Chào mừng đến với Claw
+                {t('onboarding.welcome')}
               </h1>
               <p className="text-base text-muted-foreground max-w-md mx-auto leading-relaxed">
-                Cấu hình Antigravity proxy để sử dụng<br />Claude & Gemini miễn phí
+                {t('onboarding.subtitle')}
               </p>
             </div>
 
@@ -123,7 +144,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                 className="w-full h-11 text-sm" 
                 size="lg"
               >
-                Bắt đầu cấu hình
+                {t('onboarding.start')}
                 <ArrowRight className="ml-2 w-4 h-4" />
               </Button>
             </div>
@@ -138,10 +159,10 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                 <Server className="w-7 h-7 text-blue-600 dark:text-blue-400" />
               </div>
               <h2 className="text-2xl font-semibold">
-                Cài đặt Antigravity Proxy
+                {t('onboarding.setupTitle')}
               </h2>
               <p className="text-sm text-muted-foreground max-w-lg mx-auto">
-                Sử dụng Claude & Gemini miễn phí qua Google Cloud Code
+                {t('onboarding.setupSubtitle')}
               </p>
             </div>
 
@@ -150,29 +171,29 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
               <div className="flex items-start gap-2">
                 <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-500 mt-0.5 shrink-0" />
                 <div className="text-xs text-amber-800 dark:text-amber-300">
-                  <strong>Cảnh báo:</strong> Google có thể cấm tài khoản vi phạm ToS. Sử dụng tài khoản phụ.
+                  <strong>{t('antigravity.warning')}</strong> {t('antigravity.warningText')}
                 </div>
               </div>
             </div>
 
             {/* Setup Instructions */}
             <div className="space-y-3">
-              <h3 className="text-sm font-semibold">Các bước cài đặt:</h3>
+              <h3 className="text-sm font-semibold">{t('onboarding.setupSteps')}</h3>
               <ol className="text-sm text-muted-foreground space-y-3 list-decimal list-inside">
                 <li>
-                  Cài đặt proxy:
+                  {t('antigravity.step1')}
                   <code className="block mt-1.5 px-3 py-2 rounded-md bg-muted text-foreground font-mono text-xs">
                     npm install -g antigravity-claude-proxy@latest
                   </code>
                 </li>
                 <li>
-                  Khởi động proxy:
+                  {t('antigravity.step2')}
                   <code className="block mt-1.5 px-3 py-2 rounded-md bg-muted text-foreground font-mono text-xs">
                     antigravity-claude-proxy start
                   </code>
                 </li>
                 <li>
-                  Thêm tài khoản Google:
+                  {t('antigravity.step3')}
                   <code className="block mt-1.5 px-3 py-2 rounded-md bg-muted text-foreground font-mono text-xs">
                     antigravity-claude-proxy accounts add
                   </code>
@@ -184,7 +205,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
               >
-                Xem hướng dẫn đầy đủ
+                {t('antigravity.docs')}
                 <ExternalLink className="w-3.5 h-3.5" />
               </a>
             </div>
@@ -197,7 +218,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                 className="w-full h-10 text-sm"
                 variant={testResult === 'success' ? 'outline' : 'default'}
               >
-                {testing ? 'Đang kiểm tra...' : testResult === 'success' ? 'Kết nối thành công!' : 'Kiểm tra kết nối'}
+                {testing ? t('onboarding.testing') : testResult === 'success' ? t('onboarding.connectionSuccess') : t('onboarding.testConnection')}
                 {testResult === 'success' && <CheckCircle className="ml-2 w-4 h-4" />}
               </Button>
 
@@ -206,7 +227,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                   <div className="flex items-start gap-2">
                     <AlertCircle className="w-4 h-4 text-red-600 dark:text-red-500 mt-0.5 shrink-0" />
                     <div className="text-xs text-red-800 dark:text-red-300">
-                      <strong>Lỗi kết nối:</strong> {testError}
+                      <strong>{t('onboarding.connectionError')}</strong> {testError}
                     </div>
                   </div>
                 </div>
@@ -226,7 +247,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                 className="w-full h-10 text-sm" 
                 size="lg"
               >
-                Tiếp tục
+                {t('onboarding.continue')}
                 <ArrowRight className="ml-2 w-4 h-4" />
               </Button>
             </div>
@@ -247,64 +268,118 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
 
             {/* Model Tabs */}
             <div>
-              <div className="flex gap-2 mb-3">
-                <button
-                  onClick={() => setSelectedTab('claude')}
-                  className={cn(
-                    'px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
-                    selectedTab === 'claude'
-                      ? 'bg-accent text-accent-foreground'
-                      : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-                  )}
+              <div className="flex items-center gap-2 mb-3">
+                <div className="flex gap-2 flex-1">
+                  <button
+                    onClick={() => setSelectedTab('all')}
+                    className={cn(
+                      'px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
+                      selectedTab === 'all'
+                        ? 'bg-accent text-accent-foreground'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                    )}
+                  >
+                    All ({models.length})
+                  </button>
+                  <button
+                    onClick={() => setSelectedTab('claude')}
+                    className={cn(
+                      'px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
+                      selectedTab === 'claude'
+                        ? 'bg-accent text-accent-foreground'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                    )}
+                  >
+                    Claude ({models.filter(m => m.id.toLowerCase().includes('claude')).length})
+                  </button>
+                  <button
+                    onClick={() => setSelectedTab('gemini')}
+                    className={cn(
+                      'px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
+                      selectedTab === 'gemini'
+                        ? 'bg-accent text-accent-foreground'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                    )}
+                  >
+                    Gemini ({models.filter(m => m.id.toLowerCase().includes('gemini')).length})
+                  </button>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={loadModels}
+                  disabled={modelsLoading}
+                  className="h-7 text-xs"
                 >
-                  Claude ({ANTIGRAVITY_MODELS.claude.length})
-                </button>
-                <button
-                  onClick={() => setSelectedTab('gemini')}
-                  className={cn(
-                    'px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
-                    selectedTab === 'gemini'
-                      ? 'bg-accent text-accent-foreground'
-                      : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-                  )}
-                >
-                  Gemini ({ANTIGRAVITY_MODELS.gemini.length})
-                </button>
+                  <RefreshCw className={cn('w-3 h-3', modelsLoading && 'animate-spin')} />
+                </Button>
               </div>
 
               {/* Models List */}
               <div className="space-y-1.5 max-h-[400px] overflow-y-auto pr-1">
-                {ANTIGRAVITY_MODELS[selectedTab].map((model) => {
-                  const isSelected = selectedModels.some(m => m.id === model.id);
-                  return (
-                    <div
-                      key={model.id}
-                      className={cn(
-                        "flex items-center justify-between p-2.5 rounded-md border transition-all cursor-pointer",
-                        isSelected 
-                          ? "border-primary/50 bg-accent" 
-                          : "border-border hover:bg-muted"
-                      )}
-                      onClick={() => handleToggleModel(model)}
-                    >
-                      <div className="flex-1 min-w-0 mr-2">
-                        <p className="font-medium text-sm truncate">{model.name}</p>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <p className="text-xs text-muted-foreground font-mono truncate">{model.id}</p>
-                          <span className="text-xs text-muted-foreground">
-                            {(model.max_context / 1000).toFixed(0)}K
-                          </span>
+                {modelsLoading ? (
+                  <div className="space-y-1.5">
+                    {Array.from({ length: 8 }).map((_, i) => (
+                      <ModelSkeleton key={i} />
+                    ))}
+                  </div>
+                ) : modelsError ? (
+                  <div className="flex flex-col items-center justify-center py-12 text-center">
+                    <AlertCircle className="w-8 h-8 text-destructive mb-2" />
+                    <p className="text-sm text-destructive font-medium">{t('antigravity.loadError')}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{modelsError}</p>
+                    <Button size="sm" variant="outline" onClick={loadModels} className="mt-3">
+                      <RefreshCw className="w-3 h-3 mr-1" />
+                      {t('antigravity.retry')}
+                    </Button>
+                  </div>
+                ) : models.filter(model => {
+                  if (selectedTab === 'all') return true;
+                  if (selectedTab === 'claude') return model.id.toLowerCase().includes('claude');
+                  if (selectedTab === 'gemini') return model.id.toLowerCase().includes('gemini');
+                  return true;
+                }).length === 0 ? (
+                  <div className="flex items-center justify-center py-12">
+                    <p className="text-sm text-muted-foreground">{t('antigravity.noModelsFound')}</p>
+                  </div>
+                ) : (
+                  models.filter(model => {
+                    if (selectedTab === 'all') return true;
+                    if (selectedTab === 'claude') return model.id.toLowerCase().includes('claude');
+                    if (selectedTab === 'gemini') return model.id.toLowerCase().includes('gemini');
+                    return true;
+                  }).map((model) => {
+                    const isSelected = selectedModels.some(m => m.id === model.id);
+                    return (
+                      <div
+                        key={model.id}
+                        className={cn(
+                          "flex items-center justify-between p-2.5 rounded-md border transition-all cursor-pointer",
+                          isSelected 
+                            ? "border-primary/50 bg-accent" 
+                            : "border-border hover:bg-muted"
+                        )}
+                        onClick={() => handleToggleModel(model)}
+                      >
+                        <div className="flex-1 min-w-0 mr-2">
+                          <p className="font-medium text-sm truncate">{model.name}</p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <p className="text-xs text-muted-foreground font-mono truncate">{model.id}</p>
+                            <span className="text-xs text-muted-foreground">
+                              {(model.max_context / 1000).toFixed(0)}K
+                            </span>
+                          </div>
+                        </div>
+                        <div className={cn(
+                          "w-4 h-4 rounded border flex items-center justify-center shrink-0",
+                          isSelected ? "border-primary bg-primary" : "border-muted-foreground"
+                        )}>
+                          {isSelected && <Check className="w-3 h-3 text-primary-foreground" />}
                         </div>
                       </div>
-                      <div className={cn(
-                        "w-4 h-4 rounded border flex items-center justify-center shrink-0",
-                        isSelected ? "border-primary bg-primary" : "border-muted-foreground"
-                      )}>
-                        {isSelected && <Check className="w-3 h-3 text-primary-foreground" />}
-                      </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })
+                )}
               </div>
             </div>
 

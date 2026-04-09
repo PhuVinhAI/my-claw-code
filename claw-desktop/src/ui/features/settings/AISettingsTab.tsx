@@ -227,7 +227,7 @@ export function AISettingsTab() {
                     {isKiloProvider && !provider.api_key && (
                       <div className="rounded-md bg-yellow-500/10 border border-yellow-500/20 p-2">
                         <p className="text-xs text-yellow-600 dark:text-yellow-500 mb-1.5">
-                          API key required to use Kilo Gateway
+                          {t('kilo.apiKeyRequired')}
                         </p>
                         <a
                           href="https://app.kilo.ai/profile"
@@ -235,7 +235,7 @@ export function AISettingsTab() {
                           rel="noopener noreferrer"
                           className="inline-flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline"
                         >
-                          Get your API key
+                          {t('kilo.getYourApiKey')}
                           <ExternalLink className="w-3 h-3" />
                         </a>
                       </div>
