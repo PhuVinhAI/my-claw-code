@@ -19,6 +19,7 @@ export function GitView() {
   const [discardTarget, setDiscardTarget] = useState<'all' | string>('all');
   const [copiedPath, setCopiedPath] = useState<string | null>(null);
   const [isPushing, setIsPushing] = useState(false);
+  const [hasUnpushedCommits, setHasUnpushedCommits] = useState(false);
   
   const {
     currentBranch,
@@ -38,6 +39,22 @@ export function GitView() {
   useEffect(() => {
     refresh();
   }, []);
+
+  // Check for unpushed commits whenever changes update
+  useEffect(() => {
+    const checkUnpushed = async () => {
+      try {
+        const { invoke } = await import('@tauri-apps/api/core');
+        const hasUnpushed = await invoke<boolean>('git_has_unpushed_commits');
+        setHasUnpushedCommits(hasUnpushed);
+      } catch (error) {
+        // Ignore errors, just don't show push button
+        setHasUnpushedCommits(false);
+      }
+    };
+    
+    checkUnpushed();
+  }, [changes, stagedChanges]);
 
   // Check if error is "not a git repository"
   const isNotGitRepo = error?.includes('could not find repository') || error?.includes('NotFound');
@@ -114,15 +131,15 @@ export function GitView() {
       const { invoke } = await import('@tauri-apps/api/core');
       await invoke('git_push');
       await refresh();
+      // Re-check unpushed commits after push
+      const hasUnpushed = await invoke<boolean>('git_has_unpushed_commits');
+      setHasUnpushedCommits(hasUnpushed);
     } catch (error) {
       console.error('Push failed:', error);
     } finally {
       setIsPushing(false);
     }
   };
-
-  // Check if there are unpushed commits (simple heuristic: if there are no changes, assume commits are unpushed)
-  const hasUnpushedCommits = changes.length === 0 && stagedChanges.length === 0;
 
   const copyPath = async (path: string) => {
     try {

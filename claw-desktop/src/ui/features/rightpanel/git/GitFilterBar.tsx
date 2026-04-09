@@ -88,8 +88,13 @@ export function GitFilterBar({
           </DropdownMenuContent>
         </DropdownMenu>
 
-        <span className="text-green-500 text-xs">+{totalAdditions}</span>
-        <span className="text-red-500 text-xs">-{totalDeletions}</span>
+        {/* Stats - Only show when there are changes */}
+        {(totalAdditions > 0 || totalDeletions > 0) && (
+          <>
+            <span className="text-green-500 text-xs">+{totalAdditions}</span>
+            <span className="text-red-500 text-xs">-{totalDeletions}</span>
+          </>
+        )}
       </div>
 
       {/* Actions */}

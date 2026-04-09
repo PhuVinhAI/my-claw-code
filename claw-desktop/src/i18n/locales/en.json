@@ -438,6 +438,7 @@
     "discardConfirmSingle": "Are you sure you want to discard changes in {{file}}? This action cannot be undone.",
     "discardConfirmMultiple": "Are you sure you want to discard changes in {{count}} files? This action cannot be undone.",
     "commitMessagePlaceholder": "Commit message...",
+    "generateCommitMessage": "Generate commit message with AI",
     "commit": "Commit",
     "push": "Push",
     "commitAndPush": "Commit & Push",

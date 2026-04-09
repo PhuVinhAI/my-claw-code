@@ -125,8 +125,10 @@ pub fn run() {
             git_push,
             git_pull,
             git_sync,
+            git_has_unpushed_commits,
             git_switch_branch,
-            git_get_diff
+            git_get_diff,
+            git_generate_commit_message
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

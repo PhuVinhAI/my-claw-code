@@ -371,6 +371,43 @@ pub fn git_sync() -> Result<(), String> {
     Ok(())
 }
 
+/// Check if there are unpushed commits
+#[tauri::command]
+pub fn git_has_unpushed_commits() -> Result<bool, String> {
+    let cwd = std::env::current_dir()
+        .map_err(|e| format!("Failed to get current directory: {}", e))?;
+    
+    let repo = Repository::open(&cwd)
+        .map_err(|e| format!("Failed to open git repository: {}", e))?;
+    
+    // Get local HEAD
+    let head = repo.head()
+        .map_err(|e| format!("Failed to get HEAD: {}", e))?;
+    
+    let local_oid = head.target()
+        .ok_or_else(|| "HEAD has no target".to_string())?;
+    
+    // Get remote tracking branch
+    let branch_name = head.shorthand().unwrap_or("main");
+    let remote_branch_name = format!("origin/{}", branch_name);
+    
+    // Try to find remote branch and get its OID
+    let remote_oid = match repo.find_branch(&remote_branch_name, git2::BranchType::Remote) {
+        Ok(remote_branch) => {
+            let remote_ref = remote_branch.get();
+            remote_ref.target()
+                .ok_or_else(|| "Remote branch has no target".to_string())?
+        }
+        Err(_) => {
+            // No remote branch found, assume there are unpushed commits
+            return Ok(true);
+        }
+    };
+    
+    // If local and remote are different, there are unpushed commits
+    Ok(local_oid != remote_oid)
+}
+
 /// Switch branch using git2
 #[tauri::command]
 pub fn git_switch_branch(branch: String) -> Result<(), String> {
@@ -392,6 +429,180 @@ pub fn git_switch_branch(branch: String) -> Result<(), String> {
     }.map_err(|e| format!("Failed to set HEAD: {}", e))?;
     
     Ok(())
+}
+
+/// Generate commit message using AI - Direct API call (no session storage)
+#[tauri::command]
+pub async fn git_generate_commit_message(
+    state: tauri::State<'_, crate::setup::app_state::AppState>,
+) -> Result<String, String> {
+    use api::{MessageRequest, ProviderClient};
+    
+    // PHASE 1: Get git diff (all git2 objects dropped before await)
+    let diff_text = {
+        let cwd = std::env::current_dir()
+            .map_err(|e| format!("Failed to get current directory: {}", e))?;
+        
+        let repo = Repository::open(&cwd)
+            .map_err(|e| format!("Failed to open git repository: {}", e))?;
+        
+        let mut diff_text = String::new();
+        
+        // Get staged diff
+        {
+            let mut opts = git2::DiffOptions::new();
+            opts.context_lines(3);
+            
+            let head = repo.head().ok();
+            let head_tree = head.as_ref().and_then(|h| h.peel_to_tree().ok());
+            let staged_diff = repo.diff_tree_to_index(head_tree.as_ref(), None, Some(&mut opts))
+                .map_err(|e| format!("Failed to get staged diff: {}", e))?;
+            
+            staged_diff.print(git2::DiffFormat::Patch, |_delta, _hunk, line| {
+                let origin = line.origin();
+                let content = std::str::from_utf8(line.content()).unwrap_or("");
+                match origin {
+                    '+' | '-' | ' ' => {
+                        diff_text.push(origin);
+                        diff_text.push_str(content);
+                    }
+                    _ => {}
+                }
+                true
+            }).ok();
+        } // Drop staged_diff, head_tree, head, opts
+        
+        // Get unstaged diff
+        {
+            let mut opts = git2::DiffOptions::new();
+            opts.context_lines(3);
+            
+            let unstaged_diff = repo.diff_index_to_workdir(None, Some(&mut opts))
+                .map_err(|e| format!("Failed to get unstaged diff: {}", e))?;
+            
+            unstaged_diff.print(git2::DiffFormat::Patch, |_delta, _hunk, line| {
+                let origin = line.origin();
+                let content = std::str::from_utf8(line.content()).unwrap_or("");
+                match origin {
+                    '+' | '-' | ' ' => {
+                        diff_text.push(origin);
+                        diff_text.push_str(content);
+                    }
+                    _ => {}
+                }
+                true
+            }).ok();
+        } // Drop unstaged_diff, opts
+        
+        diff_text
+    }; // Drop repo - all git2 objects are now dropped
+    
+    if diff_text.trim().is_empty() {
+        return Err("No changes to commit".to_string());
+    }
+    
+    // Truncate diff if too long (max 4000 chars)
+    let diff_text = if diff_text.len() > 4000 {
+        let mut truncated = diff_text;
+        truncated.truncate(4000);
+        truncated.push_str("\n... (truncated)");
+        truncated
+    } else {
+        diff_text
+    };
+    
+    // PHASE 2: Load settings and call API (can now safely await)
+    let settings = state.settings_manager.load()
+        .map_err(|e| format!("Failed to load settings: {}", e))?;
+    
+    let (model, base_url, api_key) = if let Some(ref selected) = settings.selected_model {
+        let provider = settings.get_provider(&selected.provider_id)
+            .ok_or_else(|| "No provider configured".to_string())?;
+        
+        let model_obj = provider.models.iter()
+            .find(|m| m.id == selected.model_id)
+            .ok_or_else(|| "No model configured".to_string())?;
+        
+        (model_obj.id.clone(), provider.base_url.clone(), provider.api_key.clone())
+    } else {
+        return Err("No model selected in settings".to_string());
+    };
+    
+    // Create API client
+    let client = ProviderClient::from_model_and_base_url(
+        &model,
+        base_url,
+        api_key,
+        None,
+    ).map_err(|e| format!("Failed to create API client: {}", e))?;
+    
+    // Build prompt with diff - Request detailed commit message
+    let system_prompt = "You are an expert at writing detailed, professional git commit messages. Follow these rules:
+
+1. Use conventional commits format: type(scope): subject
+2. Types: feat, fix, refactor, docs, style, test, chore, perf, ci, build
+3. Subject line: Clear, concise summary (50-72 chars)
+4. Body (optional but recommended): Explain WHAT changed and WHY
+5. Include bullet points for multiple changes
+6. Mention affected components/files if relevant
+7. Return ONLY the commit message, no markdown code blocks or explanations
+
+Example format:
+feat(auth): add OAuth2 login support
+
+- Implement OAuth2 authentication flow
+- Add Google and GitHub providers
+- Update login UI with provider buttons
+- Add token refresh mechanism
+
+This enables users to sign in with their existing accounts,
+improving onboarding experience and reducing friction.";
+    
+    let user_message = format!(
+        "Analyze these git changes and generate a detailed commit message:\n\n```diff\n{}\n```\n\nProvide a commit message with:\n- Conventional commits format header\n- Detailed body explaining what changed and why\n- Bullet points for key changes",
+        diff_text
+    );
+    
+    let request = MessageRequest {
+        model: model.clone(),
+        messages: vec![api::InputMessage {
+            role: "user".to_string(),
+            content: vec![api::InputContentBlock::Text {
+                text: user_message,
+            }],
+        }],
+        max_tokens: 2048, // Allow detailed response
+        system: Some(system_prompt.to_string()),
+        tools: None,
+        tool_choice: None,
+        stream: false,
+        temperature: Some(0.7),
+        top_p: None,
+        frequency_penalty: None,
+        presence_penalty: None,
+        stop: None,
+    };
+    
+    // Call API (safe to await now - all git2 objects dropped)
+    let response = client.send_message(&request).await
+        .map_err(|e| format!("API error: {}", e))?;
+    
+    // Extract text from response
+    let commit_message = response.content.iter()
+        .filter_map(|block| match block {
+            api::OutputContentBlock::Text { text } => Some(text.as_str()),
+            _ => None,
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+        .trim()
+        .to_string();
+    
+    if commit_message.is_empty() {
+        Err("AI returned empty response".to_string())
+    } else {
+        Ok(commit_message)
+    }
 }
 
 /// Get file diff using git2

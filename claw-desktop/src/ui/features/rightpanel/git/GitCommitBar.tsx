@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { GitCommit, ChevronDown, Loader2 } from 'lucide-react';
+import { GitCommit, ChevronDown, Loader2, Sparkles, Square } from 'lucide-react';
 import { cn } from '../../../../lib/utils';
 
 type CommitAction = 'commit' | 'commitAndPush' | 'commitAndSync';
@@ -21,6 +21,7 @@ export function GitCommitBar({
   const { t } = useTranslation();
   const [message, setMessage] = useState('');
   const [isCommitting, setIsCommitting] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [selectedAction, setSelectedAction] = useState<CommitAction>('commit');
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -83,6 +84,36 @@ export function GitCommitBar({
     }
   };
 
+  const handleGenerateCommitMessage = async () => {
+    if (isCommitting) return;
+    
+    // If already generating, cancel it
+    if (isGenerating) {
+      try {
+        const { invoke } = await import('@tauri-apps/api/core');
+        await invoke('cancel_prompt');
+      } catch (error) {
+        console.error('Failed to cancel generation:', error);
+      }
+      setIsGenerating(false);
+      return;
+    }
+    
+    setIsGenerating(true);
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      console.log('[GitCommitBar] Calling git_generate_commit_message...');
+      const generatedMessage = await invoke<string>('git_generate_commit_message');
+      console.log('[GitCommitBar] Generated message:', generatedMessage);
+      setMessage(generatedMessage);
+    } catch (error) {
+      console.error('[GitCommitBar] Failed to generate commit message:', error);
+    } finally {
+      setIsGenerating(false);
+      console.log('[GitCommitBar] Generation complete, isGenerating set to false');
+    }
+  };
+
   const actions: { value: CommitAction; label: string; icon: React.ReactNode }[] = [
     { 
       value: 'commit', 
@@ -115,18 +146,40 @@ export function GitCommitBar({
 
   return (
     <div className="flex flex-col border-b border-border bg-background shrink-0">
-      {/* Commit Message Textarea */}
+      {/* Commit Message Textarea with AI Button Inside */}
       <div className="px-3 py-2">
-        <textarea
-          ref={textareaRef}
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder={t('gitPanel.commitMessagePlaceholder')}
-          className="w-full bg-muted/50 border border-border rounded px-2 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary resize-none overflow-y-auto min-h-[32px] max-h-[120px]"
-          rows={1}
-          disabled={isCommitting}
-        />
+        <div className="relative">
+          <textarea
+            ref={textareaRef}
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={t('gitPanel.commitMessagePlaceholder')}
+            className="w-full bg-muted/50 border border-border rounded pl-2 pr-8 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary resize-none overflow-y-auto min-h-[32px] max-h-[120px]"
+            rows={1}
+            disabled={isCommitting || isGenerating}
+          />
+          {/* AI Generate Button - Inside textarea border, top-right */}
+          <button
+            onClick={handleGenerateCommitMessage}
+            disabled={isCommitting}
+            title={isGenerating ? t('common.cancel') : t('gitPanel.generateCommitMessage')}
+            className={cn(
+              'absolute right-2.5 top-1.5 p-1 rounded hover:bg-background/80 transition-colors',
+              isCommitting
+                ? 'text-muted-foreground cursor-not-allowed'
+                : isGenerating
+                ? 'text-red-500'
+                : 'text-primary'
+            )}
+          >
+            {isGenerating ? (
+              <Square className="w-3.5 h-3.5" />
+            ) : (
+              <Sparkles className="w-3.5 h-3.5" />
+            )}
+          </button>
+        </div>
       </div>
       
       {/* Action Buttons - Full Width */}

@@ -438,6 +438,7 @@
     "discardConfirmSingle": "Bạn có chắc muốn hoàn tác thay đổi trong {{file}}? Hành động này không thể hoàn tác.",
     "discardConfirmMultiple": "Bạn có chắc muốn hoàn tác thay đổi trong {{count}} files? Hành động này không thể hoàn tác.",
     "commitMessagePlaceholder": "Nhập commit message...",
+    "generateCommitMessage": "Tạo commit message bằng AI",
     "commit": "Commit",
     "push": "Push",
     "commitAndPush": "Commit & Push",
