@@ -7,6 +7,7 @@ mod setup;
 
 // Re-exports
 pub use adapters::inbound::commands::*;
+pub use adapters::inbound::git_commands::*;
 pub use setup::di_container::initialize_app;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -111,7 +112,19 @@ pub fn run() {
             spawn_terminal_shell,
             send_terminal_input,
             resize_terminal,
-            kill_terminal
+            kill_terminal,
+            // Git commands
+            git_status,
+            git_branches,
+            git_stage_file,
+            git_unstage_file,
+            git_stage_all,
+            git_unstage_all,
+            git_discard_changes,
+            git_commit,
+            git_push,
+            git_pull,
+            git_switch_branch
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

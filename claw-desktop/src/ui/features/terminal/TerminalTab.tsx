@@ -228,8 +228,7 @@ export function TerminalTab({ tabId }: TerminalTabProps) {
   return (
     <div 
       ref={terminalRef}
-      className="w-full h-full xterm-container"
-      style={{ display: tab.isActive ? 'block' : 'none' }}
+      className="w-full h-full xterm-container overflow-hidden"
     />
   );
 }

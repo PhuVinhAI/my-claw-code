@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useTerminalStore } from '../../../store/useTerminalStore';
-import { TerminalTab } from './TerminalTab';
+import { TerminalTab } from '../terminal/TerminalTab';
 import { Plus, X, Terminal as TerminalIcon, Trash2, MoreVertical } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 import { useTranslation } from 'react-i18next';
@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger,
 } from '../../../components/ui/dropdown-menu';
 
-export function TerminalPanel() {
+export function TerminalView() {
   const { t } = useTranslation();
   const tabs = useTerminalStore((state) => state.tabs);
   const createTab = useTerminalStore((state) => state.createTab);
@@ -100,7 +100,7 @@ export function TerminalPanel() {
   }, [isResizing]);
 
   return (
-    <div className="flex h-full bg-background">
+    <div className="flex w-full h-full bg-background overflow-hidden">
       {/* Left Sidebar - Terminal List */}
       <div 
         ref={sidebarRef}
@@ -178,10 +178,10 @@ export function TerminalPanel() {
       </div>
 
       {/* Right Side - Terminal Tabs & Content */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Tab Bar */}
-        <div className="flex items-center bg-muted/20 border-b border-border shrink-0">
-          <div className="flex-1 flex items-center overflow-x-auto scrollbar-thin">
+        <div className="flex items-center bg-muted/20 border-b border-border shrink-0 overflow-hidden">
+          <div className="flex-1 flex items-center overflow-x-auto scrollbar-thin min-w-0">
             {tabs.map((tab, index) => (
               <div
                 key={tab.id}
@@ -241,7 +241,7 @@ export function TerminalPanel() {
         </div>
 
         {/* Terminal Content */}
-        <div className="flex-1 min-h-0 relative bg-background">
+        <div className="flex-1 min-h-0 w-full relative bg-background overflow-hidden">
           {tabs.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
               <TerminalIcon className="h-12 w-12 mb-3 opacity-20" />
@@ -257,7 +257,7 @@ export function TerminalPanel() {
             tabs.map((tab) => (
               <div
                 key={tab.id}
-                className="absolute inset-0"
+                className="absolute inset-0 w-full h-full"
                 style={{ display: tab.isActive ? 'block' : 'none' }}
               >
                 <TerminalTab tabId={tab.id} />

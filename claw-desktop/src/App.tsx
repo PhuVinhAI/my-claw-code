@@ -5,9 +5,10 @@ import { OnboardingScreen } from './ui/pages/OnboardingScreen';
 import { SettingsScreen } from './ui/pages/SettingsScreen';
 import { TitleBar } from './components/TitleBar';
 import { ResizablePanel } from './components/ResizablePanel';
-import { TerminalPanel } from './ui/features/terminal/TerminalPanel';
+import { RightPanel } from './ui/features/rightpanel/RightPanel';
+import { useRightPanelStore } from './store/useRightPanelStore';
 import { useTerminalStore } from './store/useTerminalStore';
-import { PanelLeft, PanelRight, Terminal as TerminalIcon } from 'lucide-react';
+import { PanelLeft, PanelRight } from 'lucide-react';
 
 import { invoke } from '@tauri-apps/api/core';
 import './App.css';
@@ -21,10 +22,12 @@ function App() {
   const messages = useChatStore((s) => s.messages);
   const isEmpty = messages.length === 0;
   
-  // Terminal panel state
-  const isPanelOpen = useTerminalStore((state) => state.isPanelOpen);
-  const togglePanel = useTerminalStore((state) => state.togglePanel);
+  // Right panel state
+  const activeTab = useRightPanelStore((state) => state.activeTab);
+  const setActiveTab = useRightPanelStore((state) => state.setActiveTab);
   const createTab = useTerminalStore((state) => state.createTab);
+  
+  const isPanelOpen = activeTab !== null;
 
   useEffect(() => {
     // Check onboarding status
@@ -118,12 +121,12 @@ function App() {
           </div>
         )}
 
-        {/* Floating Terminal Toggle when closed */}
+        {/* Floating Right Panel Toggle when closed */}
         {!isPanelOpen && (
           <div className="absolute top-4 right-4 z-50">
             <button
               onClick={() => {
-                togglePanel();
+                setActiveTab('terminal');
                 // Create first terminal if none exists
                 const tabs = useTerminalStore.getState().tabs;
                 if (tabs.length === 0) {
@@ -131,9 +134,9 @@ function App() {
                 }
               }}
               className="flex items-center justify-center p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-all duration-150"
-              title="Mở Terminal"
+              title="Mở Panel"
             >
-              <TerminalIcon className="w-4 h-4 sm:w-4 sm:h-4" />
+              <PanelRight className="w-4 h-4 sm:w-4 sm:h-4" />
             </button>
           </div>
         )}
@@ -149,36 +152,27 @@ function App() {
         )}
       </div>
 
-      {/* Right Terminal Panel */}
+      {/* Right Panel */}
       <ResizablePanel
         isOpen={isPanelOpen}
         defaultWidth={500}
         minWidth={300}
         maxWidth={800}
-        storageKey="terminalPanelWidth"
+        storageKey="rightPanelWidth"
         side="right"
         className="border-l border-border bg-background"
       >
-        <div className="flex flex-col h-full">
-          {/* Terminal Panel Header */}
-          <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-muted/20 shrink-0">
-            <div className="flex items-center gap-2">
-              <TerminalIcon className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-semibold text-foreground">Terminal</span>
-            </div>
-            <button
-              onClick={togglePanel}
-              className="p-1 hover:bg-accent rounded transition-colors"
-              title="Đóng Terminal"
-            >
-              <PanelRight className="h-4 w-4 text-muted-foreground" />
-            </button>
-          </div>
+        <div className="flex h-full">
+          <RightPanel />
           
-          {/* Terminal Content */}
-          <div className="flex-1 min-h-0">
-            <TerminalPanel />
-          </div>
+          {/* Close Button */}
+          <button
+            onClick={() => setActiveTab(null)}
+            className="absolute top-2 right-2 p-1 hover:bg-accent rounded transition-colors z-10"
+            title="Đóng Panel"
+          >
+            <PanelRight className="h-4 w-4 text-muted-foreground" />
+          </button>
         </div>
       </ResizablePanel>
 
