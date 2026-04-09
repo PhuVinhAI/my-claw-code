@@ -425,7 +425,7 @@ pub fn git_get_diff(path: String, staged: bool) -> Result<String, String> {
         if delta_path == Some(&path) {
             use git2::Delta;
             match delta.status() {
-                Delta::Added => is_new_file = true,
+                Delta::Added | Delta::Untracked => is_new_file = true,
                 Delta::Deleted => is_deleted_file = true,
                 _ => {}
             }
@@ -433,50 +433,79 @@ pub fn git_get_diff(path: String, staged: bool) -> Result<String, String> {
         true
     }).map_err(|e| format!("Failed to check file status: {}", e))?;
     
-    // Second pass: collect diff content
-    diff.print(git2::DiffFormat::Patch, |delta, _hunk, line| {
-        let delta_path = delta.new_file().path()
-            .or_else(|| delta.old_file().path())
-            .and_then(|p| p.to_str());
-        
-        if delta_path == Some(&path) {
-            let origin = line.origin();
-            let content = std::str::from_utf8(line.content()).unwrap_or("");
-            
-            // For new files: show all lines as additions (+)
-            // For deleted files: show all lines as deletions (-)
-            // For modified files: only include actual diff lines (+, -, space)
-            match origin {
-                '+' => {
+    // For new files (Added/Untracked), read file content directly and show as all additions
+    if is_new_file {
+        let file_path = cwd.join(&path);
+        match std::fs::read_to_string(&file_path) {
+            Ok(content) => {
+                for line in content.lines() {
                     diff_text.push('+');
-                    diff_text.push_str(content);
+                    diff_text.push_str(line);
+                    diff_text.push('\n');
                 }
-                '-' => {
+            }
+            Err(e) => {
+                return Err(format!("Failed to read new file: {}", e));
+            }
+        }
+    } else if is_deleted_file {
+        // For deleted files, get content from git and show as all deletions
+        diff.print(git2::DiffFormat::Patch, |delta, _hunk, line| {
+            let delta_path = delta.new_file().path()
+                .or_else(|| delta.old_file().path())
+                .and_then(|p| p.to_str());
+            
+            if delta_path == Some(&path) {
+                let origin = line.origin();
+                let content = std::str::from_utf8(line.content()).unwrap_or("");
+                
+                // For deleted files, show all content lines as deletions
+                if origin == '-' || origin == ' ' {
                     diff_text.push('-');
                     diff_text.push_str(content);
                 }
-                ' ' => {
-                    // Context lines - only for modified files
-                    if !is_new_file && !is_deleted_file {
+            }
+            true
+        }).map_err(|e| format!("Failed to process deleted file diff: {}", e))?;
+    } else {
+        // For modified files: collect normal diff
+        diff.print(git2::DiffFormat::Patch, |delta, _hunk, line| {
+            let delta_path = delta.new_file().path()
+                .or_else(|| delta.old_file().path())
+                .and_then(|p| p.to_str());
+            
+            if delta_path == Some(&path) {
+                let origin = line.origin();
+                let content = std::str::from_utf8(line.content()).unwrap_or("");
+                
+                match origin {
+                    '+' => {
+                        diff_text.push('+');
+                        diff_text.push_str(content);
+                    }
+                    '-' => {
+                        diff_text.push('-');
+                        diff_text.push_str(content);
+                    }
+                    ' ' => {
                         diff_text.push(' ');
                         diff_text.push_str(content);
                     }
+                    _ => {} // Skip headers
                 }
-                _ => {} // Skip headers
             }
-        }
-        true
-    }).map_err(|e| format!("Failed to process diff: {}", e))?;
+            true
+        }).map_err(|e| format!("Failed to process diff: {}", e))?;
+    }
     
-    // Debug log - LOG TOÀN BỘ
+    // Debug log
     eprintln!("=== GIT DIFF DEBUG ===");
     eprintln!("Path: {}", path);
     eprintln!("Staged: {}", staged);
     eprintln!("Is New: {}", is_new_file);
     eprintln!("Is Deleted: {}", is_deleted_file);
     eprintln!("Diff length: {} bytes", diff_text.len());
-    eprintln!("FULL DIFF CONTENT:");
-    eprintln!("{}", diff_text);
+    eprintln!("First 200 chars: {}", &diff_text.chars().take(200).collect::<String>());
     eprintln!("======================");
     
     Ok(diff_text)

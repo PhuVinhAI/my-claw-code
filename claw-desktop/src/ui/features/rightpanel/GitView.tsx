@@ -43,6 +43,11 @@ export function GitView() {
 
   // Filter changes based on selected filter
   const filteredChanges = allChanges.filter(change => {
+    // Skip files with no actual changes (0 additions and 0 deletions)
+    if (change.additions === 0 && change.deletions === 0) {
+      return false;
+    }
+    
     switch (filterType) {
       case 'unstaged':
         return !change.staged;
