@@ -391,6 +391,10 @@
     "apiKeyRequired": "Cần API key để sử dụng Kilo Gateway",
     "getYourApiKey": "Lấy API key của bạn"
   },
+  "nvidia": {
+    "apiKeyRequired": "Cần API key để sử dụng NVIDIA AI",
+    "getYourApiKey": "Lấy API key của bạn"
+  },
   "openrouter": {
     "apiKeyRequired": "Cần API key để sử dụng OpenRouter",
     "getYourApiKey": "Lấy API key của bạn"

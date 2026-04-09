@@ -1,6 +1,19 @@
 {
   "providers": [
     {
+      "id": "nvidia",
+      "name": "NVIDIA AI",
+      "base_url": "https://integrate.api.nvidia.com/v1",
+      "api_key": "",
+      "models": [
+        {
+          "id": "stepfun-ai/step-3.5-flash",
+          "name": "StepFun Step 3.5 Flash",
+          "max_context": 262144
+        }
+      ]
+    },
+    {
       "id": "kilo",
       "name": "Kilo AI Gateway",
       "base_url": "https://api.kilo.ai/api/gateway",
