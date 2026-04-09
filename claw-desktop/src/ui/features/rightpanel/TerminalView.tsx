@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useTerminalStore } from '../../../store/useTerminalStore';
+import { useChatStore } from '../../../store/useChatStore';
 import { TerminalTab } from '../terminal/TerminalTab';
 import { Plus, X, Terminal as TerminalIcon, Trash2, MoreVertical } from 'lucide-react';
 import { cn } from '../../../lib/utils';
@@ -19,6 +20,9 @@ export function TerminalView() {
   const setActiveTab = useTerminalStore((state) => state.setActiveTab);
   const clearTabOutput = useTerminalStore((state) => state.clearTabOutput);
   const reorderTabs = useTerminalStore((state) => state.reorderTabs);
+  
+  // Get workspace path from chat store
+  const workspacePath = useChatStore((state) => state.workspacePath);
 
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
@@ -29,7 +33,8 @@ export function TerminalView() {
   const sidebarRef = useRef<HTMLDivElement>(null);
 
   const handleNewTerminal = (shell?: 'powershell' | 'bash' | 'cmd') => {
-    createTab(shell);
+    // Pass workspace path as cwd when creating terminal
+    createTab(shell, workspacePath || undefined);
   };
 
   const handleCloseTab = (e: React.MouseEvent, id: string) => {

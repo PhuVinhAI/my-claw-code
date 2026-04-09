@@ -127,10 +127,12 @@ export function TerminalTab({ tabId }: TerminalTabProps) {
       shellSpawnedRef.current = true;
       
       const shellType = tab?.shell || 'powershell';
+      const cwd = tab?.cwd; // Get cwd from tab config
       
       invoke('spawn_terminal_shell', {
         terminalId: tabId,
         shell: shellType,
+        cwd: cwd || null, // Pass cwd to backend
       }).catch(err => {
         console.error('[Terminal] Failed to spawn shell:', err);
         term.writeln(`\x1b[31mFailed to spawn ${shellType}: ${err}\x1b[0m`);

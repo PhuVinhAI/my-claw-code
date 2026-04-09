@@ -8,7 +8,7 @@ import {
   DropdownMenuTrigger,
 } from '../../../../components/ui/dropdown-menu';
 
-export type FilterType = 'uncommitted' | 'unstaged' | 'staged' | 'branch';
+export type FilterType = 'uncommitted' | 'unstaged' | 'staged';
 
 interface GitFilterBarProps {
   filterType: FilterType;
@@ -77,12 +77,6 @@ export function GitFilterBar({
               <div className="flex items-center justify-between w-full">
                 <span>{t('gitPanel.filter.staged')}</span>
                 {filterType === 'staged' && <Check className="w-3 h-3" />}
-              </div>
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onFilterChange('branch')}>
-              <div className="flex items-center justify-between w-full">
-                <span>{t('gitPanel.filter.branch')}</span>
-                {filterType === 'branch' && <Check className="w-3 h-3" />}
               </div>
             </DropdownMenuItem>
           </DropdownMenuContent>

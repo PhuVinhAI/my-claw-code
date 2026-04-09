@@ -1119,11 +1119,13 @@ pub async fn resize_terminal(
 pub async fn spawn_terminal_shell(
     terminal_id: String,
     shell: String, // "powershell", "bash", or "cmd"
+    cwd: Option<String>, // Optional working directory
     state: State<'_, AppState>,
 ) -> Result<(), String> {
     tracing::info!(
         terminal_id = %terminal_id,
         shell = %shell,
+        cwd = ?cwd,
         "spawn_terminal_shell called"
     );
 
@@ -1148,8 +1150,8 @@ pub async fn spawn_terminal_shell(
             _ => "powershell -NoLogo -NoExit", // Default to PowerShell
         };
         
-        // Execute shell with no timeout (interactive session)
-        match pty_executor.execute_in_pty(shell_command, &terminal_id, None) {
+        // Execute shell with no timeout (interactive session) and optional cwd
+        match pty_executor.execute_in_pty_with_cwd(shell_command, &terminal_id, None, cwd.as_deref()) {
             Ok(_) => {
                 tracing::info!(terminal_id = %terminal_id, "Shell session ended");
                 Ok(())

@@ -10,8 +10,9 @@ interface GitFileListProps {
   loadingDiffs: Set<string>;
   copiedPath: string | null;
   isLoading: boolean;
+  getFileKey: (path: string, staged: boolean) => string;
   onToggleSelect: (path: string) => void;
-  onToggleExpand: (path: string) => void;
+  onToggleExpand: (path: string, staged: boolean) => void;
   onCopyPath: (path: string) => void;
   onDiscard: (path: string) => void;
   onStageToggle: (path: string, staged: boolean) => void;
@@ -25,6 +26,7 @@ export function GitFileList({
   loadingDiffs,
   copiedPath,
   isLoading,
+  getFileKey,
   onToggleSelect,
   onToggleExpand,
   onCopyPath,
@@ -32,6 +34,10 @@ export function GitFileList({
   onStageToggle,
 }: GitFileListProps) {
   const { t } = useTranslation();
+
+  // Separate staged and unstaged changes
+  const stagedChanges = changes.filter(c => c.staged);
+  const unstagedChanges = changes.filter(c => !c.staged);
 
   if (changes.length === 0 && !isLoading) {
     return (
@@ -47,22 +53,76 @@ export function GitFileList({
 
   return (
     <div className="flex-1 overflow-y-auto scrollbar-thin">
-      {changes.map((change) => (
-        <GitFileItem
-          key={change.path}
-          change={change}
-          isSelected={selectedFiles.has(change.path)}
-          isExpanded={expandedFiles.has(change.path)}
-          copiedPath={copiedPath}
-          diffContent={fileDiffs.get(change.path)}
-          isLoadingDiff={loadingDiffs.has(change.path)}
-          onToggleSelect={() => onToggleSelect(change.path)}
-          onToggleExpand={() => onToggleExpand(change.path)}
-          onCopyPath={() => onCopyPath(change.path)}
-          onDiscard={() => onDiscard(change.path)}
-          onStageToggle={() => onStageToggle(change.path, change.staged)}
-        />
-      ))}
+      {/* Staged Changes Section */}
+      {stagedChanges.length > 0 && (
+        <div className="mb-4">
+          <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm px-3 py-1.5 border-b border-border">
+            <div className="flex items-center gap-2">
+              <svg className="w-3.5 h-3.5 text-green-500" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/>
+              </svg>
+              <span className="text-xs font-medium text-foreground">
+                {t('gitPanel.stagedChanges')} ({stagedChanges.length})
+              </span>
+            </div>
+          </div>
+          {stagedChanges.map((change) => {
+            const fileKey = getFileKey(change.path, change.staged);
+            return (
+              <GitFileItem
+                key={fileKey}
+                change={change}
+                isSelected={selectedFiles.has(change.path)}
+                isExpanded={expandedFiles.has(fileKey)}
+                copiedPath={copiedPath}
+                diffContent={fileDiffs.get(fileKey)}
+                isLoadingDiff={loadingDiffs.has(fileKey)}
+                onToggleSelect={() => onToggleSelect(change.path)}
+                onToggleExpand={() => onToggleExpand(change.path, change.staged)}
+                onCopyPath={() => onCopyPath(change.path)}
+                onDiscard={() => onDiscard(change.path)}
+                onStageToggle={() => onStageToggle(change.path, change.staged)}
+              />
+            );
+          })}
+        </div>
+      )}
+
+      {/* Unstaged Changes Section */}
+      {unstagedChanges.length > 0 && (
+        <div>
+          <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm px-3 py-1.5 border-b border-border">
+            <div className="flex items-center gap-2">
+              <svg className="w-3.5 h-3.5 text-orange-500" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M8 9.5a1.5 1.5 0 100-3 1.5 1.5 0 000 3z"/>
+                <path fillRule="evenodd" d="M8 0a8 8 0 100 16A8 8 0 008 0zM1.5 8a6.5 6.5 0 1113 0 6.5 6.5 0 01-13 0z"/>
+              </svg>
+              <span className="text-xs font-medium text-foreground">
+                {t('gitPanel.unstagedChanges')} ({unstagedChanges.length})
+              </span>
+            </div>
+          </div>
+          {unstagedChanges.map((change) => {
+            const fileKey = getFileKey(change.path, change.staged);
+            return (
+              <GitFileItem
+                key={fileKey}
+                change={change}
+                isSelected={selectedFiles.has(change.path)}
+                isExpanded={expandedFiles.has(fileKey)}
+                copiedPath={copiedPath}
+                diffContent={fileDiffs.get(fileKey)}
+                isLoadingDiff={loadingDiffs.has(fileKey)}
+                onToggleSelect={() => onToggleSelect(change.path)}
+                onToggleExpand={() => onToggleExpand(change.path, change.staged)}
+                onCopyPath={() => onCopyPath(change.path)}
+                onDiscard={() => onDiscard(change.path)}
+                onStageToggle={() => onStageToggle(change.path, change.staged)}
+              />
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

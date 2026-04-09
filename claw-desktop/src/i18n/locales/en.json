@@ -447,6 +447,8 @@
     "local": "Local",
     "refresh": "Refresh",
     "uncommittedChanges": "Uncommitted Changes",
+    "stagedChanges": "Staged Changes",
+    "unstagedChanges": "Unstaged Changes",
     "noChanges": "No changes",
     "workingTreeClean": "Working tree is clean",
     "noRepository": "No Git Repository",

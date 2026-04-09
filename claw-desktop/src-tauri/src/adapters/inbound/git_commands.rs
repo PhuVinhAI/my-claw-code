@@ -532,8 +532,18 @@ pub async fn git_generate_commit_message(
         
         let mut diff_text = String::new();
         
-        // Get staged diff
-        {
+        // Check if there are staged changes
+        let has_staged_changes = {
+            let mut opts = git2::DiffOptions::new();
+            let head = repo.head().ok();
+            let head_tree = head.as_ref().and_then(|h| h.peel_to_tree().ok());
+            let staged_diff = repo.diff_tree_to_index(head_tree.as_ref(), None, Some(&mut opts))
+                .map_err(|e| format!("Failed to get staged diff: {}", e))?;
+            staged_diff.stats().map(|s| s.files_changed() > 0).unwrap_or(false)
+        };
+        
+        if has_staged_changes {
+            // Only get staged diff if there are staged changes
             let mut opts = git2::DiffOptions::new();
             opts.context_lines(3);
             
@@ -554,29 +564,54 @@ pub async fn git_generate_commit_message(
                 }
                 true
             }).ok();
-        } // Drop staged_diff, head_tree, head, opts
-        
-        // Get unstaged diff
-        {
-            let mut opts = git2::DiffOptions::new();
-            opts.context_lines(3);
-            
-            let unstaged_diff = repo.diff_index_to_workdir(None, Some(&mut opts))
-                .map_err(|e| format!("Failed to get unstaged diff: {}", e))?;
-            
-            unstaged_diff.print(git2::DiffFormat::Patch, |_delta, _hunk, line| {
-                let origin = line.origin();
-                let content = std::str::from_utf8(line.content()).unwrap_or("");
-                match origin {
-                    '+' | '-' | ' ' => {
-                        diff_text.push(origin);
-                        diff_text.push_str(content);
+        } else {
+            // No staged changes - get all changes (staged + unstaged)
+            // Get staged diff
+            {
+                let mut opts = git2::DiffOptions::new();
+                opts.context_lines(3);
+                
+                let head = repo.head().ok();
+                let head_tree = head.as_ref().and_then(|h| h.peel_to_tree().ok());
+                let staged_diff = repo.diff_tree_to_index(head_tree.as_ref(), None, Some(&mut opts))
+                    .map_err(|e| format!("Failed to get staged diff: {}", e))?;
+                
+                staged_diff.print(git2::DiffFormat::Patch, |_delta, _hunk, line| {
+                    let origin = line.origin();
+                    let content = std::str::from_utf8(line.content()).unwrap_or("");
+                    match origin {
+                        '+' | '-' | ' ' => {
+                            diff_text.push(origin);
+                            diff_text.push_str(content);
+                        }
+                        _ => {}
                     }
-                    _ => {}
-                }
-                true
-            }).ok();
-        } // Drop unstaged_diff, opts
+                    true
+                }).ok();
+            }
+            
+            // Get unstaged diff
+            {
+                let mut opts = git2::DiffOptions::new();
+                opts.context_lines(3);
+                
+                let unstaged_diff = repo.diff_index_to_workdir(None, Some(&mut opts))
+                    .map_err(|e| format!("Failed to get unstaged diff: {}", e))?;
+                
+                unstaged_diff.print(git2::DiffFormat::Patch, |_delta, _hunk, line| {
+                    let origin = line.origin();
+                    let content = std::str::from_utf8(line.content()).unwrap_or("");
+                    match origin {
+                        '+' | '-' | ' ' => {
+                            diff_text.push(origin);
+                            diff_text.push_str(content);
+                        }
+                        _ => {}
+                    }
+                    true
+                }).ok();
+            }
+        }
         
         diff_text
     }; // Drop repo - all git2 objects are now dropped

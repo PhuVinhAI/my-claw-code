@@ -447,6 +447,8 @@
     "local": "Local",
     "refresh": "Làm mới",
     "uncommittedChanges": "Thay đổi chưa commit",
+    "stagedChanges": "Đã Stage",
+    "unstagedChanges": "Chưa Stage",
     "noChanges": "Không có thay đổi",
     "workingTreeClean": "Working tree sạch",
     "noRepository": "Không có Git Repository",

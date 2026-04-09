@@ -11,6 +11,7 @@ import { useToastStore } from './store/useToastStore';
 import { useRightPanelStore } from './store/useRightPanelStore';
 import { useTerminalStore } from './store/useTerminalStore';
 import { PanelLeft, PanelRight, Folder, Home as HomeIcon } from 'lucide-react';
+import { cn } from './lib/utils';
 
 import { invoke } from '@tauri-apps/api/core';
 import './App.css';
@@ -36,6 +37,14 @@ function App() {
   const removeToast = useToastStore((s) => s.removeToast);
   
   const isPanelOpen = activeTab !== null;
+  
+  // Auto-close right panel when switching to Home mode
+  useEffect(() => {
+    if (workMode === 'normal' && isPanelOpen) {
+      console.log('[App] Switching to Home mode - closing right panel');
+      setActiveTab(null);
+    }
+  }, [workMode, isPanelOpen, setActiveTab]);
 
   useEffect(() => {
     // Check onboarding status
@@ -115,9 +124,17 @@ function App() {
       </ResizablePanel>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className={cn(
+        "flex-1 flex flex-col min-w-0",
+        // Remove right border when no right panel in workspace mode
+        workMode === 'normal' && "border-r-0"
+      )}>
         {/* Header Bar - Always visible */}
-        <div className="h-9 border-b border-border bg-background/95 backdrop-blur-sm flex items-center px-3 gap-3 shrink-0">
+        <div className={cn(
+          "h-9 border-b bg-background/95 backdrop-blur-sm flex items-center px-3 gap-3 shrink-0",
+          // Only show border when in workspace mode (has right panel)
+          workMode === 'workspace' && workspacePath ? "border-border" : "border-transparent"
+        )}>
           {/* Left: Sidebar Toggle + Workspace Path (only show path when has messages) */}
           <div className="flex items-center gap-2 flex-1 min-w-0">
             {!sidebarOpen && (
@@ -153,8 +170,8 @@ function App() {
             )}
           </div>
 
-          {/* Right: Panel Toggle */}
-          {!isPanelOpen && (
+          {/* Right: Panel Toggle - Only show in workspace mode */}
+          {!isPanelOpen && workMode === 'workspace' && workspacePath && (
             <button
               onClick={() => {
                 setActiveTab('terminal');
@@ -183,29 +200,31 @@ function App() {
         )}
       </div>
 
-      {/* Right Panel */}
-      <ResizablePanel
-        isOpen={isPanelOpen}
-        defaultWidth={500}
-        minWidth={300}
-        maxWidth={800}
-        storageKey="rightPanelWidth"
-        side="right"
-        className="border-l border-border bg-background"
-      >
-        <div className="flex h-full">
-          <RightPanel />
-          
-          {/* Close Button */}
-          <button
-            onClick={() => setActiveTab(null)}
-            className="absolute top-2 right-2 p-1 hover:bg-accent rounded transition-colors z-10"
-            title="Đóng Panel"
-          >
-            <PanelRight className="h-4 w-4 text-muted-foreground" />
-          </button>
-        </div>
-      </ResizablePanel>
+      {/* Right Panel - Only show in workspace mode */}
+      {workMode === 'workspace' && workspacePath && (
+        <ResizablePanel
+          isOpen={isPanelOpen}
+          defaultWidth={500}
+          minWidth={300}
+          maxWidth={800}
+          storageKey="rightPanelWidth"
+          side="right"
+          className="border-l border-border bg-background"
+        >
+          <div className="flex h-full">
+            <RightPanel />
+            
+            {/* Close Button */}
+            <button
+              onClick={() => setActiveTab(null)}
+              className="absolute top-2 right-2 p-1 hover:bg-accent rounded transition-colors z-10"
+              title="Đóng Panel"
+            >
+              <PanelRight className="h-4 w-4 text-muted-foreground" />
+            </button>
+          </div>
+        </ResizablePanel>
+      )}
 
       <ErrorBanner />
       <ToastContainer 

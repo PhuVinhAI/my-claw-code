@@ -155,6 +155,17 @@ impl PtyExecutor {
         tool_use_id: &str,
         timeout_secs: Option<u64>, // Timeout in seconds
     ) -> Result<String, String> {
+        self.execute_in_pty_with_cwd(command, tool_use_id, timeout_secs, None)
+    }
+    
+    /// Execute command in PTY with real-time streaming and custom working directory
+    pub fn execute_in_pty_with_cwd(
+        &self,
+        command: &str,
+        tool_use_id: &str,
+        timeout_secs: Option<u64>, // Timeout in seconds
+        cwd: Option<&str>, // Optional custom working directory
+    ) -> Result<String, String> {
         // Get current turn_id for event emission
         let turn_id = self.get_turn_id();
         
@@ -211,11 +222,15 @@ impl PtyExecutor {
             cmd.env(key, value);
         }
         
-        // CRITICAL: Set working directory to current process CWD
-        // CWD is set by set_work_mode command when user selects workspace folder
-        let cwd = std::env::current_dir()
-            .unwrap_or_else(|_| self.workspace_path.clone());
-        cmd.cwd(&cwd);
+        // CRITICAL: Set working directory
+        // Priority: custom cwd > current process CWD > workspace_path
+        let working_dir = if let Some(custom_cwd) = cwd {
+            PathBuf::from(custom_cwd)
+        } else {
+            std::env::current_dir()
+                .unwrap_or_else(|_| self.workspace_path.clone())
+        };
+        cmd.cwd(&working_dir);
 
         let mut child = pair.slave
             .spawn_command(cmd)

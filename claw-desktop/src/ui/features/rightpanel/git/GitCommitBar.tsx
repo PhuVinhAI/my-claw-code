@@ -54,11 +54,13 @@ export function GitCommitBar({
     
     setIsCommitting(true);
     try {
-      // Auto stage all if nothing is staged
+      // ONLY auto stage all if NOTHING is staged
+      // If user has manually staged some files, respect their choice and only commit those
       if (stagedCount === 0) {
         const { invoke } = await import('@tauri-apps/api/core');
         await invoke('git_stage_all');
       }
+      // If stagedCount > 0: Only commit staged files, unstaged files remain untouched
       
       switch (selectedAction) {
         case 'commit':

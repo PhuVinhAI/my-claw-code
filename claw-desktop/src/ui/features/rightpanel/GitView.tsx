@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useGitStore } from '../../../store/useGitStore';
+import { useChatStore } from '../../../store/useChatStore';
 import { GitHeader } from './git/GitHeader';
 import { GitFilterBar, type FilterType } from './git/GitFilterBar';
 import { GitFileList } from './git/GitFileList';
@@ -10,6 +11,9 @@ import { GitCommitBar } from './git/GitCommitBar';
 
 export function GitView() {
   const { t } = useTranslation();
+  const workspacePath = useChatStore((state) => state.workspacePath);
+  const currentSessionId = useChatStore((state) => state.currentSessionId);
+  // Use unique key: "path:staged" or "path:unstaged"
   const [expandedFiles, setExpandedFiles] = useState<Set<string>>(new Set());
   const [fileDiffs, setFileDiffs] = useState<Map<string, string>>(new Map());
   const [loadingDiffs, setLoadingDiffs] = useState<Set<string>>(new Set());
@@ -20,6 +24,9 @@ export function GitView() {
   const [copiedPath, setCopiedPath] = useState<string | null>(null);
   const [isPushing, setIsPushing] = useState(false);
   const [hasUnpushedCommits, setHasUnpushedCommits] = useState(false);
+  
+  // Helper to create unique key for file (includes staged status)
+  const getFileKey = (path: string, staged: boolean) => `${path}:${staged ? 'staged' : 'unstaged'}`;
   
   const {
     currentBranch,
@@ -37,6 +44,8 @@ export function GitView() {
   } = useGitStore();
 
   useEffect(() => {
+    // Refresh git when workspace path or session changes
+    console.log('[GitView] Workspace or session changed, refreshing git...', { workspacePath, currentSessionId });
     refresh();
     
     // Start git file watcher
@@ -68,7 +77,7 @@ export function GitView() {
     return () => {
       unlistenPromise.then(unlisten => unlisten());
     };
-  }, []);
+  }, [workspacePath, currentSessionId]); // Re-run when workspace or session changes
 
   // Check for unpushed commits whenever changes update
   useEffect(() => {
@@ -105,8 +114,6 @@ export function GitView() {
         return !change.staged;
       case 'staged':
         return change.staged;
-      case 'branch':
-        return false; // TODO: implement branch changes
       case 'uncommitted':
       default:
         return true;
@@ -124,10 +131,15 @@ export function GitView() {
   };
 
   const toggleSelectAll = () => {
-    if (selectedFiles.size === filteredChanges.length && filteredChanges.length > 0) {
+    // Get unique paths from filtered changes (a file can appear in both staged and unstaged)
+    const uniquePaths = new Set(filteredChanges.map(c => c.path));
+    const allPathsSelected = uniquePaths.size > 0 && 
+      Array.from(uniquePaths).every(path => selectedFiles.has(path));
+    
+    if (allPathsSelected) {
       setSelectedFiles(new Set());
     } else {
-      setSelectedFiles(new Set(filteredChanges.map(c => c.path)));
+      setSelectedFiles(uniquePaths);
     }
   };
 
@@ -181,42 +193,32 @@ export function GitView() {
     }
   };
 
-  const toggleExpand = async (path: string) => {
+  const toggleExpand = async (path: string, staged: boolean) => {
+    const fileKey = getFileKey(path, staged);
     const newExpanded = new Set(expandedFiles);
-    if (newExpanded.has(path)) {
-      newExpanded.delete(path);
+    if (newExpanded.has(fileKey)) {
+      newExpanded.delete(fileKey);
     } else {
-      newExpanded.add(path);
+      newExpanded.add(fileKey);
       
       // Fetch diff if not already loaded
-      if (!fileDiffs.has(path) && !loadingDiffs.has(path)) {
-        setLoadingDiffs(prev => new Set(prev).add(path));
+      if (!fileDiffs.has(fileKey) && !loadingDiffs.has(fileKey)) {
+        setLoadingDiffs(prev => new Set(prev).add(fileKey));
         try {
           const { invoke } = await import('@tauri-apps/api/core');
-          const change = allChanges.find(c => c.path === path);
           const diff = await invoke<string>('git_get_diff', { 
             path, 
-            staged: change?.staged || false 
+            staged 
           });
           
-          // Debug log - LOG TOÀN BỘ
-          console.log('=== GIT DIFF FRONTEND DEBUG ===');
-          console.log('Path:', path);
-          console.log('Staged:', change?.staged);
-          console.log('Status:', change?.status);
-          console.log('Diff length:', diff.length);
-          console.log('FULL DIFF CONTENT:');
-          console.log(diff);
-          console.log('================================');
-          
-          setFileDiffs(prev => new Map(prev).set(path, diff));
+          setFileDiffs(prev => new Map(prev).set(fileKey, diff));
         } catch (err) {
           console.error('Failed to get diff:', err);
-          setFileDiffs(prev => new Map(prev).set(path, `Error loading diff: ${err}`));
+          setFileDiffs(prev => new Map(prev).set(fileKey, `Error loading diff: ${err}`));
         } finally {
           setLoadingDiffs(prev => {
             const next = new Set(prev);
-            next.delete(path);
+            next.delete(fileKey);
             return next;
           });
         }
@@ -268,7 +270,10 @@ export function GitView() {
         selectedCount={selectedFiles.size}
         totalAdditions={totalAdditions}
         totalDeletions={totalDeletions}
-        allSelected={selectedFiles.size === filteredChanges.length && filteredChanges.length > 0}
+        allSelected={(() => {
+          const uniquePaths = new Set(filteredChanges.map(c => c.path));
+          return uniquePaths.size > 0 && Array.from(uniquePaths).every(path => selectedFiles.has(path));
+        })()}
         onFilterChange={setFilterType}
         onToggleSelectAll={toggleSelectAll}
         onDiscardSelected={() => handleDiscardClick('all')}
@@ -282,6 +287,7 @@ export function GitView() {
         loadingDiffs={loadingDiffs}
         copiedPath={copiedPath}
         isLoading={isLoading}
+        getFileKey={getFileKey}
         onToggleSelect={toggleSelectFile}
         onToggleExpand={toggleExpand}
         onCopyPath={copyPath}

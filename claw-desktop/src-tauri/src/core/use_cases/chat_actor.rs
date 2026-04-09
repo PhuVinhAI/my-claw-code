@@ -787,6 +787,19 @@ impl ChatSessionActor {
     }
 
     fn handle_load_session(&mut self, session_id: String, work_mode: String, workspace_path: Option<String>) -> Result<(), String> {
+        // Update working directory if workspace path is provided
+        if let Some(ref path) = workspace_path {
+            use std::path::Path;
+            let ws_path = Path::new(path);
+            if ws_path.exists() && ws_path.is_dir() {
+                std::env::set_current_dir(ws_path)
+                    .map_err(|e| format!("Failed to change working directory: {}", e))?;
+                eprintln!("[LOAD_SESSION] Changed working directory to: {}", path);
+            } else {
+                eprintln!("[LOAD_SESSION] Warning: workspace path does not exist: {}", path);
+            }
+        }
+        
         // Load session from repository with work context
         let session = self.session_repository.load(&session_id, &work_mode, workspace_path.as_deref())?;
         
