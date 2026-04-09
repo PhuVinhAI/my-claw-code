@@ -442,6 +442,7 @@
     "push": "Push",
     "commitAndPush": "Commit & Push",
     "commitAndSync": "Commit & Sync",
-    "stagedFilesCount": "{{count}} file đã stage"
+    "stagedFilesCount": "{{count}} file đã stage",
+    "refresh": "Làm mới"
   }
 }

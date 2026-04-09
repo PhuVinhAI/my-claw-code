@@ -442,6 +442,7 @@
     "push": "Push",
     "commitAndPush": "Commit & Push",
     "commitAndSync": "Commit & Sync",
-    "stagedFilesCount": "{{count}} file(s) staged"
+    "stagedFilesCount": "{{count}} file(s) staged",
+    "refresh": "Refresh"
   }
 }

@@ -18,6 +18,7 @@ export function GitView() {
   const [discardDialogOpen, setDiscardDialogOpen] = useState(false);
   const [discardTarget, setDiscardTarget] = useState<'all' | string>('all');
   const [copiedPath, setCopiedPath] = useState<string | null>(null);
+  const [isPushing, setIsPushing] = useState(false);
   
   const {
     currentBranch,
@@ -29,7 +30,6 @@ export function GitView() {
     unstageFile,
     discardChanges,
     commit,
-    push,
     commitAndPush,
     commitAndSync,
     refresh,
@@ -108,6 +108,22 @@ export function GitView() {
     setDiscardDialogOpen(false);
   };
 
+  const handlePush = async () => {
+    setIsPushing(true);
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      await invoke('git_push');
+      await refresh();
+    } catch (error) {
+      console.error('Push failed:', error);
+    } finally {
+      setIsPushing(false);
+    }
+  };
+
+  // Check if there are unpushed commits (simple heuristic: if there are no changes, assume commits are unpushed)
+  const hasUnpushedCommits = changes.length === 0 && stagedChanges.length === 0;
+
   const copyPath = async (path: string) => {
     try {
       await navigator.clipboard.writeText(path);
@@ -180,7 +196,10 @@ export function GitView() {
       <GitHeader 
         currentBranch={currentBranch}
         isLoading={isLoading}
+        isPushing={isPushing}
+        hasUnpushedCommits={hasUnpushedCommits}
         onRefresh={refresh}
+        onPush={handlePush}
       />
 
       {/* Commit Bar - Below Header */}
