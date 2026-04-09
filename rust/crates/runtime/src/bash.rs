@@ -245,7 +245,7 @@ fn prepare_sandbox_dirs(cwd: &std::path::Path) {
 /// Callback receives (stdout_chunk, stderr_chunk) as command runs
 pub fn execute_bash_with_callback<F>(
     input: BashCommandInput,
-    mut callback: F,
+    callback: F,
 ) -> io::Result<BashCommandOutput>
 where
     F: FnMut(String, String) + Send + 'static,

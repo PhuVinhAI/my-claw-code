@@ -71,7 +71,7 @@ impl LineTrimmedReplacer {
     
     /// Extract the actual text span from content between two line indices
     fn extract_line_span(content: &str, start_line: usize, end_line: usize) -> (usize, usize, String) {
-        let lines: Vec<&str> = content.lines().collect();
+        let _lines: Vec<&str> = content.lines().collect();
         
         // Find byte position of start line
         let mut byte_pos = 0;

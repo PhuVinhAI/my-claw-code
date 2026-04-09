@@ -703,11 +703,6 @@ where
         &mut self.tool_executor
     }
 
-    /// Get mutable reference to API client (for desktop provider switching)
-    pub fn api_client_mut(&mut self) -> &mut C {
-        &mut self.api_client
-    }
-
     /// Replace API client (for desktop provider switching)
     pub fn replace_api_client(&mut self, api_client: C) {
         self.api_client = api_client;
