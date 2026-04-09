@@ -398,6 +398,10 @@
     "apiKeyRequired": "API key required to use Google Gemini",
     "getYourApiKey": "Get your API key"
   },
+  "cerebras": {
+    "apiKeyRequired": "API key required to use Cerebras",
+    "getYourApiKey": "Get your API key"
+  },
   "openrouter": {
     "apiKeyRequired": "API key required to use OpenRouter",
     "getYourApiKey": "Get your API key"

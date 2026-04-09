@@ -280,6 +280,18 @@ export function AISettingsTab() {
                       />
                     )}
 
+                    {/* Cerebras API Key Warning */}
+                    {provider.id === 'cerebras' && !provider.api_key && (
+                      <ApiKeyWarning
+                        messageKey="cerebras.apiKeyRequired"
+                        linkTextKey="cerebras.getYourApiKey"
+                        linkUrl="https://cloud.cerebras.ai/platform"
+                        onSave={async (apiKey) => {
+                          await updateProvider({ ...provider, api_key: apiKey });
+                        }}
+                      />
+                    )}
+
                     {/* Models Section */}
                     <div>
                       <div className="flex items-center justify-between mb-2">

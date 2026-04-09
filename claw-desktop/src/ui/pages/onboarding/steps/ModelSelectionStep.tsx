@@ -58,6 +58,10 @@ const PROVIDER_CONFIG = {
     baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
     name: 'Google Gemini',
   },
+  cerebras: {
+    baseUrl: 'https://api.cerebras.ai/v1',
+    name: 'Cerebras',
+  },
 };
 
 export function ModelSelectionStep({
@@ -108,7 +112,7 @@ export function ModelSelectionStep({
     setLoading(true);
     setError(null);
     try {
-      // NVIDIA & Gemini: Use default models (no fetch)
+      // NVIDIA, Gemini & Cerebras: Use default models (no fetch)
       if (provider === 'nvidia') {
         const defaultModel: ModelInfo = {
           id: 'stepfun-ai/step-3.5-flash',
@@ -141,6 +145,33 @@ export function ModelSelectionStep({
             name: 'Gemma 4 31B IT',
             context_length: 262144,
             provider: 'Gemini',
+          },
+        ];
+        setModels(defaultModels);
+        
+        // Convert to common format and notify parent
+        const commonModels = defaultModels.map(m => ({
+          id: m.id,
+          name: m.name,
+          max_context: m.context_length,
+        }));
+        onModelsLoaded(commonModels);
+        return;
+      }
+
+      if (provider === 'cerebras') {
+        const defaultModels: ModelInfo[] = [
+          {
+            id: 'gpt-oss-120b',
+            name: 'GPT OSS 120B',
+            context_length: 131000,
+            provider: 'Cerebras',
+          },
+          {
+            id: 'zai-glm-4.7',
+            name: 'ZAI GLM 4.7',
+            context_length: 131000,
+            provider: 'Cerebras',
           },
         ];
         setModels(defaultModels);
@@ -256,15 +287,15 @@ export function ModelSelectionStep({
           Chọn Models
         </h2>
         <p className="text-sm text-muted-foreground max-w-lg mx-auto">
-          {provider === 'nvidia' || provider === 'gemini'
+          {provider === 'nvidia' || provider === 'gemini' || provider === 'cerebras'
             ? `${config.name} đã có models mặc định sẵn sàng sử dụng`
             : `Chọn các model bạn muốn sử dụng từ ${config.name}`
           }
         </p>
       </div>
 
-      {/* Search and Filters - Hide for NVIDIA & Gemini (preview only) */}
-      {provider !== 'nvidia' && provider !== 'gemini' && (
+      {/* Search and Filters - Hide for NVIDIA, Gemini & Cerebras (preview only) */}
+      {provider !== 'nvidia' && provider !== 'gemini' && provider !== 'cerebras' && (
         <div className="space-y-2.5 max-w-2xl mx-auto">
         {/* Search */}
         <div className="relative">

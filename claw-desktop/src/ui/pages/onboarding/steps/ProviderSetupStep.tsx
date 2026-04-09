@@ -34,6 +34,12 @@ const PROVIDER_INFO: Record<ProviderId, {
     apiKeyUrl: 'https://aistudio.google.com/api-keys',
     linkText: 'Lấy API key từ Google AI Studio',
   },
+  cerebras: {
+    name: 'Cerebras',
+    icon: '⚡',
+    apiKeyUrl: 'https://cloud.cerebras.ai/platform',
+    linkText: 'Lấy API key từ Cerebras',
+  },
   kilo: {
     name: 'Kilo AI Gateway',
     icon: '🚀',

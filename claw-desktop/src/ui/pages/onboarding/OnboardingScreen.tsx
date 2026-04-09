@@ -156,6 +156,7 @@ function getProviderName(provider: ProviderId): string {
     openrouter: 'OpenRouter',
     antigravity: 'Antigravity Claude Proxy',
     gemini: 'Google Gemini',
+    cerebras: 'Cerebras',
   };
   return names[provider];
 }
@@ -167,6 +168,7 @@ function getProviderBaseUrl(provider: ProviderId): string {
     openrouter: 'https://openrouter.ai/api',
     antigravity: 'http://localhost:8080',
     gemini: 'https://generativelanguage.googleapis.com/v1beta/openai',
+    cerebras: 'https://api.cerebras.ai/v1',
   };
   return urls[provider];
 }

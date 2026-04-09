@@ -31,6 +31,14 @@ const PROVIDERS: ProviderInfo[] = [
     apiKeyUrl: 'https://aistudio.google.com/api-keys',
   },
   {
+    id: 'cerebras',
+    name: 'Cerebras',
+    description: 'AI inference nhanh nhất thế giới với tốc độ ~3000 tokens/sec',
+    icon: '⚡',
+    requiresApiKey: true,
+    apiKeyUrl: 'https://cloud.cerebras.ai/platform',
+  },
+  {
     id: 'kilo',
     name: 'Kilo AI Gateway',
     description: 'Gateway thống nhất cho hàng trăm AI models từ nhiều providers khác nhau',

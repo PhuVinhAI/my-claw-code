@@ -32,6 +32,24 @@
       ]
     },
     {
+      "id": "cerebras",
+      "name": "Cerebras",
+      "base_url": "https://api.cerebras.ai/v1",
+      "api_key": "",
+      "models": [
+        {
+          "id": "gpt-oss-120b",
+          "name": "GPT OSS 120B",
+          "max_context": 131000
+        },
+        {
+          "id": "zai-glm-4.7",
+          "name": "ZAI GLM 4.7",
+          "max_context": 131000
+        }
+      ]
+    },
+    {
       "id": "kilo",
       "name": "Kilo AI Gateway",
       "base_url": "https://api.kilo.ai/api/gateway",

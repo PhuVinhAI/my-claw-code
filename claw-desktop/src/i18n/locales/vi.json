@@ -398,6 +398,10 @@
     "apiKeyRequired": "Cần API key để sử dụng Google Gemini",
     "getYourApiKey": "Lấy API key của bạn"
   },
+  "cerebras": {
+    "apiKeyRequired": "Cần API key để sử dụng Cerebras",
+    "getYourApiKey": "Lấy API key của bạn"
+  },
   "openrouter": {
     "apiKeyRequired": "Cần API key để sử dụng OpenRouter",
     "getYourApiKey": "Lấy API key của bạn"
