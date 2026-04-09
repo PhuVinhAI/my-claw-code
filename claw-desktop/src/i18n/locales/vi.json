@@ -489,6 +489,9 @@
     "commit": "Commit",
     "push": "Push",
     "commitAndSync": "Commit & Sync",
-    "stagedFilesCount": "{{count}} file đã stage"
+    "stagedFilesCount": "{{count}} file đã stage",
+    "stagedFiles": "{{count}} file đã stage",
+    "noStagedFiles": "Chưa stage file nào",
+    "willStageAll": "Sẽ stage tất cả"
   }
 }

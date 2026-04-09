@@ -489,6 +489,9 @@
     "commit": "Commit",
     "push": "Push",
     "commitAndSync": "Commit & Sync",
-    "stagedFilesCount": "{{count}} file(s) staged"
+    "stagedFilesCount": "{{count}} file(s) staged",
+    "stagedFiles": "{{count}} file(s) staged",
+    "noStagedFiles": "No files staged",
+    "willStageAll": "Will stage all files"
   }
 }
