@@ -85,6 +85,7 @@
     "baseUrl": "Base URL",
     "models": "Models",
     "addModel": "Add model",
+    "browseModels": "Browse Models",
     "editModel": "Edit",
     "deleteModel": "Delete",
     "modelId": "Model ID",
@@ -110,6 +111,7 @@
     "searchPlaceholder": "Search by name, ID, provider...",
     "filterFree": "Free only",
     "allProviders": "All providers",
+    "toggleProviders": "Toggle Providers",
     "sortByName": "Sort: Name",
     "sortByContext": "Sort: Context",
     "sortByPrice": "Sort: Price",
@@ -124,6 +126,24 @@
     "added": "Added",
     "add": "Add",
     "loadFromKilo": "Load from Kilo",
+    "loading": "Loading...",
+    "loadError": "Failed to load models"
+  },
+  "modelsBrowser": {
+    "title": "Browse Models",
+    "searchPlaceholder": "Search by name, ID, provider...",
+    "filterFree": "Free only",
+    "allProviders": "All providers",
+    "toggleProviders": "Toggle Providers",
+    "sortByName": "Sort: Name",
+    "sortByContext": "Sort: Context",
+    "contextLabel": "Context:",
+    "minPlaceholder": "Min",
+    "maxPlaceholder": "Max",
+    "clear": "Clear",
+    "noModelsFound": "No models found",
+    "added": "Added",
+    "add": "Add",
     "loading": "Loading...",
     "loadError": "Failed to load models"
   },
@@ -369,6 +389,10 @@
   },
   "kilo": {
     "apiKeyRequired": "API key required to use Kilo Gateway",
+    "getYourApiKey": "Get your API key"
+  },
+  "openrouter": {
+    "apiKeyRequired": "API key required to use OpenRouter",
     "getYourApiKey": "Get your API key"
   },
   "lsp": {

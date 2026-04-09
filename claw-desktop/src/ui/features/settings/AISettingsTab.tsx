@@ -8,8 +8,8 @@ import { Plus, Trash2, Pencil, ChevronDown, ChevronRight, Download, Loader2, Bar
 import { ConfirmDeleteProviderDialog } from './ConfirmDeleteProviderDialog';
 import { ProviderFormDialog } from './ProviderFormDialog';
 import { ModelFormDialog } from './ModelFormDialog';
-import { KiloModelsBrowser, KiloModel } from './KiloModelsBrowser';
-import { fetchKiloModels } from './fetchKiloModels';
+import { ModelsBrowser } from './ModelsBrowser';
+import { ModelInfo, fetchModels } from './fetchModels';
 import { AntigravitySetup } from './AntigravitySetup';
 
 export function AISettingsTab() {
@@ -31,10 +31,11 @@ export function AISettingsTab() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [providerToDelete, setProviderToDelete] = useState<Provider | null>(null);
   
-  // Kilo browser state
-  const [kiloBrowserOpen, setKiloBrowserOpen] = useState<string | null>(null);
-  const [kiloModels, setKiloModels] = useState<KiloModel[]>([]);
-  const [kiloLoading, setKiloLoading] = useState(false);
+  // Models browser state (generic for all providers)
+  const [modelsBrowserOpen, setModelsBrowserOpen] = useState<string | null>(null);
+  const [browserModels, setBrowserModels] = useState<ModelInfo[]>([]);
+  const [loadingProvider, setLoadingProvider] = useState<string | null>(null); // Track which provider is loading
+  const [browserTitle, setBrowserTitle] = useState<string>('');
   
   // Antigravity setup state
   const [antigravitySetupOpen, setAntigravitySetupOpen] = useState<string | null>(null);
@@ -125,21 +126,26 @@ export function AISettingsTab() {
     }
   };
   
-  const handleFetchKiloModels = async (providerId: string) => {
-    if (kiloModels.length > 0) {
-      setKiloBrowserOpen(providerId);
-      return;
-    }
+  const handleFetchProviderModels = async (provider: Provider) => {
+    // Set loading state for this specific provider
+    setLoadingProvider(provider.id);
+    setBrowserTitle(t('modelsBrowser.title') + ` - ${provider.name}`);
     
-    setKiloLoading(true);
     try {
-      const models = await fetchKiloModels();
-      setKiloModels(models);
-      setKiloBrowserOpen(providerId);
+      const models = await fetchModels(
+        provider.base_url,
+        provider.id,
+        provider.api_key || undefined
+      );
+      setBrowserModels(models);
+      // Only open dialog after successful fetch
+      setModelsBrowserOpen(provider.id);
     } catch (error) {
-      alert(`${t('kiloModelsBrowser.loadError')}: ${error}`);
+      console.error('[FETCH_MODELS] Failed to fetch models:', error);
+      // Don't open dialog on error
+      setBrowserModels([]);
     } finally {
-      setKiloLoading(false);
+      setLoadingProvider(null);
     }
   };
 
@@ -167,6 +173,7 @@ export function AISettingsTab() {
           settings.providers.map((provider) => {
             const isExpanded = expandedProviders.has(provider.id);
             const isKiloProvider = provider.id === 'kilo' || provider.base_url?.includes('kilo.ai');
+            const isOpenRouterProvider = provider.id === 'openrouter' || provider.base_url?.includes('openrouter.ai');
             const isAntigravityProvider = provider.id === 'antigravity' || provider.base_url?.includes('localhost:8080');
             
             return (
@@ -241,32 +248,52 @@ export function AISettingsTab() {
                       </div>
                     )}
 
+                    {/* OpenRouter API Key Link */}
+                    {isOpenRouterProvider && !provider.api_key && (
+                      <div className="rounded-md bg-yellow-500/10 border border-yellow-500/20 p-2">
+                        <p className="text-xs text-yellow-600 dark:text-yellow-500 mb-1.5">
+                          {t('openrouter.apiKeyRequired')}
+                        </p>
+                        <a
+                          href="https://openrouter.ai/workspaces/default/keys"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                        >
+                          {t('openrouter.getYourApiKey')}
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      </div>
+                    )}
+
                     {/* Models Section */}
                     <div>
                       <div className="flex items-center justify-between mb-2">
                         <p className="text-xs font-medium">{t('settings.models')}</p>
                         <div className="flex items-center gap-1">
-                          {isKiloProvider && (
+                          {/* Show "Browse Models" button for Kilo and OpenRouter */}
+                          {(isKiloProvider || isOpenRouterProvider) && (
                             <Button
-                              onClick={() => handleFetchKiloModels(provider.id)}
+                              onClick={() => handleFetchProviderModels(provider)}
                               size="sm"
                               variant="outline"
-                              disabled={kiloLoading}
+                              disabled={loadingProvider === provider.id}
                               className="h-6 text-xs px-2"
                             >
-                              {kiloLoading ? (
+                              {loadingProvider === provider.id ? (
                                 <>
                                   <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                                  {t('kiloModelsBrowser.loading')}
+                                  {t('modelsBrowser.loading')}
                                 </>
                               ) : (
                                 <>
                                   <Download className="w-3 h-3 mr-1" />
-                                  Kilo
+                                  {t('settings.browseModels')}
                                 </>
                               )}
                             </Button>
                           )}
+                          {/* Antigravity quick add */}
                           {isAntigravityProvider && (
                             <Button
                               onClick={() => setAntigravitySetupOpen(provider.id)}
@@ -357,13 +384,19 @@ export function AISettingsTab() {
         onSave={handleSaveModel}
       />
 
-      {kiloBrowserOpen && (
-        <KiloModelsBrowser
-          models={kiloModels}
-          existingModels={settings.providers.find(p => p.id === kiloBrowserOpen)?.models || []}
-          onAddModel={(model) => addModel(kiloBrowserOpen, model)}
+      {modelsBrowserOpen && (
+        <ModelsBrowser
+          models={browserModels}
+          existingModels={settings.providers.find(p => p.id === modelsBrowserOpen)?.models || []}
+          onAddModel={(model) => addModel(modelsBrowserOpen, model)}
           isOpen={true}
-          onOpenChange={(open) => !open && setKiloBrowserOpen(null)}
+          onOpenChange={(open) => {
+            if (!open) {
+              setModelsBrowserOpen(null);
+              setBrowserModels([]); // Clear cache when closing
+            }
+          }}
+          title={browserTitle}
         />
       )}
 

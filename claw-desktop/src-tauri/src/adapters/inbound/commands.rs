@@ -894,31 +894,6 @@ pub fn open_external_terminal(command: Option<String>) -> Result<(), String> {
 }
 
 /// Fetch available models from Kilo Gateway API
-#[tauri::command]
-pub async fn fetch_kilo_models() -> Result<String, String> {
-    eprintln!("[COMMAND] fetch_kilo_models called");
-    
-    // Use reqwest to fetch models (bypass CORS)
-    let client = reqwest::Client::new();
-    let response = client
-        .get("https://api.kilo.ai/api/gateway/models")
-        .send()
-        .await
-        .map_err(|e| format!("Failed to fetch models: {}", e))?;
-    
-    if !response.status().is_success() {
-        return Err(format!("HTTP error: {}", response.status()));
-    }
-    
-    let body = response
-        .text()
-        .await
-        .map_err(|e| format!("Failed to read response: {}", e))?;
-    
-    eprintln!("[COMMAND] Fetched {} bytes from Kilo API", body.len());
-    Ok(body)
-}
-
 /// Test Antigravity proxy connection
 #[tauri::command]
 pub async fn test_antigravity_connection(base_url: String) -> Result<String, String> {
@@ -1193,3 +1168,44 @@ pub async fn spawn_terminal_shell(
     Ok(())
 }
 
+
+/// Fetch models from any OpenAI-compatible provider (bypass CORS)
+#[tauri::command]
+pub async fn fetch_provider_models(
+    base_url: String,
+    api_key: Option<String>,
+    endpoint_path: Option<String>, // Custom endpoint path, defaults to "/v1/models"
+) -> Result<String, String> {
+    let path = endpoint_path.unwrap_or_else(|| "/v1/models".to_string());
+    let url = format!("{}{}", base_url, path);
+    eprintln!("[COMMAND] fetch_provider_models called: url={}", url);
+    
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
+    
+    let mut request = client.get(&url);
+    
+    // Add Authorization header if API key provided
+    if let Some(key) = api_key {
+        request = request.header("Authorization", format!("Bearer {}", key));
+    }
+    
+    let response = request
+        .send()
+        .await
+        .map_err(|e| format!("Failed to fetch models: {}", e))?;
+    
+    if !response.status().is_success() {
+        return Err(format!("HTTP error: {}", response.status()));
+    }
+    
+    let body = response
+        .text()
+        .await
+        .map_err(|e| format!("Failed to read response: {}", e))?;
+    
+    eprintln!("[COMMAND] Fetched {} bytes from provider API", body.len());
+    Ok(body)
+}

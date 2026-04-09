@@ -85,6 +85,7 @@
     "baseUrl": "Base URL",
     "models": "Mô hình",
     "addModel": "Thêm Mô hình",
+    "browseModels": "Duyệt Models",
     "editModel": "Chỉnh sửa",
     "deleteModel": "Xóa",
     "modelId": "ID Mô hình",
@@ -110,6 +111,7 @@
     "searchPlaceholder": "Tìm kiếm theo tên, ID, provider...",
     "filterFree": "Chỉ miễn phí",
     "allProviders": "Tất cả providers",
+    "toggleProviders": "Hiện/Ẩn Providers",
     "sortByName": "Sắp xếp: Tên",
     "sortByContext": "Sắp xếp: Context",
     "sortByPrice": "Sắp xếp: Giá",
@@ -124,6 +126,24 @@
     "added": "Đã thêm",
     "add": "Thêm",
     "loadFromKilo": "Tải từ Kilo",
+    "loading": "Đang tải...",
+    "loadError": "Không thể tải models"
+  },
+  "modelsBrowser": {
+    "title": "Duyệt Models",
+    "searchPlaceholder": "Tìm kiếm theo tên, ID, provider...",
+    "filterFree": "Chỉ miễn phí",
+    "allProviders": "Tất cả providers",
+    "toggleProviders": "Hiện/Ẩn Providers",
+    "sortByName": "Sắp xếp: Tên",
+    "sortByContext": "Sắp xếp: Context",
+    "contextLabel": "Context:",
+    "minPlaceholder": "Min",
+    "maxPlaceholder": "Max",
+    "clear": "Xóa",
+    "noModelsFound": "Không tìm thấy model nào",
+    "added": "Đã thêm",
+    "add": "Thêm",
     "loading": "Đang tải...",
     "loadError": "Không thể tải models"
   },
@@ -369,6 +389,10 @@
   },
   "kilo": {
     "apiKeyRequired": "Cần API key để sử dụng Kilo Gateway",
+    "getYourApiKey": "Lấy API key của bạn"
+  },
+  "openrouter": {
+    "apiKeyRequired": "Cần API key để sử dụng OpenRouter",
     "getYourApiKey": "Lấy API key của bạn"
   },
   "lsp": {

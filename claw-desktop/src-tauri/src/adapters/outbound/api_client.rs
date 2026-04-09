@@ -183,7 +183,15 @@ impl ApiClient for TauriApiClient {
 
                     match event_opt {
                         None => {
-                            tracing::debug!("Stream ended");
+                            tracing::debug!("Stream ended without MessageStop event, emitting it now");
+                            // Some providers (e.g., minimax free) end stream without MessageStop
+                            // Emit MessageStop to prevent "stream ended without stop event" error
+                            event_publisher.publish_stream_event(
+                                crate::core::domain::types::StreamEvent::MessageStop {
+                                    turn_id: turn_id.clone(),
+                                },
+                            );
+                            assistant_events.push(AssistantEvent::MessageStop);
                             break;
                         }
                         Some(api_event) => {
