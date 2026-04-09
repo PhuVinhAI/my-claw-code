@@ -1,5 +1,4 @@
 // Provider Selection Step - Step 1
-import { useTranslation } from 'react-i18next';
 import { Button } from '../../../../components/ui/button';
 import { ArrowRight } from 'lucide-react';
 import { ProviderCard } from '../components/ProviderCard';
@@ -69,8 +68,6 @@ export function ProviderSelectionStep({
   onNext,
   onBack,
 }: ProviderSelectionStepProps) {
-  const { t } = useTranslation();
-
   return (
     <div className="space-y-6">
       <div className="text-center space-y-3">

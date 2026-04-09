@@ -1,7 +1,7 @@
 // Antigravity Claude Proxy Setup Component
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { AlertCircle, CheckCircle, ExternalLink, Plus, Loader2, RefreshCw } from 'lucide-react';
+import { AlertCircle, CheckCircle, ExternalLink, Plus, RefreshCw } from 'lucide-react';
 import { Button } from '../../../components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../../components/ui/dialog';
 import { Model } from '../../../core/entities';

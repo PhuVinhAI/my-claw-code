@@ -1,2 +1,2 @@
-export { TerminalPanel } from '../rightpanel/TerminalView';
+export { TerminalView as TerminalPanel } from '../rightpanel/TerminalView';
 export { TerminalTab } from './TerminalTab';

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { Terminal } from 'xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
@@ -156,27 +156,23 @@ export function TerminalTab({ tabId }: TerminalTabProps) {
   // Handle resize - both window resize and container resize
   useEffect(() => {
     let resizeTimeout: NodeJS.Timeout;
-    let isResizingFlag = false;
-    
+
     const handleResize = () => {
       if (!xtermRef.current || !terminalRef.current || !tab?.isActive) return;
-      
-      // Mark as resizing
-      isResizingFlag = true;
-      
+
       // Debounce resize to avoid losing content during drag
       clearTimeout(resizeTimeout);
       resizeTimeout = setTimeout(() => {
         try {
           if (!fitAddonRef.current || !terminalRef.current || !xtermRef.current) return;
-          
+
           // Fit terminal to container
           fitAddonRef.current.fit();
-          
+
           // Get new dimensions
           const cols = xtermRef.current.cols;
           const rows = xtermRef.current.rows;
-          
+
           // Notify backend PTY about resize (send SIGWINCH)
           invoke('resize_terminal', {
             terminalId: tabId,
@@ -185,11 +181,9 @@ export function TerminalTab({ tabId }: TerminalTabProps) {
           }).catch(err => {
             console.error('[Terminal] Failed to resize PTY:', err);
           });
-          
-          isResizingFlag = false;
+
         } catch (e) {
           console.error('[Terminal] Resize failed:', e);
-          isResizingFlag = false;
         }
       }, 150);
     };

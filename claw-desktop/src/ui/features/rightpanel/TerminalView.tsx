@@ -135,7 +135,7 @@ export function TerminalView() {
 
         {/* Terminal List */}
         <div className="flex-1 overflow-y-auto">
-          {tabs.map((tab, index) => (
+          {tabs.map((tab) => (
             <div
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}

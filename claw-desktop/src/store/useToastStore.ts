@@ -1,6 +1,13 @@
 // Toast Store - Manages toast notifications
 import { create } from 'zustand';
-import { ToastData, ToastType } from '../components/Toast';
+import type { ToastType } from '../components/Toast';
+
+export interface ToastData {
+  id: string;
+  type: ToastType;
+  message: string;
+  duration?: number;
+}
 
 interface ToastStore {
   toasts: ToastData[];
