@@ -60,23 +60,23 @@ impl ProviderClient {
             ));
         }
 
+        // For custom providers (non-antigravity), default to OpenAI-compatible format
+        // Most modern AI providers (Kilo, custom gateways, etc.) use OpenAI-compatible API
         let resolved_model = providers::resolve_model_alias(model);
-        match providers::detect_provider_kind(&resolved_model) {
-            ProviderKind::Anthropic => {
-                // Custom Anthropic-compatible endpoint
-                Ok(Self::Anthropic(
-                    AnthropicClient::from_auth(AuthSource::ApiKey(api_key))
-                        .with_base_url(base_url)
-                ))
-            }
-            _ => {
-                // OpenAI-compatible endpoint with custom base URL
-                let config = OpenAiCompatConfig::openai(); // Use default config
-                Ok(Self::OpenAi(
-                    OpenAiCompatClient::new(api_key, config).with_base_url(base_url)
-                ))
-            }
+        
+        // Only use Anthropic format if model explicitly starts with "claude"
+        if resolved_model.starts_with("claude") {
+            return Ok(Self::Anthropic(
+                AnthropicClient::from_auth(AuthSource::ApiKey(api_key))
+                    .with_base_url(base_url)
+            ));
         }
+
+        // Default: OpenAI-compatible endpoint
+        let config = OpenAiCompatConfig::openai();
+        Ok(Self::OpenAi(
+            OpenAiCompatClient::new(api_key, config).with_base_url(base_url)
+        ))
     }
 
     #[must_use]
