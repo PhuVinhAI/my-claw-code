@@ -135,6 +135,7 @@ impl ApiClient for TauriApiClient {
             frequency_penalty: None,
             presence_penalty: None,
             stop: None,
+            reasoning_effort: None,
         };
         
         // Log API call for AI

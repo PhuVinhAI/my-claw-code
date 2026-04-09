@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useSettingsStore } from '../../../store/useSettingsStore';
 import { Provider, Model } from '../../../core/entities';
 import { Button } from '../../../components/ui/button';
-import { Plus, Trash2, Pencil, ChevronDown, ChevronRight, Download, Loader2, BarChart3 } from 'lucide-react';
+import { Plus, Trash2, Pencil, ChevronDown, ChevronRight, Download, Loader2, BarChart3, AlertTriangle, ExternalLink } from 'lucide-react';
 import { ConfirmDeleteProviderDialog } from './ConfirmDeleteProviderDialog';
 import { ProviderFormDialog } from './ProviderFormDialog';
 import { ModelFormDialog } from './ModelFormDialog';
@@ -183,7 +183,14 @@ export function AISettingsTab() {
                       <ChevronRight className="w-4 h-4 text-muted-foreground" />
                     )}
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{provider.name}</p>
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-sm font-medium truncate">{provider.name}</p>
+                        {!provider.api_key && (
+                          <div title="API key missing">
+                            <AlertTriangle className="w-3.5 h-3.5 text-yellow-500 shrink-0" />
+                          </div>
+                        )}
+                      </div>
                       <p className="text-xs text-muted-foreground truncate">{provider.models.length} {t('settings.models')}</p>
                     </div>
                   </button>
@@ -215,6 +222,24 @@ export function AISettingsTab() {
                       <p className="text-xs text-muted-foreground mb-1">{t('settings.baseUrl')}</p>
                       <p className="text-xs font-mono truncate">{provider.base_url}</p>
                     </div>
+
+                    {/* Kilo API Key Link */}
+                    {isKiloProvider && !provider.api_key && (
+                      <div className="rounded-md bg-yellow-500/10 border border-yellow-500/20 p-2">
+                        <p className="text-xs text-yellow-600 dark:text-yellow-500 mb-1.5">
+                          API key required to use Kilo Gateway
+                        </p>
+                        <a
+                          href="https://app.kilo.ai/profile"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                        >
+                          Get your API key
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      </div>
+                    )}
 
                     {/* Models Section */}
                     <div>

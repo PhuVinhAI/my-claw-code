@@ -1,6 +1,19 @@
 {
   "providers": [
     {
+      "id": "kilo",
+      "name": "Kilo AI Gateway",
+      "base_url": "https://api.kilo.ai/api/gateway",
+      "api_key": "",
+      "models": [
+        {
+          "id": "kilo-auto/free",
+          "name": "Kilo Auto (Free)",
+          "max_context": 205000
+        }
+      ]
+    },
+    {
       "id": "antigravity",
       "name": "Antigravity Claude Proxy",
       "base_url": "http://localhost:8080",

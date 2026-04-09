@@ -8,7 +8,7 @@ import { ResizablePanel } from './components/ResizablePanel';
 import { RightPanel } from './ui/features/rightpanel/RightPanel';
 import { useRightPanelStore } from './store/useRightPanelStore';
 import { useTerminalStore } from './store/useTerminalStore';
-import { PanelLeft, PanelRight } from 'lucide-react';
+import { PanelLeft, PanelRight, Folder, Home as HomeIcon } from 'lucide-react';
 
 import { invoke } from '@tauri-apps/api/core';
 import './App.css';
@@ -20,6 +20,8 @@ function App() {
   const [currentScreen, setCurrentScreen] = useState<Screen>('onboarding');
   const [isCheckingOnboarding, setIsCheckingOnboarding] = useState(true);
   const messages = useChatStore((s) => s.messages);
+  const workMode = useChatStore((s) => s.workMode);
+  const workspacePath = useChatStore((s) => s.workspacePath);
   const isEmpty = messages.length === 0;
   
   // Right panel state
@@ -108,36 +110,59 @@ function App() {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Floating Sidebar Toggle when closed */}
-        {!sidebarOpen && (
-          <div className="absolute top-4 left-4 z-50">
-            <button
-              onClick={() => setSidebarOpen(true)}
-              className="flex items-center justify-center p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-all duration-150"
-              title="Mở Sidebar"
-            >
-              <PanelLeft className="w-4 h-4 sm:w-4 sm:h-4" />
-            </button>
-          </div>
-        )}
+        {/* Header Bar with Workspace Path - Only show when has messages */}
+        {!isEmpty && (
+          <div className="h-9 border-b border-border bg-background/95 backdrop-blur-sm flex items-center px-3 gap-3 shrink-0">
+            {/* Left: Sidebar Toggle + Workspace Path */}
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              {!sidebarOpen && (
+                <button
+                  onClick={() => setSidebarOpen(true)}
+                  className="flex items-center justify-center p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-all duration-150 shrink-0"
+                  title="Mở Sidebar"
+                >
+                  <PanelLeft className="w-4 h-4" />
+                </button>
+              )}
+              
+              {/* Workspace Path */}
+              <div className="flex items-center gap-1.5 min-w-0">
+                {workMode === 'workspace' && workspacePath ? (
+                  <>
+                    <Folder className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                    <span 
+                      className="text-xs font-medium text-foreground truncate" 
+                      title={workspacePath}
+                    >
+                      {workspacePath}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <HomeIcon className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                    <span className="text-xs text-muted-foreground">Home</span>
+                  </>
+                )}
+              </div>
+            </div>
 
-        {/* Floating Right Panel Toggle when closed */}
-        {!isPanelOpen && (
-          <div className="absolute top-4 right-4 z-50">
-            <button
-              onClick={() => {
-                setActiveTab('terminal');
-                // Create first terminal if none exists
-                const tabs = useTerminalStore.getState().tabs;
-                if (tabs.length === 0) {
-                  createTab();
-                }
-              }}
-              className="flex items-center justify-center p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-all duration-150"
-              title="Mở Panel"
-            >
-              <PanelRight className="w-4 h-4 sm:w-4 sm:h-4" />
-            </button>
+            {/* Right: Panel Toggle */}
+            {!isPanelOpen && (
+              <button
+                onClick={() => {
+                  setActiveTab('terminal');
+                  // Create first terminal if none exists
+                  const tabs = useTerminalStore.getState().tabs;
+                  if (tabs.length === 0) {
+                    createTab();
+                  }
+                }}
+                className="flex items-center justify-center p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-all duration-150 shrink-0"
+                title="Mở Panel"
+              >
+                <PanelRight className="w-4 h-4" />
+              </button>
+            )}
           </div>
         )}
 

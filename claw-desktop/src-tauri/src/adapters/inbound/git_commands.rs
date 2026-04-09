@@ -581,6 +581,7 @@ improving onboarding experience and reducing friction.";
         frequency_penalty: None,
         presence_penalty: None,
         stop: None,
+        reasoning_effort: None,
     };
     
     // Call API (safe to await now - all git2 objects dropped)
