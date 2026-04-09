@@ -47,6 +47,9 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt", "json"]
 tracing-appender = "0.2"
 # Git library (libgit2 binding)
 git2 = "0.18"
+# File system watcher for git changes
+notify = "6"
+notify-debouncer-full = "0.3"
 
 # --- Claw Code Core Dependencies ---
 # Link trực tiếp tới các module Rust của project

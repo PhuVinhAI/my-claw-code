@@ -225,7 +225,7 @@ export function GitCommitBar({
 
           {/* Dropdown Menu */}
           {showDropdown && (
-            <div className="absolute bottom-full right-0 mb-1 bg-popover border border-border rounded shadow-lg z-50 min-w-[200px]">
+            <div className="absolute top-full right-0 mt-1 bg-popover border border-border rounded shadow-lg z-50 min-w-[200px]">
               {actions.map((action) => (
                 <button
                   key={action.value}

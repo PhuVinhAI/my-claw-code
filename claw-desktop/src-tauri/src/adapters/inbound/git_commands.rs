@@ -1,6 +1,7 @@
 // Git Commands - Inbound Adapters using git2 (libgit2)
 use serde::{Deserialize, Serialize};
 use git2::{Repository, StatusOptions, StatusShow};
+use tauri::Manager;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GitFileChange {
@@ -515,7 +516,7 @@ pub async fn git_generate_commit_message(
     let settings = state.settings_manager.load()
         .map_err(|e| format!("Failed to load settings: {}", e))?;
     
-    let (model, base_url, api_key) = if let Some(ref selected) = settings.selected_model {
+    let (model, base_url, api_key, provider_id) = if let Some(ref selected) = settings.selected_model {
         let provider = settings.get_provider(&selected.provider_id)
             .ok_or_else(|| "No provider configured".to_string())?;
         
@@ -523,17 +524,22 @@ pub async fn git_generate_commit_message(
             .find(|m| m.id == selected.model_id)
             .ok_or_else(|| "No model configured".to_string())?;
         
-        (model_obj.id.clone(), provider.base_url.clone(), provider.api_key.clone())
+        (
+            model_obj.id.clone(), 
+            provider.base_url.clone(), 
+            provider.api_key.clone(),
+            selected.provider_id.clone()
+        )
     } else {
         return Err("No model selected in settings".to_string());
     };
     
-    // Create API client
+    // Create API client - Pass provider_id to handle Antigravity correctly
     let client = ProviderClient::from_model_and_base_url(
         &model,
         base_url,
         api_key,
-        None,
+        Some(&provider_id), // Pass provider_id so Antigravity is detected
     ).map_err(|e| format!("Failed to create API client: {}", e))?;
     
     // Build prompt with diff - Request detailed commit message
@@ -735,3 +741,93 @@ pub fn git_get_diff(path: String, staged: bool) -> Result<String, String> {
     Ok(diff_text)
 }
 
+
+
+// ============================================================================
+// Git File Watcher - Auto-refresh on file system changes
+// ============================================================================
+
+use notify_debouncer_full::{new_debouncer, notify::{RecursiveMode, Watcher}, DebounceEventResult};
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
+use tauri::{AppHandle, Emitter};
+
+/// Start watching git repository for changes
+#[tauri::command]
+pub fn git_start_watch(app: AppHandle) -> Result<(), String> {
+    // Get current directory
+    let cwd = match std::env::current_dir() {
+        Ok(dir) => dir,
+        Err(e) => return Err(format!("Failed to get current directory: {}", e)),
+    };
+    
+    // Check if it's a git repo
+    let repo = match Repository::open(&cwd) {
+        Ok(r) => r,
+        Err(e) => return Err(format!("Not a git repository: {}", e)),
+    };
+    
+    let git_dir = repo.path().to_path_buf();
+    let work_dir = match repo.workdir() {
+        Some(dir) => dir.to_path_buf(),
+        None => return Err("No working directory".to_string()),
+    };
+    
+    // Clone paths for the closure
+    let git_dir_clone = git_dir.clone();
+    let work_dir_clone = work_dir.clone();
+    
+    // Clone app handle for the closure
+    let app_clone = app.clone();
+    
+    // Create debounced watcher (500ms debounce)
+    let mut debouncer = match new_debouncer(
+        Duration::from_millis(500),
+        None,
+        move |result: DebounceEventResult| {
+            match result {
+                Ok(events) => {
+                    // Check if any event is git-related
+                    let has_git_change = events.iter().any(|event| {
+                        event.paths.iter().any(|path| {
+                            // Watch for changes in .git directory or working tree
+                            path.starts_with(&git_dir_clone) || path.starts_with(&work_dir_clone)
+                        })
+                    });
+                    
+                    if has_git_change {
+                        // Emit event to frontend
+                        if let Err(e) = app_clone.emit("git-changed", ()) {
+                            eprintln!("[GIT_WATCHER] Failed to emit event: {}", e);
+                        }
+                    }
+                }
+                Err(errors) => {
+                    for error in errors {
+                        eprintln!("[GIT_WATCHER] Error: {:?}", error);
+                    }
+                }
+            }
+        },
+    ) {
+        Ok(d) => d,
+        Err(e) => return Err(format!("Failed to create watcher: {}", e)),
+    };
+    
+    // Watch .git directory for index/HEAD changes
+    if let Err(e) = debouncer.watcher().watch(&git_dir, RecursiveMode::Recursive) {
+        return Err(format!("Failed to watch .git directory: {}", e));
+    }
+    
+    // Watch working directory for file changes
+    if let Err(e) = debouncer.watcher().watch(&work_dir, RecursiveMode::Recursive) {
+        return Err(format!("Failed to watch working directory: {}", e));
+    }
+    
+    // Store debouncer in app state to keep it alive
+    app.manage(Arc::new(Mutex::new(debouncer)));
+    
+    println!("[GIT_WATCHER] Started watching: {:?}", work_dir);
+    
+    Ok(())
+}

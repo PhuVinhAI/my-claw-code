@@ -1,17 +1,14 @@
-import { RotateCw, Upload, Loader2 } from 'lucide-react';
+import { Upload, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { cn } from '../../../../lib/utils';
 
 interface GitHeaderProps {
   currentBranch: string | null;
-  isLoading: boolean;
   isPushing: boolean;
   hasUnpushedCommits: boolean;
-  onRefresh: () => void;
   onPush: () => void;
 }
 
-export function GitHeader({ currentBranch, isLoading, isPushing, hasUnpushedCommits, onRefresh, onPush }: GitHeaderProps) {
+export function GitHeader({ currentBranch, isPushing, hasUnpushedCommits, onPush }: GitHeaderProps) {
   const { t } = useTranslation();
 
   return (
@@ -41,16 +38,6 @@ export function GitHeader({ currentBranch, isLoading, isPushing, hasUnpushedComm
             <span>{t('gitPanel.push')}</span>
           </button>
         )}
-        
-        {/* Refresh Button */}
-        <button 
-          onClick={onRefresh}
-          disabled={isLoading}
-          className="p-0.5 hover:bg-accent rounded transition-colors disabled:opacity-50"
-          title={t('gitPanel.refresh')}
-        >
-          <RotateCw className={cn("h-3.5 w-3.5 text-muted-foreground", isLoading && "animate-spin")} />
-        </button>
       </div>
     </div>
   );

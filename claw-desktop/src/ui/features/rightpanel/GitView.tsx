@@ -38,6 +38,36 @@ export function GitView() {
 
   useEffect(() => {
     refresh();
+    
+    // Start git file watcher
+    const startWatcher = async () => {
+      try {
+        const { invoke } = await import('@tauri-apps/api/core');
+        await invoke('git_start_watch');
+        console.log('[GitView] Git watcher started');
+      } catch (error) {
+        console.error('[GitView] Failed to start git watcher:', error);
+      }
+    };
+    
+    startWatcher();
+    
+    // Listen for git change events
+    const setupListener = async () => {
+      const { listen } = await import('@tauri-apps/api/event');
+      const unlisten = await listen('git-changed', () => {
+        console.log('[GitView] Git changed event received, refreshing...');
+        refresh();
+      });
+      
+      return unlisten;
+    };
+    
+    let unlistenPromise = setupListener();
+    
+    return () => {
+      unlistenPromise.then(unlisten => unlisten());
+    };
   }, []);
 
   // Check for unpushed commits whenever changes update
@@ -212,10 +242,8 @@ export function GitView() {
     <div className="flex flex-col w-full h-full bg-background overflow-hidden">
       <GitHeader 
         currentBranch={currentBranch}
-        isLoading={isLoading}
         isPushing={isPushing}
         hasUnpushedCommits={hasUnpushedCommits}
-        onRefresh={refresh}
         onPush={handlePush}
       />
 
