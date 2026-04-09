@@ -6,6 +6,7 @@ import { GitFilterBar, type FilterType } from './git/GitFilterBar';
 import { GitFileList } from './git/GitFileList';
 import { GitNoRepository } from './git/GitNoRepository';
 import { ConfirmDialog } from './git/ConfirmDialog';
+import { GitCommitBar } from './git/GitCommitBar';
 
 export function GitView() {
   const { t } = useTranslation();
@@ -27,6 +28,10 @@ export function GitView() {
     stageFile,
     unstageFile,
     discardChanges,
+    commit,
+    push,
+    commitAndPush,
+    commitAndSync,
     refresh,
   } = useGitStore();
 
@@ -176,6 +181,14 @@ export function GitView() {
         currentBranch={currentBranch}
         isLoading={isLoading}
         onRefresh={refresh}
+      />
+
+      {/* Commit Bar - Below Header */}
+      <GitCommitBar
+        stagedCount={stagedChanges.length}
+        onCommit={commit}
+        onCommitAndPush={commitAndPush}
+        onCommitAndSync={commitAndSync}
       />
 
       {/* Error (only show non-repo errors) */}

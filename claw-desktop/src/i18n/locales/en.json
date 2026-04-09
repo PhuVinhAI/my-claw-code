@@ -436,6 +436,12 @@
     },
     "discardConfirmTitle": "Discard Changes?",
     "discardConfirmSingle": "Are you sure you want to discard changes in {{file}}? This action cannot be undone.",
-    "discardConfirmMultiple": "Are you sure you want to discard changes in {{count}} files? This action cannot be undone."
+    "discardConfirmMultiple": "Are you sure you want to discard changes in {{count}} files? This action cannot be undone.",
+    "commitMessagePlaceholder": "Commit message...",
+    "commit": "Commit",
+    "push": "Push",
+    "commitAndPush": "Commit & Push",
+    "commitAndSync": "Commit & Sync",
+    "stagedFilesCount": "{{count}} file(s) staged"
   }
 }

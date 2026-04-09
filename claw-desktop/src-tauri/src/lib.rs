@@ -124,6 +124,7 @@ pub fn run() {
             git_commit,
             git_push,
             git_pull,
+            git_sync,
             git_switch_branch,
             git_get_diff
         ])

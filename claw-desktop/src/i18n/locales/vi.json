@@ -436,6 +436,12 @@
     },
     "discardConfirmTitle": "Hoàn tác thay đổi?",
     "discardConfirmSingle": "Bạn có chắc muốn hoàn tác thay đổi trong {{file}}? Hành động này không thể hoàn tác.",
-    "discardConfirmMultiple": "Bạn có chắc muốn hoàn tác thay đổi trong {{count}} files? Hành động này không thể hoàn tác."
+    "discardConfirmMultiple": "Bạn có chắc muốn hoàn tác thay đổi trong {{count}} files? Hành động này không thể hoàn tác.",
+    "commitMessagePlaceholder": "Nhập commit message...",
+    "commit": "Commit",
+    "push": "Push",
+    "commitAndPush": "Commit & Push",
+    "commitAndSync": "Commit & Sync",
+    "stagedFilesCount": "{{count}} file đã stage"
   }
 }

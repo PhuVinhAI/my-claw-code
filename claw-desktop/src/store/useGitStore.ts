@@ -38,6 +38,9 @@ interface GitState {
   commit: (message: string) => Promise<void>;
   push: () => Promise<void>;
   pull: () => Promise<void>;
+  sync: () => Promise<void>;
+  commitAndPush: (message: string) => Promise<void>;
+  commitAndSync: (message: string) => Promise<void>;
   switchBranch: (branch: string) => Promise<void>;
   refresh: () => Promise<void>;
 }
@@ -154,6 +157,44 @@ export const useGitStore = create<GitState>((set, get) => ({
     try {
       const { invoke } = await import('@tauri-apps/api/core');
       await invoke('git_pull');
+      await get().loadStatus();
+      set({ isLoading: false });
+    } catch (error) {
+      set({ error: String(error), isLoading: false });
+    }
+  },
+
+  sync: async () => {
+    set({ isLoading: true });
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      await invoke('git_sync');
+      await get().loadStatus();
+      set({ isLoading: false });
+    } catch (error) {
+      set({ error: String(error), isLoading: false });
+    }
+  },
+
+  commitAndPush: async (message: string) => {
+    set({ isLoading: true });
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      await invoke('git_commit', { message });
+      await invoke('git_push');
+      await get().loadStatus();
+      set({ isLoading: false });
+    } catch (error) {
+      set({ error: String(error), isLoading: false });
+    }
+  },
+
+  commitAndSync: async (message: string) => {
+    set({ isLoading: true });
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      await invoke('git_commit', { message });
+      await invoke('git_sync');
       await get().loadStatus();
       set({ isLoading: false });
     } catch (error) {

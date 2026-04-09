@@ -359,6 +359,18 @@ pub fn git_pull() -> Result<(), String> {
     Ok(())
 }
 
+/// Sync with remote (pull then push)
+#[tauri::command]
+pub fn git_sync() -> Result<(), String> {
+    // First pull
+    git_pull()?;
+    
+    // Then push
+    git_push()?;
+    
+    Ok(())
+}
+
 /// Switch branch using git2
 #[tauri::command]
 pub fn git_switch_branch(branch: String) -> Result<(), String> {
