@@ -1,5 +1,5 @@
 // TodoListBlock Component - Hiển thị TodoWrite tool output
-import { CheckCircle2, Circle, Clock, AlertCircle } from 'lucide-react';
+import { CheckCircle2, Circle, Clock } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
 
@@ -21,7 +21,7 @@ interface TodoListBlockProps {
 
 export function TodoListBlock({ output }: TodoListBlockProps) {
   const { t } = useTranslation();
-  const { newTodos = [], verificationNudgeNeeded } = output;
+  const { newTodos = [] } = output;
 
   if (!Array.isArray(newTodos) || newTodos.length === 0) {
     return (
@@ -109,14 +109,6 @@ export function TodoListBlock({ output }: TodoListBlockProps) {
         })}
       </div>
 
-      {verificationNudgeNeeded && (
-        <div className="flex items-start gap-1.5 p-1.5 rounded-md bg-amber-500/10 border border-amber-500/20">
-          <AlertCircle className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-          <p className="text-[10px] text-amber-700 dark:text-amber-300">
-            {t('todoList.verificationHint')}
-          </p>
-        </div>
-      )}
     </div>
   );
 }

@@ -1,5 +1,5 @@
 // Onboarding Types
-export type ProviderId = 'nvidia' | 'kilo' | 'openrouter' | 'antigravity';
+export type ProviderId = 'nvidia' | 'gemini' | 'kilo' | 'openrouter' | 'antigravity';
 
 export interface ProviderInfo {
   id: ProviderId;

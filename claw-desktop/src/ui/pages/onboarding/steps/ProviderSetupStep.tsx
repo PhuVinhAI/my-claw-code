@@ -28,6 +28,12 @@ const PROVIDER_INFO: Record<ProviderId, {
     apiKeyUrl: 'https://build.nvidia.com/settings/api-keys',
     linkText: 'Lấy API key từ NVIDIA',
   },
+  gemini: {
+    name: 'Google Gemini',
+    icon: '✨',
+    apiKeyUrl: 'https://aistudio.google.com/api-keys',
+    linkText: 'Lấy API key từ Google AI Studio',
+  },
   kilo: {
     name: 'Kilo AI Gateway',
     icon: '🚀',

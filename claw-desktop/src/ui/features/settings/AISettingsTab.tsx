@@ -268,6 +268,18 @@ export function AISettingsTab() {
                       />
                     )}
 
+                    {/* Gemini API Key Warning */}
+                    {provider.id === 'gemini' && !provider.api_key && (
+                      <ApiKeyWarning
+                        messageKey="gemini.apiKeyRequired"
+                        linkTextKey="gemini.getYourApiKey"
+                        linkUrl="https://aistudio.google.com/api-keys"
+                        onSave={async (apiKey) => {
+                          await updateProvider({ ...provider, api_key: apiKey });
+                        }}
+                      />
+                    )}
+
                     {/* Models Section */}
                     <div>
                       <div className="flex items-center justify-between mb-2">

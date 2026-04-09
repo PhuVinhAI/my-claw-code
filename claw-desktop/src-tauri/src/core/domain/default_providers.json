@@ -14,6 +14,24 @@
       ]
     },
     {
+      "id": "gemini",
+      "name": "Google Gemini",
+      "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
+      "api_key": "",
+      "models": [
+        {
+          "id": "gemini-3.1-flash-lite-preview",
+          "name": "Gemini 3.1 Flash Lite Preview",
+          "max_context": 1000000
+        },
+        {
+          "id": "gemma-4-31b-it",
+          "name": "Gemma 4 31B IT",
+          "max_context": 262144
+        }
+      ]
+    },
+    {
       "id": "kilo",
       "name": "Kilo AI Gateway",
       "base_url": "https://api.kilo.ai/api/gateway",

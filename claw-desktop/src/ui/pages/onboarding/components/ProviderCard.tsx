@@ -1,5 +1,5 @@
 // Provider Card - Selectable card for each provider
-import { Check, Cpu, Zap, Network, Server } from 'lucide-react';
+import { Check, Cpu, Zap, Network, Server, Sparkles } from 'lucide-react';
 import { cn } from '../../../../lib/utils';
 import { ProviderInfo } from '../types';
 
@@ -12,6 +12,7 @@ interface ProviderCardProps {
 // Icon mapping for providers
 const PROVIDER_ICONS = {
   nvidia: Cpu,
+  gemini: Sparkles,
   kilo: Zap,
   openrouter: Network,
   antigravity: Server,

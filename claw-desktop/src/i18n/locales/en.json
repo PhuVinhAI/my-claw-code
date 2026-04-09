@@ -284,8 +284,7 @@
     "empty": "Todo list is empty",
     "completed": "Completed",
     "inProgress": "In Progress",
-    "pending": "Pending",
-    "verificationHint": "💡 Tip: Add verification steps to your plan to ensure quality"
+    "pending": "Pending"
   },
   "languages": {
     "vi": "Tiếng Việt",
@@ -393,6 +392,10 @@
   },
   "nvidia": {
     "apiKeyRequired": "API key required to use NVIDIA AI",
+    "getYourApiKey": "Get your API key"
+  },
+  "gemini": {
+    "apiKeyRequired": "API key required to use Google Gemini",
     "getYourApiKey": "Get your API key"
   },
   "openrouter": {

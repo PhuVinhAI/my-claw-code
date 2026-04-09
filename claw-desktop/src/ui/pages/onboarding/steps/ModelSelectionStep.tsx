@@ -54,6 +54,10 @@ const PROVIDER_CONFIG = {
     baseUrl: 'http://localhost:8080',
     name: 'Antigravity',
   },
+  gemini: {
+    baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
+    name: 'Google Gemini',
+  },
 };
 
 export function ModelSelectionStep({
@@ -104,7 +108,7 @@ export function ModelSelectionStep({
     setLoading(true);
     setError(null);
     try {
-      // NVIDIA: Use default model (no fetch)
+      // NVIDIA & Gemini: Use default models (no fetch)
       if (provider === 'nvidia') {
         const defaultModel: ModelInfo = {
           id: 'stepfun-ai/step-3.5-flash',
@@ -121,6 +125,33 @@ export function ModelSelectionStep({
           max_context: defaultModel.context_length,
         };
         onModelsLoaded([commonModel]);
+        return;
+      }
+
+      if (provider === 'gemini') {
+        const defaultModels: ModelInfo[] = [
+          {
+            id: 'gemini-3.1-flash-lite-preview',
+            name: 'Gemini 3.1 Flash Lite Preview',
+            context_length: 1000000,
+            provider: 'Gemini',
+          },
+          {
+            id: 'gemma-4-31b-it',
+            name: 'Gemma 4 31B IT',
+            context_length: 262144,
+            provider: 'Gemini',
+          },
+        ];
+        setModels(defaultModels);
+        
+        // Convert to common format and notify parent
+        const commonModels = defaultModels.map(m => ({
+          id: m.id,
+          name: m.name,
+          max_context: m.context_length,
+        }));
+        onModelsLoaded(commonModels);
         return;
       }
 
@@ -225,15 +256,15 @@ export function ModelSelectionStep({
           Chọn Models
         </h2>
         <p className="text-sm text-muted-foreground max-w-lg mx-auto">
-          {provider === 'nvidia' 
-            ? 'NVIDIA đã có model mặc định sẵn sàng sử dụng'
+          {provider === 'nvidia' || provider === 'gemini'
+            ? `${config.name} đã có models mặc định sẵn sàng sử dụng`
             : `Chọn các model bạn muốn sử dụng từ ${config.name}`
           }
         </p>
       </div>
 
-      {/* Search and Filters - Hide for NVIDIA (only 1 model) */}
-      {provider !== 'nvidia' && (
+      {/* Search and Filters - Hide for NVIDIA & Gemini (preview only) */}
+      {provider !== 'nvidia' && provider !== 'gemini' && (
         <div className="space-y-2.5 max-w-2xl mx-auto">
         {/* Search */}
         <div className="relative">

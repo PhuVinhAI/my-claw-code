@@ -23,6 +23,14 @@ const PROVIDERS: ProviderInfo[] = [
     apiKeyUrl: 'https://build.nvidia.com/settings/api-keys',
   },
   {
+    id: 'gemini',
+    name: 'Google Gemini',
+    description: 'Model AI tiên tiến từ Google với khả năng xử lý ngôn ngữ tự nhiên mạnh mẽ',
+    icon: '✨',
+    requiresApiKey: true,
+    apiKeyUrl: 'https://aistudio.google.com/api-keys',
+  },
+  {
     id: 'kilo',
     name: 'Kilo AI Gateway',
     description: 'Gateway thống nhất cho hàng trăm AI models từ nhiều providers khác nhau',
@@ -67,7 +75,7 @@ export function ProviderSelectionStep({
       </div>
 
       {/* Provider Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-2xl mx-auto">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-w-4xl mx-auto">
         {PROVIDERS.map((provider) => (
           <ProviderCard
             key={provider.id}

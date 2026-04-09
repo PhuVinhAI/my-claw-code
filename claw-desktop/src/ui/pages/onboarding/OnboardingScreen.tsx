@@ -150,21 +150,23 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
 
 // Helper functions
 function getProviderName(provider: ProviderId): string {
-  const names = {
+  const names: Record<ProviderId, string> = {
     nvidia: 'NVIDIA AI',
     kilo: 'Kilo AI Gateway',
     openrouter: 'OpenRouter',
     antigravity: 'Antigravity Claude Proxy',
+    gemini: 'Google Gemini',
   };
   return names[provider];
 }
 
 function getProviderBaseUrl(provider: ProviderId): string {
-  const urls = {
+  const urls: Record<ProviderId, string> = {
     nvidia: 'https://integrate.api.nvidia.com/v1',
     kilo: 'https://api.kilo.ai/api/gateway',
     openrouter: 'https://openrouter.ai/api',
     antigravity: 'http://localhost:8080',
+    gemini: 'https://generativelanguage.googleapis.com/v1beta/openai',
   };
   return urls[provider];
 }

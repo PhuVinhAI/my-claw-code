@@ -299,8 +299,7 @@
     "empty": "Danh sách công việc trống",
     "completed": "Hoàn thành",
     "inProgress": "Đang làm",
-    "pending": "Chờ",
-    "verificationHint": "💡 Gợi ý: Hãy thêm bước xác minh (verification) vào kế hoạch để đảm bảo chất lượng"
+    "pending": "Chờ"
   },
   "languages": {
     "vi": "Tiếng Việt",
@@ -393,6 +392,10 @@
   },
   "nvidia": {
     "apiKeyRequired": "Cần API key để sử dụng NVIDIA AI",
+    "getYourApiKey": "Lấy API key của bạn"
+  },
+  "gemini": {
+    "apiKeyRequired": "Cần API key để sử dụng Google Gemini",
     "getYourApiKey": "Lấy API key của bạn"
   },
   "openrouter": {
