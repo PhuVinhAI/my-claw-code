@@ -1,18 +1,36 @@
 /* Custom styles for xterm.js terminal */
 
-/* Hide scrollbar completely - xterm manages scrolling internally */
+/* Style xterm viewport scrollbar to match app design */
+.xterm-container .xterm-viewport {
+  scrollbar-width: thin; /* Firefox */
+  scrollbar-color: transparent transparent; /* Hidden by default */
+}
+
+/* Show scrollbar on hover */
+.xterm-container:hover .xterm-viewport {
+  scrollbar-color: rgba(136, 136, 136, 0.3) transparent;
+}
+
+/* Webkit scrollbar styling - matches app's .scrollbar-thin */
 .xterm-container .xterm-viewport::-webkit-scrollbar {
-  display: none;
+  width: 6px;
 }
 
-.xterm-container .xterm-viewport {
-  scrollbar-width: none; /* Firefox */
-  -ms-overflow-style: none; /* IE/Edge */
+.xterm-container .xterm-viewport::-webkit-scrollbar-track {
+  background: transparent;
 }
 
-/* Smooth scrolling */
-.xterm-container .xterm-viewport {
-  scroll-behavior: smooth;
+.xterm-container .xterm-viewport::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 999px;
+}
+
+.xterm-container:hover .xterm-viewport::-webkit-scrollbar-thumb {
+  background: rgba(136, 136, 136, 0.3);
+}
+
+.xterm-container .xterm-viewport::-webkit-scrollbar-thumb:hover {
+  background: rgba(136, 136, 136, 0.5) !important;
 }
 
 /* Better padding */

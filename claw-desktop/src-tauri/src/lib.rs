@@ -105,7 +105,13 @@ pub fn run() {
             get_selected_model_info,
             reload_api_client,
             fetch_kilo_models,
-            test_antigravity_connection
+            test_antigravity_connection,
+            // Terminal commands
+            execute_terminal_command,
+            spawn_terminal_shell,
+            send_terminal_input,
+            resize_terminal,
+            kill_terminal
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

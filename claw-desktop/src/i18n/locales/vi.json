@@ -383,5 +383,16 @@
     "yourAnswer": "Câu trả lời của bạn",
     "placeholder": "Nhập câu trả lời...",
     "submit": "Gửi câu trả lời"
+  },
+  "terminalPanel": {
+    "title": "Terminal",
+    "newTerminal": "Terminal mới",
+    "closeTab": "Đóng tab",
+    "clearOutput": "Xóa output",
+    "noTerminals": "Chưa có terminal nào",
+    "createFirst": "Tạo terminal đầu tiên",
+    "togglePanel": "Bật/tắt Terminal Panel",
+    "terminal": "Terminal",
+    "terminals": "Terminals"
   }
 }

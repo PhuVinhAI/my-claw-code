@@ -4,7 +4,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::collections::HashMap;
 use std::sync::Mutex;
 use std::path::PathBuf;
-use portable_pty::{CommandBuilder, PtySize, native_pty_system, Child};
+use portable_pty::{CommandBuilder, PtySize, native_pty_system, Child, MasterPty, PtyPair};
 use crossbeam_channel::Receiver;
 
 use crate::core::use_cases::ports::IEventPublisher;
@@ -20,12 +20,17 @@ struct DetachedProcess {
     cancel_flag: Arc<AtomicBool>,
 }
 
+struct PtySession {
+    _master: Arc<Mutex<Box<dyn MasterPty + Send>>>,
+}
+
 pub struct PtyExecutor {
     event_publisher: Arc<dyn IEventPublisher>,
     cancel_flag: Arc<AtomicBool>,
     stdin_rx: Receiver<(String, String)>, // (tool_use_id, input)
     running_processes: Arc<Mutex<HashMap<String, ToolProcess>>>, // tool_use_id -> process control
     detached_processes: Arc<Mutex<HashMap<String, DetachedProcess>>>, // tool_use_id -> detached child
+    pty_sessions: Arc<Mutex<HashMap<String, PtySession>>>, // tool_use_id -> PTY session for resize
     workspace_path: PathBuf, // CRITICAL: Working directory for commands
     current_turn_id: Arc<std::sync::Mutex<String>>, // Track current turn ID for event emission
 }
@@ -43,6 +48,7 @@ impl PtyExecutor {
             stdin_rx,
             running_processes: Arc::new(Mutex::new(HashMap::new())),
             detached_processes: Arc::new(Mutex::new(HashMap::new())),
+            pty_sessions: Arc::new(Mutex::new(HashMap::new())),
             workspace_path,
             current_turn_id: Arc::new(std::sync::Mutex::new(String::new())),
         }
@@ -58,6 +64,29 @@ impl PtyExecutor {
     fn get_turn_id(&self) -> String {
         let current = self.current_turn_id.lock().unwrap();
         current.clone()
+    }
+    
+    /// Resize PTY (send SIGWINCH to shell)
+    pub fn resize_pty(&self, tool_use_id: &str, cols: u16, rows: u16) -> Result<(), String> {
+        let sessions = self.pty_sessions.lock().unwrap();
+        
+        if let Some(session) = sessions.get(tool_use_id) {
+            let size = PtySize {
+                rows,
+                cols,
+                pixel_width: 0,
+                pixel_height: 0,
+            };
+            
+            let master = session._master.lock().unwrap();
+            master.resize(size)
+                .map_err(|e| format!("Failed to resize PTY: {}", e))?;
+            
+            eprintln!("[PTY] Resized terminal {} to {}x{}", tool_use_id, cols, rows);
+            Ok(())
+        } else {
+            Err(format!("PTY session not found: {}", tool_use_id))
+        }
     }
 
     /// Cancel a specific tool execution by tool_use_id
@@ -192,11 +221,22 @@ impl PtyExecutor {
             .spawn_command(cmd)
             .map_err(|e| format!("Failed to spawn command: {}", e))?;
 
-        // Get master PTY for reading/writing
+        // Get master PTY for reading/writing BEFORE wrapping in Arc
         let mut reader = pair.master.try_clone_reader()
             .map_err(|e| format!("Failed to clone reader: {}", e))?;
         let mut writer = pair.master.take_writer()
             .map_err(|e| format!("Failed to take writer: {}", e))?;
+
+        // Wrap master in Arc<Mutex<>> for sharing (after taking reader/writer)
+        let master_arc = Arc::new(Mutex::new(pair.master));
+
+        // Store PTY session for resize capability
+        {
+            let mut sessions = self.pty_sessions.lock().unwrap();
+            sessions.insert(tool_use_id.to_string(), PtySession {
+                _master: master_arc.clone(),
+            });
+        }
 
         let event_publisher = self.event_publisher.clone();
         let tool_use_id_owned = tool_use_id.to_string();
@@ -389,9 +429,12 @@ impl PtyExecutor {
                     });
                 }
                 
-                // DON'T drop pair - process continues running
+                // DON'T drop master/slave - process continues running
                 // DON'T join reader thread - let it continue streaming
-                std::mem::forget(pair);
+                // Note: pair.master already moved to master_arc at line 225
+                // We only need to forget the slave to prevent it from being dropped
+                std::mem::forget(pair.slave);
+                std::mem::forget(master_arc);
                 std::mem::forget(reader_handle);
                 
                 // Return current output to AI
@@ -415,8 +458,9 @@ impl PtyExecutor {
             }
         };
 
-        // Drop PTY pair to close pipes (only if not detached)
-        drop(pair);
+        // Drop PTY slave to close pipes (only if not detached)
+        // Note: pair.master already moved to master_arc, so we can only drop slave
+        drop(pair.slave);
         
         // Wait for reader thread to finish (with timeout for detached case)
         let _ = reader_handle.join();
@@ -427,10 +471,13 @@ impl PtyExecutor {
             output.clone()
         };
 
-        // Cleanup: remove from running processes
+        // Cleanup: remove from running processes and PTY sessions
         {
             let mut processes = self.running_processes.lock().unwrap();
             processes.remove(tool_use_id);
+            
+            let mut sessions = self.pty_sessions.lock().unwrap();
+            sessions.remove(tool_use_id);
         }
 
         // Return result

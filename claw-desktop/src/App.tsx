@@ -5,7 +5,9 @@ import { OnboardingScreen } from './ui/pages/OnboardingScreen';
 import { SettingsScreen } from './ui/pages/SettingsScreen';
 import { TitleBar } from './components/TitleBar';
 import { ResizablePanel } from './components/ResizablePanel';
-import { PanelLeft } from 'lucide-react';
+import { TerminalPanel } from './ui/features/terminal/TerminalPanel';
+import { useTerminalStore } from './store/useTerminalStore';
+import { PanelLeft, PanelRight, Terminal as TerminalIcon } from 'lucide-react';
 
 import { invoke } from '@tauri-apps/api/core';
 import './App.css';
@@ -18,6 +20,11 @@ function App() {
   const [isCheckingOnboarding, setIsCheckingOnboarding] = useState(true);
   const messages = useChatStore((s) => s.messages);
   const isEmpty = messages.length === 0;
+  
+  // Terminal panel state
+  const isPanelOpen = useTerminalStore((state) => state.isPanelOpen);
+  const togglePanel = useTerminalStore((state) => state.togglePanel);
+  const createTab = useTerminalStore((state) => state.createTab);
 
   useEffect(() => {
     // Check onboarding status
@@ -80,11 +87,6 @@ function App() {
     <div className="flex flex-col h-screen overflow-hidden bg-background text-foreground">
       <TitleBar />
       <div className="flex flex-1 min-h-0 relative">
-
-
-
-
-
       {/* Sidebar */}
       <ResizablePanel
         isOpen={sidebarOpen}
@@ -116,6 +118,25 @@ function App() {
           </div>
         )}
 
+        {/* Floating Terminal Toggle when closed */}
+        {!isPanelOpen && (
+          <div className="absolute top-4 right-4 z-50">
+            <button
+              onClick={() => {
+                togglePanel();
+                // Create first terminal if none exists
+                const tabs = useTerminalStore.getState().tabs;
+                if (tabs.length === 0) {
+                  createTab();
+                }
+              }}
+              className="flex items-center justify-center p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-all duration-150"
+              title="Mở Terminal"
+            >
+              <TerminalIcon className="w-4 h-4 sm:w-4 sm:h-4" />
+            </button>
+          </div>
+        )}
 
         {/* Chat Area */}
         {isEmpty ? (
@@ -127,6 +148,39 @@ function App() {
           </div>
         )}
       </div>
+
+      {/* Right Terminal Panel */}
+      <ResizablePanel
+        isOpen={isPanelOpen}
+        defaultWidth={500}
+        minWidth={300}
+        maxWidth={800}
+        storageKey="terminalPanelWidth"
+        side="right"
+        className="border-l border-border bg-background"
+      >
+        <div className="flex flex-col h-full">
+          {/* Terminal Panel Header */}
+          <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-muted/20 shrink-0">
+            <div className="flex items-center gap-2">
+              <TerminalIcon className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-semibold text-foreground">Terminal</span>
+            </div>
+            <button
+              onClick={togglePanel}
+              className="p-1 hover:bg-accent rounded transition-colors"
+              title="Đóng Terminal"
+            >
+              <PanelRight className="h-4 w-4 text-muted-foreground" />
+            </button>
+          </div>
+          
+          {/* Terminal Content */}
+          <div className="flex-1 min-h-0">
+            <TerminalPanel />
+          </div>
+        </div>
+      </ResizablePanel>
 
       <PermissionModal />
       <ErrorBanner />

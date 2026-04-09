@@ -383,5 +383,16 @@
     "yourAnswer": "Your answer",
     "placeholder": "Type your answer here...",
     "submit": "Submit Answer"
+  },
+  "terminalPanel": {
+    "title": "Terminal",
+    "newTerminal": "New Terminal",
+    "closeTab": "Close Tab",
+    "clearOutput": "Clear Output",
+    "noTerminals": "No terminals yet",
+    "createFirst": "Create your first terminal",
+    "togglePanel": "Toggle Terminal Panel",
+    "terminal": "Terminal",
+    "terminals": "Terminals"
   }
 }

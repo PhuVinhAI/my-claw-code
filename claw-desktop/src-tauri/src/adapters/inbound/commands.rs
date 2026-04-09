@@ -1019,3 +1019,177 @@ pub async fn save_context_to_file(
         }
     }
 }
+
+
+// ============================================================================
+// Terminal Commands
+// ============================================================================
+
+/// Execute command in PTY terminal
+#[tauri::command]
+pub async fn execute_terminal_command(
+    terminal_id: String,
+    command: String,
+    shell: String,
+    state: State<'_, AppState>,
+) -> Result<String, String> {
+    let terminal_id_clone = terminal_id.clone();
+    
+    tracing::info!(
+        terminal_id = %terminal_id,
+        command = %command,
+        shell = %shell,
+        "execute_terminal_command called"
+    );
+
+    // Get PTY executor from state
+    let pty_executor = state.pty_executor.clone();
+    
+    // Set current turn ID (use terminal_id as turn_id for event emission)
+    pty_executor.set_turn_id(terminal_id.clone());
+
+    // Execute command in PTY (blocking call, but runs in tokio thread)
+    let result = tokio::task::spawn_blocking(move || {
+        pty_executor.execute_in_pty(&command, &terminal_id, None)
+    })
+    .await
+    .map_err(|e| format!("Task join error: {}", e))?;
+
+    match result {
+        Ok(output) => {
+            tracing::info!(
+                terminal_id = %terminal_id_clone,
+                output_len = output.len(),
+                "Terminal command completed successfully"
+            );
+            Ok(output)
+        }
+        Err(e) => {
+            tracing::error!(
+                terminal_id = %terminal_id_clone,
+                error = %e,
+                "Terminal command failed"
+            );
+            Err(e)
+        }
+    }
+}
+
+/// Send input to running terminal (stdin)
+#[tauri::command]
+pub async fn send_terminal_input(
+    terminal_id: String,
+    input: String,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    tracing::debug!(
+        terminal_id = %terminal_id,
+        input_len = input.len(),
+        "send_terminal_input called"
+    );
+
+    // Send input through tool_stdin_tx channel (crossbeam, not async)
+    state
+        .tool_stdin_tx
+        .send((terminal_id.clone(), input))
+        .map_err(|e| format!("Failed to send stdin: {}", e))?;
+
+    Ok(())
+}
+
+/// Kill a running terminal process
+#[tauri::command]
+pub async fn kill_terminal(
+    terminal_id: String,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    tracing::info!(terminal_id = %terminal_id, "kill_terminal called");
+
+    let pty_executor = state.pty_executor.clone();
+    
+    tokio::task::spawn_blocking(move || {
+        pty_executor.cancel_tool(&terminal_id)
+    })
+    .await
+    .map_err(|e| format!("Task join error: {}", e))?
+}
+
+/// Resize terminal PTY (send SIGWINCH)
+#[tauri::command]
+pub async fn resize_terminal(
+    terminal_id: String,
+    cols: u16,
+    rows: u16,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    tracing::debug!(
+        terminal_id = %terminal_id,
+        cols = cols,
+        rows = rows,
+        "resize_terminal called"
+    );
+
+    let pty_executor = state.pty_executor.clone();
+    
+    tokio::task::spawn_blocking(move || {
+        pty_executor.resize_pty(&terminal_id, cols, rows)
+    })
+    .await
+    .map_err(|e| format!("Task join error: {}", e))?
+}
+
+/// Spawn interactive terminal shell (PowerShell/Bash/CMD)
+/// This creates a persistent PTY session that streams I/O to frontend
+#[tauri::command]
+pub async fn spawn_terminal_shell(
+    terminal_id: String,
+    shell: String, // "powershell", "bash", or "cmd"
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    tracing::info!(
+        terminal_id = %terminal_id,
+        shell = %shell,
+        "spawn_terminal_shell called"
+    );
+
+    let pty_executor = state.pty_executor.clone();
+    
+    // Set turn_id to terminal_id so events are routed correctly
+    pty_executor.set_turn_id(terminal_id.clone());
+    
+    // Spawn shell in background thread (non-blocking)
+    tokio::task::spawn_blocking(move || {
+        // Spawn interactive shell based on type
+        let shell_command = match shell.as_str() {
+            "powershell" => {
+                if cfg!(target_os = "windows") {
+                    "powershell -NoLogo -NoExit"
+                } else {
+                    "pwsh -NoLogo -NoExit"
+                }
+            }
+            "bash" => "bash -l",
+            "cmd" => "cmd",
+            _ => "powershell -NoLogo -NoExit", // Default to PowerShell
+        };
+        
+        // Execute shell with no timeout (interactive session)
+        match pty_executor.execute_in_pty(shell_command, &terminal_id, None) {
+            Ok(_) => {
+                tracing::info!(terminal_id = %terminal_id, "Shell session ended");
+                Ok(())
+            }
+            Err(e) => {
+                tracing::error!(
+                    terminal_id = %terminal_id,
+                    error = %e,
+                    "Shell session failed"
+                );
+                Err(e)
+            }
+        }
+    });
+
+    Ok(())
+}
+
