@@ -1,7 +1,8 @@
-// Toast Component - VS Code style notifications
+// Toast Component - App style notifications
 import { useEffect } from 'react';
 import { X, AlertCircle, CheckCircle, Info, AlertTriangle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { cn } from '../lib/utils';
 
 export type ToastType = 'error' | 'success' | 'info' | 'warning';
 
@@ -26,17 +27,24 @@ export function Toast({ id, type, message, duration = 5000, onClose }: ToastProp
   }, [id, duration, onClose]);
 
   const icons = {
-    error: <AlertCircle className="w-4 h-4 text-red-400" />,
-    success: <CheckCircle className="w-4 h-4 text-green-400" />,
-    info: <Info className="w-4 h-4 text-blue-400" />,
-    warning: <AlertTriangle className="w-4 h-4 text-yellow-400" />,
+    error: <AlertCircle className="w-4 h-4" />,
+    success: <CheckCircle className="w-4 h-4" />,
+    info: <Info className="w-4 h-4" />,
+    warning: <AlertTriangle className="w-4 h-4" />,
   };
 
-  const bgColors = {
-    error: 'bg-red-900/90 border-red-700',
-    success: 'bg-green-900/90 border-green-700',
-    info: 'bg-blue-900/90 border-blue-700',
-    warning: 'bg-yellow-900/90 border-yellow-700',
+  const styles = {
+    error: 'bg-red-950/90 border-red-800/50 text-red-200',
+    success: 'bg-emerald-950/90 border-emerald-800/50 text-emerald-200',
+    info: 'bg-blue-950/90 border-blue-800/50 text-blue-200',
+    warning: 'bg-yellow-950/90 border-yellow-800/50 text-yellow-200',
+  };
+
+  const iconStyles = {
+    error: 'text-red-400',
+    success: 'text-emerald-400',
+    info: 'text-blue-400',
+    warning: 'text-yellow-400',
   };
 
   // Translate message if it's a translation key
@@ -46,19 +54,22 @@ export function Toast({ id, type, message, duration = 5000, onClose }: ToastProp
 
   return (
     <div
-      className={`
-        flex items-start gap-3 p-3 rounded-md border
-        ${bgColors[type]}
-        shadow-lg backdrop-blur-sm
-        animate-in slide-in-from-right-5 fade-in
-        min-w-[300px] max-w-[500px]
-      `}
+      className={cn(
+        'flex items-start gap-3 p-3 rounded-lg border backdrop-blur-sm shadow-lg',
+        'animate-in slide-in-from-right-5 fade-in duration-200',
+        'min-w-[300px] max-w-[500px]',
+        styles[type]
+      )}
     >
-      <div className="flex-shrink-0 mt-0.5">{icons[type]}</div>
-      <div className="flex-1 text-sm text-gray-100 break-words">{displayMessage}</div>
+      <div className={cn('flex-shrink-0 mt-0.5', iconStyles[type])}>
+        {icons[type]}
+      </div>
+      <div className="flex-1 text-sm break-words leading-relaxed min-w-0">
+        {displayMessage}
+      </div>
       <button
         onClick={() => onClose(id)}
-        className="flex-shrink-0 text-gray-400 hover:text-gray-200 transition-colors"
+        className="flex-shrink-0 text-current/60 hover:text-current transition-colors rounded-sm hover:bg-white/10 p-0.5 self-start"
         aria-label="Close"
       >
         <X className="w-4 h-4" />

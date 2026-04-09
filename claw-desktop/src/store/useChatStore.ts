@@ -997,8 +997,11 @@ export function initializeChatStore() {
           return prev;
         });
         
-        // Show error toast
-        useToastStore.getState().addToast('error', event.message, 5000);
+        // Show error toast ONLY if not cancelled by user
+        const errorMsg = event.message.toLowerCase();
+        if (!errorMsg.includes('cancel') && !errorMsg.includes('cancelled')) {
+          useToastStore.getState().addToast('error', event.message, 5000);
+        }
         
         dispatch({ type: 'ERROR', message: event.message });
         break;

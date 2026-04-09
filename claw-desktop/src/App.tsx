@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { initializeChatStore, useChatStore } from './store';
-import { MessageList, ChatInput, PermissionModal, SessionList, ErrorBanner } from './ui/features';
+import { MessageList, ChatInput, SessionList, ErrorBanner } from './ui/features';
 import { OnboardingScreen } from './ui/pages/OnboardingScreen';
 import { SettingsScreen } from './ui/pages/SettingsScreen';
 import { TitleBar } from './components/TitleBar';
@@ -207,7 +207,6 @@ function App() {
         </div>
       </ResizablePanel>
 
-      <PermissionModal />
       <ErrorBanner />
       <ToastContainer 
         toasts={toasts} 
