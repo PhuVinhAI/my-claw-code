@@ -155,7 +155,7 @@ export function GitCommitBar({
             onChange={(e) => setMessage(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={t('gitPanel.commitMessagePlaceholder')}
-            className="w-full bg-muted/50 border border-border rounded pl-2 pr-8 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary resize-none overflow-y-auto min-h-[32px] max-h-[120px]"
+            className="w-full bg-muted/50 border border-border rounded pl-2 pr-9 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary resize-none overflow-y-auto min-h-[32px] max-h-[120px]"
             rows={1}
             disabled={isCommitting || isGenerating}
           />
