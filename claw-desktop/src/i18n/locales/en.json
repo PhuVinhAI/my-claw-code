@@ -414,6 +414,8 @@
     "stage": "Stage",
     "unstage": "Unstage",
     "discardChanges": "Discard",
+    "discardSelected": "Discard selected changes",
+    "selectAll": "Select all",
     "additions": "additions",
     "deletions": "deletions",
     "lines": "lines",
@@ -425,6 +427,15 @@
     "undoAllChanges": "Undo All Changes",
     "stageAllChanges": "Stage All Changes",
     "undoChanges": "Undo Changes",
-    "openFile": "Open File"
+    "openFile": "Open File",
+    "filter": {
+      "uncommitted": "Uncommitted",
+      "unstaged": "Unstaged",
+      "staged": "Staged",
+      "branch": "Branch Changes → main"
+    },
+    "discardConfirmTitle": "Discard Changes?",
+    "discardConfirmSingle": "Are you sure you want to discard changes in {{file}}? This action cannot be undone.",
+    "discardConfirmMultiple": "Are you sure you want to discard changes in {{count}} files? This action cannot be undone."
   }
 }

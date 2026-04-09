@@ -414,6 +414,8 @@
     "stage": "Stage",
     "unstage": "Unstage",
     "discardChanges": "Hoàn tác",
+    "discardSelected": "Hoàn tác các thay đổi đã chọn",
+    "selectAll": "Chọn tất cả",
     "additions": "thêm",
     "deletions": "xóa",
     "lines": "dòng",
@@ -425,6 +427,15 @@
     "undoAllChanges": "Hoàn tác tất cả",
     "stageAllChanges": "Stage tất cả",
     "undoChanges": "Hoàn tác",
-    "openFile": "Mở file"
+    "openFile": "Mở file",
+    "filter": {
+      "uncommitted": "Chưa commit",
+      "unstaged": "Chưa stage",
+      "staged": "Đã stage",
+      "branch": "Thay đổi Branch → main"
+    },
+    "discardConfirmTitle": "Hoàn tác thay đổi?",
+    "discardConfirmSingle": "Bạn có chắc muốn hoàn tác thay đổi trong {{file}}? Hành động này không thể hoàn tác.",
+    "discardConfirmMultiple": "Bạn có chắc muốn hoàn tác thay đổi trong {{count}} files? Hành động này không thể hoàn tác."
   }
 }

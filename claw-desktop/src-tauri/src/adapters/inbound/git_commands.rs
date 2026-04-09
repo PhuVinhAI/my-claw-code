@@ -381,3 +381,104 @@ pub fn git_switch_branch(branch: String) -> Result<(), String> {
     
     Ok(())
 }
+
+/// Get file diff using git2
+#[tauri::command]
+pub fn git_get_diff(path: String, staged: bool) -> Result<String, String> {
+    let cwd = std::env::current_dir()
+        .map_err(|e| format!("Failed to get current directory: {}", e))?;
+    
+    let repo = Repository::open(&cwd)
+        .map_err(|e| format!("Failed to open git repository: {}", e))?;
+    
+    let diff = if staged {
+        // Staged changes: diff between HEAD and index
+        let head = repo.head()
+            .map_err(|e| format!("Failed to get HEAD: {}", e))?;
+        let head_tree = head.peel_to_tree()
+            .map_err(|e| format!("Failed to get HEAD tree: {}", e))?;
+        
+        let mut opts = git2::DiffOptions::new();
+        opts.context_lines(3); // Add 3 lines of context
+        
+        repo.diff_tree_to_index(Some(&head_tree), None, Some(&mut opts))
+            .map_err(|e| format!("Failed to get staged diff: {}", e))?
+    } else {
+        // Working tree changes: diff between index and working tree
+        let mut opts = git2::DiffOptions::new();
+        opts.context_lines(3); // Add 3 lines of context
+        
+        repo.diff_index_to_workdir(None, Some(&mut opts))
+            .map_err(|e| format!("Failed to get workdir diff: {}", e))?
+    };
+    
+    let mut diff_text = String::new();
+    let mut is_new_file = false;
+    let mut is_deleted_file = false;
+    
+    // First pass: check if file is new or deleted
+    diff.print(git2::DiffFormat::Patch, |delta, _hunk, _line| {
+        let delta_path = delta.new_file().path()
+            .or_else(|| delta.old_file().path())
+            .and_then(|p| p.to_str());
+        
+        if delta_path == Some(&path) {
+            use git2::Delta;
+            match delta.status() {
+                Delta::Added => is_new_file = true,
+                Delta::Deleted => is_deleted_file = true,
+                _ => {}
+            }
+        }
+        true
+    }).map_err(|e| format!("Failed to check file status: {}", e))?;
+    
+    // Second pass: collect diff content
+    diff.print(git2::DiffFormat::Patch, |delta, _hunk, line| {
+        let delta_path = delta.new_file().path()
+            .or_else(|| delta.old_file().path())
+            .and_then(|p| p.to_str());
+        
+        if delta_path == Some(&path) {
+            let origin = line.origin();
+            let content = std::str::from_utf8(line.content()).unwrap_or("");
+            
+            // For new files: show all lines as additions (+)
+            // For deleted files: show all lines as deletions (-)
+            // For modified files: only include actual diff lines (+, -, space)
+            match origin {
+                '+' => {
+                    diff_text.push('+');
+                    diff_text.push_str(content);
+                }
+                '-' => {
+                    diff_text.push('-');
+                    diff_text.push_str(content);
+                }
+                ' ' => {
+                    // Context lines - only for modified files
+                    if !is_new_file && !is_deleted_file {
+                        diff_text.push(' ');
+                        diff_text.push_str(content);
+                    }
+                }
+                _ => {} // Skip headers
+            }
+        }
+        true
+    }).map_err(|e| format!("Failed to process diff: {}", e))?;
+    
+    // Debug log - LOG TOÀN BỘ
+    eprintln!("=== GIT DIFF DEBUG ===");
+    eprintln!("Path: {}", path);
+    eprintln!("Staged: {}", staged);
+    eprintln!("Is New: {}", is_new_file);
+    eprintln!("Is Deleted: {}", is_deleted_file);
+    eprintln!("Diff length: {} bytes", diff_text.len());
+    eprintln!("FULL DIFF CONTENT:");
+    eprintln!("{}", diff_text);
+    eprintln!("======================");
+    
+    Ok(diff_text)
+}
+
