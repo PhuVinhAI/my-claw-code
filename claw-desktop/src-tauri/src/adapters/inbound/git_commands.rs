@@ -62,9 +62,10 @@ pub fn git_status() -> Result<GitStatusResponse, String> {
         let is_staged = status.is_index_new() || status.is_index_modified() || 
                        status.is_index_deleted() || status.is_index_renamed();
         
-        // Check if file has working tree changes
+        // Check if file has working tree changes (including untracked)
         let is_wt_changed = status.is_wt_new() || status.is_wt_modified() || 
-                           status.is_wt_deleted() || status.is_wt_renamed();
+                           status.is_wt_deleted() || status.is_wt_renamed() ||
+                           status.contains(git2::Status::WT_NEW); // Untracked files
         
         // Determine status string
         let status_str = if status.is_index_new() || status.is_wt_new() {
@@ -104,6 +105,30 @@ pub fn git_status() -> Result<GitStatusResponse, String> {
 
 /// Get diff stats using git2
 fn get_diff_stats_git2(repo: &Repository, path: &str, staged: bool) -> Result<(usize, usize), String> {
+    use git2::Delta;
+    
+    // For unstaged files, check if it's untracked first
+    if !staged {
+        let index = repo.index()
+            .map_err(|e| format!("Failed to get index: {}", e))?;
+        
+        // If file not in index, it's untracked - count from filesystem
+        if index.get_path(std::path::Path::new(path), 0).is_none() {
+            let cwd = std::env::current_dir()
+                .map_err(|e| format!("Failed to get cwd: {}", e))?;
+            let file_path = cwd.join(path);
+            if file_path.exists() {
+                if let Ok(content) = std::fs::read_to_string(&file_path) {
+                    let line_count = content.lines().count();
+                    return Ok((line_count, 0)); // All additions for untracked
+                }
+            }
+        }
+    }
+    
+    let mut opts = git2::DiffOptions::new();
+    opts.context_lines(0); // No context for accurate line counting
+    
     let diff = if staged {
         // Staged changes: diff between HEAD and index
         let head = repo.head()
@@ -111,25 +136,29 @@ fn get_diff_stats_git2(repo: &Repository, path: &str, staged: bool) -> Result<(u
         let head_tree = head.peel_to_tree()
             .map_err(|e| format!("Failed to get HEAD tree: {}", e))?;
         
-        repo.diff_tree_to_index(Some(&head_tree), None, None)
+        repo.diff_tree_to_index(Some(&head_tree), None, Some(&mut opts))
             .map_err(|e| format!("Failed to get staged diff: {}", e))?
     } else {
         // Working tree changes: diff between index and working tree
-        repo.diff_index_to_workdir(None, None)
+        repo.diff_index_to_workdir(None, Some(&mut opts))
             .map_err(|e| format!("Failed to get workdir diff: {}", e))?
     };
     
     let mut additions = 0;
     let mut deletions = 0;
+    let mut file_status = None;
     
-    // Use print to iterate and count lines for specific file
+    // First pass: detect file status and count lines
     diff.print(git2::DiffFormat::Patch, |delta, _hunk, line| {
-        // Check if this delta is for our target file
         let delta_path = delta.new_file().path()
             .or_else(|| delta.old_file().path())
             .and_then(|p| p.to_str());
         
         if delta_path == Some(path) {
+            if file_status.is_none() {
+                file_status = Some(delta.status());
+            }
+            
             match line.origin() {
                 '+' => additions += 1,
                 '-' => deletions += 1,
@@ -138,6 +167,60 @@ fn get_diff_stats_git2(repo: &Repository, path: &str, staged: bool) -> Result<(u
         }
         true
     }).map_err(|e| format!("Failed to process diff: {}", e))?;
+    
+    // For new/deleted files, if diff didn't capture all lines, count from blob
+    match file_status {
+        Some(Delta::Added) | Some(Delta::Untracked) if additions == 0 => {
+            // Count lines from index or filesystem
+            if staged {
+                let index = repo.index()
+                    .map_err(|e| format!("Failed to get index: {}", e))?;
+                if let Some(entry) = index.get_path(std::path::Path::new(path), 0) {
+                    let blob = repo.find_blob(entry.id)
+                        .map_err(|e| format!("Failed to find blob: {}", e))?;
+                    if let Ok(content) = std::str::from_utf8(blob.content()) {
+                        additions = content.lines().count();
+                    }
+                }
+            } else {
+                let cwd = std::env::current_dir()
+                    .map_err(|e| format!("Failed to get cwd: {}", e))?;
+                let file_path = cwd.join(path);
+                if let Ok(content) = std::fs::read_to_string(&file_path) {
+                    additions = content.lines().count();
+                }
+            }
+        }
+        Some(Delta::Deleted) if deletions == 0 => {
+            // Count lines from HEAD or index
+            if staged {
+                let head = repo.head()
+                    .map_err(|e| format!("Failed to get HEAD: {}", e))?;
+                let head_commit = head.peel_to_commit()
+                    .map_err(|e| format!("Failed to get HEAD commit: {}", e))?;
+                let tree = head_commit.tree()
+                    .map_err(|e| format!("Failed to get tree: {}", e))?;
+                if let Ok(entry) = tree.get_path(std::path::Path::new(path)) {
+                    let blob = repo.find_blob(entry.id())
+                        .map_err(|e| format!("Failed to find blob: {}", e))?;
+                    if let Ok(content) = std::str::from_utf8(blob.content()) {
+                        deletions = content.lines().count();
+                    }
+                }
+            } else {
+                let index = repo.index()
+                    .map_err(|e| format!("Failed to get index: {}", e))?;
+                if let Some(entry) = index.get_path(std::path::Path::new(path), 0) {
+                    let blob = repo.find_blob(entry.id)
+                        .map_err(|e| format!("Failed to find blob: {}", e))?;
+                    if let Ok(content) = std::str::from_utf8(blob.content()) {
+                        deletions = content.lines().count();
+                    }
+                }
+            }
+        }
+        _ => {}
+    }
     
     Ok((additions, deletions))
 }
@@ -621,6 +704,35 @@ pub fn git_get_diff(path: String, staged: bool) -> Result<String, String> {
     let repo = Repository::open(&cwd)
         .map_err(|e| format!("Failed to open git repository: {}", e))?;
     
+    // Check if file is untracked (not in index at all)
+    if !staged {
+        let file_path = cwd.join(&path);
+        if file_path.exists() {
+            let index = repo.index()
+                .map_err(|e| format!("Failed to get index: {}", e))?;
+            
+            // If file not in index, it's untracked - show as all additions
+            if index.get_path(std::path::Path::new(&path), 0).is_none() {
+                let content = std::fs::read_to_string(&file_path)
+                    .map_err(|e| format!("Failed to read untracked file: {}", e))?;
+                
+                let mut diff_text = String::new();
+                for line in content.lines() {
+                    diff_text.push('+');
+                    diff_text.push_str(line);
+                    diff_text.push('\n');
+                }
+                if !content.is_empty() && !content.ends_with('\n') {
+                    diff_text.push('\n');
+                }
+                return Ok(diff_text);
+            }
+        }
+    }
+    
+    let mut opts = git2::DiffOptions::new();
+    opts.context_lines(0); // No context - we want full file content for new/deleted
+    
     let diff = if staged {
         // Staged changes: diff between HEAD and index
         let head = repo.head()
@@ -628,115 +740,166 @@ pub fn git_get_diff(path: String, staged: bool) -> Result<String, String> {
         let head_tree = head.peel_to_tree()
             .map_err(|e| format!("Failed to get HEAD tree: {}", e))?;
         
-        let mut opts = git2::DiffOptions::new();
-        opts.context_lines(3); // Add 3 lines of context
-        
         repo.diff_tree_to_index(Some(&head_tree), None, Some(&mut opts))
             .map_err(|e| format!("Failed to get staged diff: {}", e))?
     } else {
         // Working tree changes: diff between index and working tree
-        let mut opts = git2::DiffOptions::new();
-        opts.context_lines(3); // Add 3 lines of context
-        
         repo.diff_index_to_workdir(None, Some(&mut opts))
             .map_err(|e| format!("Failed to get workdir diff: {}", e))?
     };
     
     let mut diff_text = String::new();
-    let mut is_new_file = false;
-    let mut is_deleted_file = false;
+    let mut file_status = None;
     
-    // First pass: check if file is new or deleted
+    // First pass: detect file status
     diff.print(git2::DiffFormat::Patch, |delta, _hunk, _line| {
         let delta_path = delta.new_file().path()
             .or_else(|| delta.old_file().path())
             .and_then(|p| p.to_str());
         
         if delta_path == Some(&path) {
-            use git2::Delta;
-            match delta.status() {
-                Delta::Added | Delta::Untracked => is_new_file = true,
-                Delta::Deleted => is_deleted_file = true,
-                _ => {}
-            }
+            file_status = Some(delta.status());
         }
         true
     }).map_err(|e| format!("Failed to check file status: {}", e))?;
     
-    // For new files (Added/Untracked), read file content directly and show as all additions
-    if is_new_file {
-        let file_path = cwd.join(&path);
-        match std::fs::read_to_string(&file_path) {
-            Ok(content) => {
+    use git2::Delta;
+    match file_status {
+        Some(Delta::Added) | Some(Delta::Untracked) => {
+            // NEW FILE: Read from index (if staged) or filesystem (if unstaged)
+            if staged {
+                // Read from index
+                let index = repo.index()
+                    .map_err(|e| format!("Failed to get index: {}", e))?;
+                
+                if let Some(entry) = index.get_path(std::path::Path::new(&path), 0) {
+                    let oid = entry.id;
+                    let blob = repo.find_blob(oid)
+                        .map_err(|e| format!("Failed to find blob: {}", e))?;
+                    
+                    let content = std::str::from_utf8(blob.content())
+                        .map_err(|e| format!("File is not valid UTF-8: {}", e))?;
+                    
+                    for line in content.lines() {
+                        diff_text.push('+');
+                        diff_text.push_str(line);
+                        diff_text.push('\n');
+                    }
+                    // Add final line if content doesn't end with newline
+                    if !content.is_empty() && !content.ends_with('\n') {
+                        diff_text.push('\n');
+                    }
+                }
+            } else {
+                // Read from filesystem
+                let file_path = cwd.join(&path);
+                let content = std::fs::read_to_string(&file_path)
+                    .map_err(|e| format!("Failed to read new file: {}", e))?;
+                
                 for line in content.lines() {
                     diff_text.push('+');
                     diff_text.push_str(line);
                     diff_text.push('\n');
                 }
-            }
-            Err(e) => {
-                return Err(format!("Failed to read new file: {}", e));
+                // Add final line if content doesn't end with newline
+                if !content.is_empty() && !content.ends_with('\n') {
+                    diff_text.push('\n');
+                }
             }
         }
-    } else if is_deleted_file {
-        // For deleted files, get content from git and show as all deletions
-        diff.print(git2::DiffFormat::Patch, |delta, _hunk, line| {
-            let delta_path = delta.new_file().path()
-                .or_else(|| delta.old_file().path())
-                .and_then(|p| p.to_str());
-            
-            if delta_path == Some(&path) {
-                let origin = line.origin();
-                let content = std::str::from_utf8(line.content()).unwrap_or("");
+        Some(Delta::Deleted) => {
+            // DELETED FILE: Read from HEAD (if staged) or index (if unstaged)
+            if staged {
+                // Read from HEAD
+                let head = repo.head()
+                    .map_err(|e| format!("Failed to get HEAD: {}", e))?;
+                let head_commit = head.peel_to_commit()
+                    .map_err(|e| format!("Failed to get HEAD commit: {}", e))?;
+                let tree = head_commit.tree()
+                    .map_err(|e| format!("Failed to get tree: {}", e))?;
                 
-                // For deleted files, show all content lines as deletions
-                if origin == '-' || origin == ' ' {
+                let entry = tree.get_path(std::path::Path::new(&path))
+                    .map_err(|e| format!("Failed to find file in HEAD: {}", e))?;
+                let oid = entry.id();
+                let blob = repo.find_blob(oid)
+                    .map_err(|e| format!("Failed to find blob: {}", e))?;
+                
+                let content = std::str::from_utf8(blob.content())
+                    .map_err(|e| format!("File is not valid UTF-8: {}", e))?;
+                
+                for line in content.lines() {
                     diff_text.push('-');
-                    diff_text.push_str(content);
+                    diff_text.push_str(line);
+                    diff_text.push('\n');
                 }
-            }
-            true
-        }).map_err(|e| format!("Failed to process deleted file diff: {}", e))?;
-    } else {
-        // For modified files: collect normal diff
-        diff.print(git2::DiffFormat::Patch, |delta, _hunk, line| {
-            let delta_path = delta.new_file().path()
-                .or_else(|| delta.old_file().path())
-                .and_then(|p| p.to_str());
-            
-            if delta_path == Some(&path) {
-                let origin = line.origin();
-                let content = std::str::from_utf8(line.content()).unwrap_or("");
+                // Add final line if content doesn't end with newline
+                if !content.is_empty() && !content.ends_with('\n') {
+                    diff_text.push('\n');
+                }
+            } else {
+                // Read from index
+                let index = repo.index()
+                    .map_err(|e| format!("Failed to get index: {}", e))?;
                 
-                match origin {
-                    '+' => {
-                        diff_text.push('+');
-                        diff_text.push_str(content);
-                    }
-                    '-' => {
+                if let Some(entry) = index.get_path(std::path::Path::new(&path), 0) {
+                    let oid = entry.id;
+                    let blob = repo.find_blob(oid)
+                        .map_err(|e| format!("Failed to find blob: {}", e))?;
+                    
+                    let content = std::str::from_utf8(blob.content())
+                        .map_err(|e| format!("File is not valid UTF-8: {}", e))?;
+                    
+                    for line in content.lines() {
                         diff_text.push('-');
-                        diff_text.push_str(content);
+                        diff_text.push_str(line);
+                        diff_text.push('\n');
                     }
-                    ' ' => {
-                        diff_text.push(' ');
-                        diff_text.push_str(content);
+                    // Add final line if content doesn't end with newline
+                    if !content.is_empty() && !content.ends_with('\n') {
+                        diff_text.push('\n');
                     }
-                    _ => {} // Skip headers
                 }
             }
-            true
-        }).map_err(|e| format!("Failed to process diff: {}", e))?;
+        }
+        _ => {
+            // MODIFIED FILE: Use normal diff with context
+            let mut opts_with_context = git2::DiffOptions::new();
+            opts_with_context.context_lines(3);
+            
+            let diff_with_context = if staged {
+                let head = repo.head()
+                    .map_err(|e| format!("Failed to get HEAD: {}", e))?;
+                let head_tree = head.peel_to_tree()
+                    .map_err(|e| format!("Failed to get HEAD tree: {}", e))?;
+                
+                repo.diff_tree_to_index(Some(&head_tree), None, Some(&mut opts_with_context))
+                    .map_err(|e| format!("Failed to get staged diff: {}", e))?
+            } else {
+                repo.diff_index_to_workdir(None, Some(&mut opts_with_context))
+                    .map_err(|e| format!("Failed to get workdir diff: {}", e))?
+            };
+            
+            diff_with_context.print(git2::DiffFormat::Patch, |delta, _hunk, line| {
+                let delta_path = delta.new_file().path()
+                    .or_else(|| delta.old_file().path())
+                    .and_then(|p| p.to_str());
+                
+                if delta_path == Some(&path) {
+                    let origin = line.origin();
+                    let content = std::str::from_utf8(line.content()).unwrap_or("");
+                    
+                    match origin {
+                        '+' | '-' | ' ' => {
+                            diff_text.push(origin);
+                            diff_text.push_str(content);
+                        }
+                        _ => {} // Skip headers
+                    }
+                }
+                true
+            }).map_err(|e| format!("Failed to process diff: {}", e))?;
+        }
     }
-    
-    // Debug log
-    eprintln!("=== GIT DIFF DEBUG ===");
-    eprintln!("Path: {}", path);
-    eprintln!("Staged: {}", staged);
-    eprintln!("Is New: {}", is_new_file);
-    eprintln!("Is Deleted: {}", is_deleted_file);
-    eprintln!("Diff length: {} bytes", diff_text.len());
-    eprintln!("First 200 chars: {}", &diff_text.chars().take(200).collect::<String>());
-    eprintln!("======================");
     
     Ok(diff_text)
 }
