@@ -158,6 +158,8 @@ impl ChatSessionActor {
             match command {
                 ActorCommand::Prompt { text, turn_id, response_tx } => {
                     tracing::info!(text_len = text.len(), turn_id = %turn_id, "Processing Prompt command");
+                    // Clone turn_id for error handling (will be moved into handle_prompt)
+                    let turn_id_for_error = turn_id.clone();
                     let result = self.handle_prompt(text, turn_id).await;
                     match &result {
                         Ok(summary) => {
@@ -167,13 +169,12 @@ impl ChatSessionActor {
                             );
                         }
                         Err(e) => {
-                            tracing::error!(error = %e, "Prompt failed");
-                            // Emit error event to frontend with error turn_id
+                            tracing::error!(error = %e, turn_id = %turn_id_for_error, "Prompt failed, error: {}", e);
+                            // Emit error event to frontend with SAME turn_id
                             let error_msg = format!("{}", e);
-                            let error_turn_id = format!("error-{}", uuid::Uuid::new_v4());
                             self.event_publisher.publish_stream_event(StreamEvent::Error { 
                                 message: error_msg,
-                                turn_id: error_turn_id,
+                                turn_id: turn_id_for_error,
                             });
                         }
                     }

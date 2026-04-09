@@ -6,6 +6,8 @@ import { SettingsScreen } from './ui/pages/SettingsScreen';
 import { TitleBar } from './components/TitleBar';
 import { ResizablePanel } from './components/ResizablePanel';
 import { RightPanel } from './ui/features/rightpanel/RightPanel';
+import { ToastContainer } from './components/ToastContainer';
+import { useToastStore } from './store/useToastStore';
 import { useRightPanelStore } from './store/useRightPanelStore';
 import { useTerminalStore } from './store/useTerminalStore';
 import { PanelLeft, PanelRight, Folder, Home as HomeIcon } from 'lucide-react';
@@ -28,6 +30,10 @@ function App() {
   const activeTab = useRightPanelStore((state) => state.activeTab);
   const setActiveTab = useRightPanelStore((state) => state.setActiveTab);
   const createTab = useTerminalStore((state) => state.createTab);
+  
+  // Toast state
+  const toasts = useToastStore((s) => s.toasts);
+  const removeToast = useToastStore((s) => s.removeToast);
   
   const isPanelOpen = activeTab !== null;
 
@@ -203,6 +209,10 @@ function App() {
 
       <PermissionModal />
       <ErrorBanner />
+      <ToastContainer 
+        toasts={toasts} 
+        onClose={removeToast} 
+      />
       </div>
     </div>
   );

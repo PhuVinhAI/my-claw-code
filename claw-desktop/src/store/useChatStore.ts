@@ -5,6 +5,7 @@ import { Message, StreamEvent, SessionMetadata, WorkMode, TokenUsage } from '../
 import { ChatMachineState, ChatEvent, chatReducer } from './chat.machine';
 import { TauriChatGateway } from '../adapters/tauri';
 import { parseThinkingTags } from '../lib/parseThinking';
+import { useToastStore } from './useToastStore';
 
 interface ChatStore {
   // State
@@ -995,6 +996,9 @@ export function initializeChatStore() {
           }
           return prev;
         });
+        
+        // Show error toast
+        useToastStore.getState().addToast('error', event.message, 5000);
         
         dispatch({ type: 'ERROR', message: event.message });
         break;
