@@ -22,15 +22,16 @@ struct DetachedProcess {
 
 struct PtySession {
     _master: Arc<Mutex<Box<dyn MasterPty + Send>>>,
+    stdin_tx: crossbeam_channel::Sender<String>, // Per-terminal stdin channel
 }
 
 pub struct PtyExecutor {
     event_publisher: Arc<dyn IEventPublisher>,
     cancel_flag: Arc<AtomicBool>,
-    stdin_rx: Receiver<(String, String)>, // (tool_use_id, input)
+    stdin_rx: Receiver<(String, String)>, // DEPRECATED: Keep for backward compat, but not used for terminals
     running_processes: Arc<Mutex<HashMap<String, ToolProcess>>>, // tool_use_id -> process control
     detached_processes: Arc<Mutex<HashMap<String, DetachedProcess>>>, // tool_use_id -> detached child
-    pty_sessions: Arc<Mutex<HashMap<String, PtySession>>>, // tool_use_id -> PTY session for resize
+    pty_sessions: Arc<Mutex<HashMap<String, PtySession>>>, // tool_use_id -> PTY session (includes per-terminal stdin)
     workspace_path: PathBuf, // CRITICAL: Working directory for commands
     current_turn_id: Arc<std::sync::Mutex<String>>, // Track current turn ID for event emission
 }
@@ -86,6 +87,19 @@ impl PtyExecutor {
             Ok(())
         } else {
             Err(format!("PTY session not found: {}", tool_use_id))
+        }
+    }
+    
+    /// Send input to specific terminal (NEW: per-terminal channel)
+    pub fn send_terminal_input(&self, tool_use_id: &str, input: String) -> Result<(), String> {
+        let sessions = self.pty_sessions.lock().unwrap();
+        
+        if let Some(session) = sessions.get(tool_use_id) {
+            session.stdin_tx.send(input)
+                .map_err(|e| format!("Failed to send input to terminal: {}", e))?;
+            Ok(())
+        } else {
+            Err(format!("Terminal session not found: {}", tool_use_id))
         }
     }
 
@@ -247,11 +261,15 @@ impl PtyExecutor {
         // Wrap master in Arc<Mutex<>> for sharing (after taking reader/writer)
         let master_arc = Arc::new(Mutex::new(pair.master));
 
-        // Store PTY session for resize capability
+        // CRITICAL FIX: Create per-terminal stdin channel to prevent input stealing
+        let (stdin_tx, stdin_rx_terminal) = crossbeam_channel::unbounded::<String>();
+
+        // Store PTY session for resize capability AND per-terminal stdin
         {
             let mut sessions = self.pty_sessions.lock().unwrap();
             sessions.insert(tool_use_id.to_string(), PtySession {
                 _master: master_arc.clone(),
+                stdin_tx, // Store sender for this terminal
             });
         }
 
@@ -361,26 +379,32 @@ impl PtyExecutor {
             }
         });
 
-        // Spawn stdin forwarder thread
-        let stdin_rx = self.stdin_rx.clone();
+        // Spawn stdin forwarder thread - CRITICAL FIX: Use per-terminal channel
         let tool_use_id_for_stdin = tool_use_id.to_string();
         let cancel_flag_stdin = self.cancel_flag.clone();
         
         std::thread::spawn(move || {
             while !cancel_flag_stdin.load(Ordering::Relaxed) {
-                if let Ok((id, input)) = stdin_rx.recv_timeout(std::time::Duration::from_millis(100)) {
-                    if id == tool_use_id_for_stdin {
+                // FIXED: Use per-terminal channel instead of global channel
+                // This prevents input stealing between multiple terminals
+                match stdin_rx_terminal.recv() {
+                    Ok(input) => {
                         if let Err(e) = writer.write_all(input.as_bytes()) {
-                            eprintln!("[PTY] Failed to write stdin: {}", e);
+                            eprintln!("[PTY] Failed to write stdin for {}: {}", tool_use_id_for_stdin, e);
                             break;
                         }
                         if let Err(e) = writer.flush() {
-                            eprintln!("[PTY] Failed to flush stdin: {}", e);
+                            eprintln!("[PTY] Failed to flush stdin for {}: {}", tool_use_id_for_stdin, e);
                             break;
                         }
                     }
+                    Err(_) => {
+                        // Channel closed - terminal session ended
+                        break;
+                    }
                 }
             }
+            eprintln!("[PTY] Stdin forwarder thread exiting for {}", tool_use_id_for_stdin);
         });
 
         // Wait for process to finish, cancellation, detachment, or timeout

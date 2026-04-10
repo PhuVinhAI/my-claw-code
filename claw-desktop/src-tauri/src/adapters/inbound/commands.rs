@@ -1063,11 +1063,11 @@ pub async fn send_terminal_input(
         "send_terminal_input called"
     );
 
-    // Send input through tool_stdin_tx channel (crossbeam, not async)
+    // CRITICAL FIX: Use per-terminal channel instead of global channel
+    // This prevents input stealing between multiple terminals
     state
-        .tool_stdin_tx
-        .send((terminal_id.clone(), input))
-        .map_err(|e| format!("Failed to send stdin: {}", e))?;
+        .pty_executor
+        .send_terminal_input(&terminal_id, input)?;
 
     Ok(())
 }

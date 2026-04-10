@@ -21,6 +21,7 @@ const terminalInstances = new Map<string, {
   fitAddon: FitAddon;
   shellSpawned: boolean;
   unlisten?: () => void;
+  onDataDisposable?: { dispose: () => void };
 }>();
 
 export function TerminalTab({ tabId }: TerminalTabProps) {
@@ -114,8 +115,8 @@ export function TerminalTab({ tabId }: TerminalTabProps) {
         return true;
       });
       
-      // Handle terminal input
-      term.onData(async (data) => {
+      // Handle terminal input - CRITICAL: Store disposable to prevent duplicate handlers
+      const onDataDisposable = term.onData(async (data) => {
         try {
           await invoke('send_terminal_input', {
             terminalId: tabId,
@@ -143,6 +144,7 @@ export function TerminalTab({ tabId }: TerminalTabProps) {
         fitAddon,
         shellSpawned: false,
         unlisten: undefined,
+        onDataDisposable,
       };
       
       unlistenPromise.then(unlisten => {
@@ -271,6 +273,7 @@ export function disposeTerminalInstance(tabId: string) {
   if (instance) {
     console.log('[Terminal] Disposing instance for', tabId);
     instance.unlisten?.();
+    instance.onDataDisposable?.dispose(); // Dispose onData handler
     instance.term.dispose();
     terminalInstances.delete(tabId);
   }
