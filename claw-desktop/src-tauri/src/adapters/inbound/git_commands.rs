@@ -10,6 +10,7 @@ pub struct GitFileChange {
     pub additions: usize,
     pub deletions: usize,
     pub staged: bool,
+    pub is_binary: bool, // Flag for binary files (Word, Excel, images, etc.)
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -78,8 +79,8 @@ pub fn git_status() -> Result<GitStatusResponse, String> {
             "modified"
         };
         
-        // Get diff stats
-        let (additions, deletions) = get_diff_stats_git2(&repo, &path, is_staged)?;
+        // Get diff stats and check if binary
+        let (additions, deletions, is_binary) = get_diff_stats_git2(&repo, &path, is_staged)?;
         
         let change = GitFileChange {
             path: path.clone(),
@@ -87,6 +88,7 @@ pub fn git_status() -> Result<GitStatusResponse, String> {
             additions,
             deletions,
             staged: is_staged,
+            is_binary,
         };
         
         if is_staged {
@@ -103,9 +105,16 @@ pub fn git_status() -> Result<GitStatusResponse, String> {
     Ok(GitStatusResponse { changes, staged })
 }
 
-/// Get diff stats using git2
-fn get_diff_stats_git2(repo: &Repository, path: &str, staged: bool) -> Result<(usize, usize), String> {
+/// Get diff stats using git2 - Returns (additions, deletions, is_binary)
+fn get_diff_stats_git2(repo: &Repository, path: &str, staged: bool) -> Result<(usize, usize, bool), String> {
     use git2::Delta;
+    
+    // Helper to check if content is binary
+    let is_binary_content = |content: &[u8]| -> bool {
+        // Check first 8KB for null bytes (common binary indicator)
+        let check_len = content.len().min(8192);
+        content[..check_len].contains(&0)
+    };
     
     // For unstaged files, check if it's untracked first
     if !staged {
@@ -118,10 +127,23 @@ fn get_diff_stats_git2(repo: &Repository, path: &str, staged: bool) -> Result<(u
                 .map_err(|e| format!("Failed to get cwd: {}", e))?;
             let file_path = cwd.join(path);
             if file_path.exists() {
-                if let Ok(content) = std::fs::read_to_string(&file_path) {
-                    let line_count = content.lines().count();
-                    return Ok((line_count, 0)); // All additions for untracked
+                let content = std::fs::read(&file_path)
+                    .map_err(|e| format!("Failed to read file: {}", e))?;
+                
+                if is_binary_content(&content) {
+                    // Binary file - return 0 additions (will show "Binary" badge in UI)
+                    return Ok((0, 0, true));
                 }
+                
+                // Text file - count lines
+                if let Ok(text) = std::str::from_utf8(&content) {
+                    let line_count = text.lines().count();
+                    return Ok((line_count, 0, false));
+                }
+                
+                // UTF-8 decode failed but no null bytes - treat as text
+                let line_count = String::from_utf8_lossy(&content).lines().count();
+                return Ok((line_count, 0, false));
             }
         }
     }
@@ -147,8 +169,9 @@ fn get_diff_stats_git2(repo: &Repository, path: &str, staged: bool) -> Result<(u
     let mut additions = 0;
     let mut deletions = 0;
     let mut file_status = None;
+    let mut is_binary = false;
     
-    // First pass: detect file status and count lines
+    // First pass: detect file status, binary flag, and count lines
     diff.print(git2::DiffFormat::Patch, |delta, _hunk, line| {
         let delta_path = delta.new_file().path()
             .or_else(|| delta.old_file().path())
@@ -157,6 +180,11 @@ fn get_diff_stats_git2(repo: &Repository, path: &str, staged: bool) -> Result<(u
         if delta_path == Some(path) {
             if file_status.is_none() {
                 file_status = Some(delta.status());
+            }
+            
+            // Check binary flag from delta
+            if delta.new_file().is_binary() || delta.old_file().is_binary() {
+                is_binary = true;
             }
             
             match line.origin() {
@@ -168,6 +196,11 @@ fn get_diff_stats_git2(repo: &Repository, path: &str, staged: bool) -> Result<(u
         true
     }).map_err(|e| format!("Failed to process diff: {}", e))?;
     
+    // If detected as binary, return early
+    if is_binary {
+        return Ok((additions, deletions, true));
+    }
+    
     // For new/deleted files, if diff didn't capture all lines, count from blob
     match file_status {
         Some(Delta::Added) | Some(Delta::Untracked) if additions == 0 => {
@@ -178,16 +211,32 @@ fn get_diff_stats_git2(repo: &Repository, path: &str, staged: bool) -> Result<(u
                 if let Some(entry) = index.get_path(std::path::Path::new(path), 0) {
                     let blob = repo.find_blob(entry.id)
                         .map_err(|e| format!("Failed to find blob: {}", e))?;
-                    if let Ok(content) = std::str::from_utf8(blob.content()) {
-                        additions = content.lines().count();
+                    
+                    let content = blob.content();
+                    if is_binary_content(content) {
+                        return Ok((0, 0, true));
+                    }
+                    
+                    if let Ok(text) = std::str::from_utf8(content) {
+                        additions = text.lines().count();
+                    } else {
+                        additions = String::from_utf8_lossy(content).lines().count();
                     }
                 }
             } else {
                 let cwd = std::env::current_dir()
                     .map_err(|e| format!("Failed to get cwd: {}", e))?;
                 let file_path = cwd.join(path);
-                if let Ok(content) = std::fs::read_to_string(&file_path) {
-                    additions = content.lines().count();
+                if let Ok(content) = std::fs::read(&file_path) {
+                    if is_binary_content(&content) {
+                        return Ok((0, 0, true));
+                    }
+                    
+                    if let Ok(text) = std::str::from_utf8(&content) {
+                        additions = text.lines().count();
+                    } else {
+                        additions = String::from_utf8_lossy(&content).lines().count();
+                    }
                 }
             }
         }
@@ -203,8 +252,16 @@ fn get_diff_stats_git2(repo: &Repository, path: &str, staged: bool) -> Result<(u
                 if let Ok(entry) = tree.get_path(std::path::Path::new(path)) {
                     let blob = repo.find_blob(entry.id())
                         .map_err(|e| format!("Failed to find blob: {}", e))?;
-                    if let Ok(content) = std::str::from_utf8(blob.content()) {
-                        deletions = content.lines().count();
+                    
+                    let content = blob.content();
+                    if is_binary_content(content) {
+                        return Ok((0, content.len(), true));
+                    }
+                    
+                    if let Ok(text) = std::str::from_utf8(content) {
+                        deletions = text.lines().count();
+                    } else {
+                        deletions = String::from_utf8_lossy(content).lines().count();
                     }
                 }
             } else {
@@ -213,8 +270,16 @@ fn get_diff_stats_git2(repo: &Repository, path: &str, staged: bool) -> Result<(u
                 if let Some(entry) = index.get_path(std::path::Path::new(path), 0) {
                     let blob = repo.find_blob(entry.id)
                         .map_err(|e| format!("Failed to find blob: {}", e))?;
-                    if let Ok(content) = std::str::from_utf8(blob.content()) {
-                        deletions = content.lines().count();
+                    
+                    let content = blob.content();
+                    if is_binary_content(content) {
+                        return Ok((0, content.len(), true));
+                    }
+                    
+                    if let Ok(text) = std::str::from_utf8(content) {
+                        deletions = text.lines().count();
+                    } else {
+                        deletions = String::from_utf8_lossy(content).lines().count();
                     }
                 }
             }
@@ -222,7 +287,7 @@ fn get_diff_stats_git2(repo: &Repository, path: &str, staged: bool) -> Result<(u
         _ => {}
     }
     
-    Ok((additions, deletions))
+    Ok((additions, deletions, is_binary))
 }
 
 /// Get list of branches using git2
@@ -358,11 +423,82 @@ pub fn git_discard_changes(path: String) -> Result<(), String> {
     let repo = Repository::open(&cwd)
         .map_err(|e| format!("Failed to open git repository: {}", e))?;
     
-    repo.checkout_head(Some(
-        git2::build::CheckoutBuilder::new()
-            .path(&path)
-            .force()
-    )).map_err(|e| format!("Failed to discard changes: {}", e))?;
+    let index = repo.index()
+        .map_err(|e| format!("Failed to get index: {}", e))?;
+    
+    // Check if file is in index (tracked or staged)
+    let is_in_index = index.get_path(std::path::Path::new(&path), 0).is_some();
+    
+    // Check if file exists in HEAD (committed before)
+    let is_in_head = if let Ok(head) = repo.head() {
+        if let Ok(commit) = head.peel_to_commit() {
+            if let Ok(tree) = commit.tree() {
+                tree.get_path(std::path::Path::new(&path)).is_ok()
+            } else {
+                false
+            }
+        } else {
+            false
+        }
+    } else {
+        false
+    };
+    
+    if !is_in_index && !is_in_head {
+        // Case 1: UNTRACKED file (NEW, not staged) - delete from filesystem
+        let file_path = cwd.join(&path);
+        if file_path.exists() {
+            std::fs::remove_file(&file_path)
+                .map_err(|e| format!("Failed to delete untracked file: {}", e))?;
+        }
+    } else if is_in_index && !is_in_head {
+        // Case 2: NEW file that was STAGED - unstage and delete
+        // First unstage
+        let head = repo.head()
+            .map_err(|e| format!("Failed to get HEAD: {}", e))?;
+        let head_commit = head.peel_to_commit()
+            .map_err(|e| format!("Failed to get HEAD commit: {}", e))?;
+        
+        repo.reset_default(Some(&head_commit.into_object()), &[std::path::Path::new(&path)])
+            .map_err(|e| format!("Failed to unstage file: {}", e))?;
+        
+        // Then delete from filesystem
+        let file_path = cwd.join(&path);
+        if file_path.exists() {
+            std::fs::remove_file(&file_path)
+                .map_err(|e| format!("Failed to delete file: {}", e))?;
+        }
+    } else if is_in_head {
+        // Case 3: File exists in HEAD (MODIFIED or DELETED)
+        // First, check if there are staged changes and unstage them
+        let mut opts = StatusOptions::new();
+        opts.show(StatusShow::IndexAndWorkdir);
+        opts.pathspec(&path);
+        
+        let statuses = repo.statuses(Some(&mut opts))
+            .map_err(|e| format!("Failed to get status: {}", e))?;
+        
+        if let Some(entry) = statuses.iter().next() {
+            let status = entry.status();
+            // If file has staged changes (including staged deletion), unstage first
+            if status.is_index_modified() || status.is_index_deleted() || status.is_index_new() {
+                let head = repo.head()
+                    .map_err(|e| format!("Failed to get HEAD: {}", e))?;
+                let head_commit = head.peel_to_commit()
+                    .map_err(|e| format!("Failed to get HEAD commit: {}", e))?;
+                
+                repo.reset_default(Some(&head_commit.into_object()), &[std::path::Path::new(&path)])
+                    .map_err(|e| format!("Failed to unstage file: {}", e))?;
+            }
+        }
+        
+        // Then restore file from HEAD (handles both MODIFIED and DELETED)
+        repo.checkout_head(Some(
+            git2::build::CheckoutBuilder::new()
+                .path(&path)
+                .force()
+        )).map_err(|e| format!("Failed to restore file from HEAD: {}", e))?;
+    }
     
     Ok(())
 }
@@ -739,6 +875,12 @@ pub fn git_get_diff(path: String, staged: bool) -> Result<String, String> {
     let repo = Repository::open(&cwd)
         .map_err(|e| format!("Failed to open git repository: {}", e))?;
     
+    // Helper to check if content is binary
+    let is_binary_content = |content: &[u8]| -> bool {
+        let check_len = content.len().min(8192);
+        content[..check_len].contains(&0)
+    };
+    
     // Check if file is untracked (not in index at all)
     if !staged {
         let file_path = cwd.join(&path);
@@ -746,18 +888,25 @@ pub fn git_get_diff(path: String, staged: bool) -> Result<String, String> {
             let index = repo.index()
                 .map_err(|e| format!("Failed to get index: {}", e))?;
             
-            // If file not in index, it's untracked - show as all additions
+            // If file not in index, it's untracked
             if index.get_path(std::path::Path::new(&path), 0).is_none() {
-                let content = std::fs::read_to_string(&file_path)
+                let content = std::fs::read(&file_path)
                     .map_err(|e| format!("Failed to read untracked file: {}", e))?;
                 
+                // Check if binary
+                if is_binary_content(&content) {
+                    return Ok(format!("Binary file ({})", humanize_bytes(content.len())));
+                }
+                
+                // Text file - show as all additions
+                let text = String::from_utf8_lossy(&content);
                 let mut diff_text = String::new();
-                for line in content.lines() {
+                for line in text.lines() {
                     diff_text.push('+');
                     diff_text.push_str(line);
                     diff_text.push('\n');
                 }
-                if !content.is_empty() && !content.ends_with('\n') {
+                if !text.is_empty() && !text.ends_with('\n') {
                     diff_text.push('\n');
                 }
                 return Ok(diff_text);
@@ -785,8 +934,9 @@ pub fn git_get_diff(path: String, staged: bool) -> Result<String, String> {
     
     let mut diff_text = String::new();
     let mut file_status = None;
+    let mut is_binary = false;
     
-    // First pass: detect file status
+    // First pass: detect file status and binary flag
     diff.print(git2::DiffFormat::Patch, |delta, _hunk, _line| {
         let delta_path = delta.new_file().path()
             .or_else(|| delta.old_file().path())
@@ -794,9 +944,17 @@ pub fn git_get_diff(path: String, staged: bool) -> Result<String, String> {
         
         if delta_path == Some(&path) {
             file_status = Some(delta.status());
+            if delta.new_file().is_binary() || delta.old_file().is_binary() {
+                is_binary = true;
+            }
         }
         true
     }).map_err(|e| format!("Failed to check file status: {}", e))?;
+    
+    // If binary, return early with message
+    if is_binary {
+        return Ok("Binary file".to_string());
+    }
     
     use git2::Delta;
     match file_status {
@@ -812,32 +970,38 @@ pub fn git_get_diff(path: String, staged: bool) -> Result<String, String> {
                     let blob = repo.find_blob(oid)
                         .map_err(|e| format!("Failed to find blob: {}", e))?;
                     
-                    let content = std::str::from_utf8(blob.content())
-                        .map_err(|e| format!("File is not valid UTF-8: {}", e))?;
+                    let content = blob.content();
+                    if is_binary_content(content) {
+                        return Ok(format!("Binary file ({})", humanize_bytes(content.len())));
+                    }
                     
-                    for line in content.lines() {
+                    let text = String::from_utf8_lossy(content);
+                    for line in text.lines() {
                         diff_text.push('+');
                         diff_text.push_str(line);
                         diff_text.push('\n');
                     }
-                    // Add final line if content doesn't end with newline
-                    if !content.is_empty() && !content.ends_with('\n') {
+                    if !text.is_empty() && !text.ends_with('\n') {
                         diff_text.push('\n');
                     }
                 }
             } else {
                 // Read from filesystem
                 let file_path = cwd.join(&path);
-                let content = std::fs::read_to_string(&file_path)
+                let content = std::fs::read(&file_path)
                     .map_err(|e| format!("Failed to read new file: {}", e))?;
                 
-                for line in content.lines() {
+                if is_binary_content(&content) {
+                    return Ok(format!("Binary file ({})", humanize_bytes(content.len())));
+                }
+                
+                let text = String::from_utf8_lossy(&content);
+                for line in text.lines() {
                     diff_text.push('+');
                     diff_text.push_str(line);
                     diff_text.push('\n');
                 }
-                // Add final line if content doesn't end with newline
-                if !content.is_empty() && !content.ends_with('\n') {
+                if !text.is_empty() && !text.ends_with('\n') {
                     diff_text.push('\n');
                 }
             }
@@ -859,16 +1023,18 @@ pub fn git_get_diff(path: String, staged: bool) -> Result<String, String> {
                 let blob = repo.find_blob(oid)
                     .map_err(|e| format!("Failed to find blob: {}", e))?;
                 
-                let content = std::str::from_utf8(blob.content())
-                    .map_err(|e| format!("File is not valid UTF-8: {}", e))?;
+                let content = blob.content();
+                if is_binary_content(content) {
+                    return Ok(format!("Binary file ({})", humanize_bytes(content.len())));
+                }
                 
-                for line in content.lines() {
+                let text = String::from_utf8_lossy(content);
+                for line in text.lines() {
                     diff_text.push('-');
                     diff_text.push_str(line);
                     diff_text.push('\n');
                 }
-                // Add final line if content doesn't end with newline
-                if !content.is_empty() && !content.ends_with('\n') {
+                if !text.is_empty() && !text.ends_with('\n') {
                     diff_text.push('\n');
                 }
             } else {
@@ -881,16 +1047,18 @@ pub fn git_get_diff(path: String, staged: bool) -> Result<String, String> {
                     let blob = repo.find_blob(oid)
                         .map_err(|e| format!("Failed to find blob: {}", e))?;
                     
-                    let content = std::str::from_utf8(blob.content())
-                        .map_err(|e| format!("File is not valid UTF-8: {}", e))?;
+                    let content = blob.content();
+                    if is_binary_content(content) {
+                        return Ok(format!("Binary file ({})", humanize_bytes(content.len())));
+                    }
                     
-                    for line in content.lines() {
+                    let text = String::from_utf8_lossy(content);
+                    for line in text.lines() {
                         diff_text.push('-');
                         diff_text.push_str(line);
                         diff_text.push('\n');
                     }
-                    // Add final line if content doesn't end with newline
-                    if !content.is_empty() && !content.ends_with('\n') {
+                    if !text.is_empty() && !text.ends_with('\n') {
                         diff_text.push('\n');
                     }
                 }
@@ -937,6 +1105,24 @@ pub fn git_get_diff(path: String, staged: bool) -> Result<String, String> {
     }
     
     Ok(diff_text)
+}
+
+/// Helper to format bytes in human-readable format
+fn humanize_bytes(bytes: usize) -> String {
+    const UNITS: &[&str] = &["B", "KB", "MB", "GB"];
+    let mut size = bytes as f64;
+    let mut unit_idx = 0;
+    
+    while size >= 1024.0 && unit_idx < UNITS.len() - 1 {
+        size /= 1024.0;
+        unit_idx += 1;
+    }
+    
+    if unit_idx == 0 {
+        format!("{} {}", bytes, UNITS[0])
+    } else {
+        format!("{:.1} {}", size, UNITS[unit_idx])
+    }
 }
 
 

@@ -99,13 +99,15 @@ export function GitView() {
   const isNotGitRepo = error?.includes('could not find repository') || error?.includes('NotFound');
 
   const allChanges = [...stagedChanges, ...changes];
-  const totalAdditions = allChanges.reduce((sum, c) => sum + c.additions, 0);
-  const totalDeletions = allChanges.reduce((sum, c) => sum + c.deletions, 0);
+  // Only count additions/deletions for non-binary files
+  const totalAdditions = allChanges.reduce((sum, c) => sum + (c.is_binary ? 0 : c.additions), 0);
+  const totalDeletions = allChanges.reduce((sum, c) => sum + (c.is_binary ? 0 : c.deletions), 0);
 
   // Filter changes based on selected filter
   const filteredChanges = allChanges.filter(change => {
-    // Skip files with no actual changes (0 additions and 0 deletions)
-    if (change.additions === 0 && change.deletions === 0) {
+    // KEEP binary files (they may have 0 additions/deletions but are still valid changes)
+    // Only skip if truly no changes (not binary and no stats)
+    if (!change.is_binary && change.additions === 0 && change.deletions === 0) {
       return false;
     }
     

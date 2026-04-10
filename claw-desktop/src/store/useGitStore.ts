@@ -6,6 +6,7 @@ export interface GitFileChange {
   additions: number;
   deletions: number;
   staged: boolean;
+  is_binary: boolean; // Flag for binary files (Word, Excel, images, etc.)
 }
 
 export interface GitBranch {

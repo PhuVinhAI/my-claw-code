@@ -1044,7 +1044,18 @@ impl ChatSessionActor {
                         match std::fs::read_to_string(&skill_path) {
                             Ok(content) => {
                                 tracing::debug!(skill = %skill_name, path = ?skill_path, "Loaded skill content");
-                                skill_sections.push(format!("# Skill: {}\n\n{}", skill_name, content));
+                                
+                                // Get skill directory path for references
+                                let skill_dir = skill_path.parent()
+                                    .and_then(|p| p.to_str())
+                                    .unwrap_or("");
+                                
+                                skill_sections.push(format!(
+                                    "# Skill: {}\n\n**Skill Directory:** `{}`\n\n**Note:** This skill may reference other files (e.g., `editing.md`, `config.json`). These files are located in the skill directory above. Use the file reading tools to access them when needed.\n\n{}",
+                                    skill_name,
+                                    skill_dir,
+                                    content
+                                ));
                             }
                             Err(e) => {
                                 tracing::warn!(skill = %skill_name, path = ?skill_path, error = %e, "Failed to read skill file");

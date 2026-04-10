@@ -86,13 +86,19 @@ export function GitFileItem({
           {change.path}
         </span>
 
-        {/* Stats */}
+        {/* Stats or Binary Badge */}
         <div className="flex items-center gap-1.5 text-xs shrink-0">
-          {change.additions > 0 && (
-            <span className="text-green-500">+{change.additions}</span>
-          )}
-          {change.deletions > 0 && (
-            <span className="text-red-500">-{change.deletions}</span>
+          {change.is_binary ? (
+            <span className="text-purple-500 font-medium">Binary</span>
+          ) : (
+            <>
+              {change.additions > 0 && (
+                <span className="text-green-500">+{change.additions}</span>
+              )}
+              {change.deletions > 0 && (
+                <span className="text-red-500">-{change.deletions}</span>
+              )}
+            </>
           )}
         </div>
 
@@ -144,6 +150,13 @@ export function GitFileItem({
         <div className="px-3 py-2 bg-muted/10 border-t border-border/50">
           {isLoadingDiff ? (
             <div className="text-muted-foreground text-xs">{t('common.loading')}</div>
+          ) : change.is_binary ? (
+            <div className="flex items-center gap-2 text-purple-500 text-xs">
+              <svg className="w-4 h-4" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M4 0a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V4.707A1 1 0 0013.707 4L10 .293A1 1 0 009.293 0H4zm5.5 1.5v2a1 1 0 001 1h2l-3-3zM7 6.25a.75.75 0 01.75.75v1.5h1.5a.75.75 0 010 1.5h-1.5v1.5a.75.75 0 01-1.5 0V10h-1.5a.75.75 0 010-1.5h1.5V7A.75.75 0 017 6.25z"/>
+              </svg>
+              <span>{diffContent || t('gitPanel.binaryFile')}</span>
+            </div>
           ) : diffContent ? (
             <GitDiffViewer diffContent={diffContent} />
           ) : (

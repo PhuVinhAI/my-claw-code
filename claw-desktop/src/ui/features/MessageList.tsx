@@ -166,23 +166,18 @@ export function MessageList() {
       isScrollingToBottom.current = false;
       setShowScrollButton(false);
       
-      // Scroll to bottom instantly after virtualizer renders
-      const el = scrollParentRef.current;
-      if (el) {
-        // Use longer delay for session change to ensure virtualizer is ready
-        setTimeout(() => {
-          isProgrammaticScroll.current = true;
-          el.scrollTo({
-            top: el.scrollHeight,
-            behavior: 'instant',
+      // Scroll to last message using virtualizer (works even if not rendered yet)
+      if (messages.length > 0) {
+        // Use requestAnimationFrame to ensure virtualizer is ready
+        requestAnimationFrame(() => {
+          virtualizer.scrollToIndex(messages.length - 1, {
+            align: 'end',
+            behavior: 'auto', // Instant scroll
           });
-          setTimeout(() => {
-            isProgrammaticScroll.current = false;
-          }, 50);
-        }, 100);
+        });
       }
     }
-  }, [currentSessionId]);
+  }, [currentSessionId, messages.length, virtualizer]);
 
   useEffect(() => {
     const el = scrollParentRef.current;

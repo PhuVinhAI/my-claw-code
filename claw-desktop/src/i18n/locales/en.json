@@ -423,6 +423,7 @@
     "linesAdded": "lines added",
     "fileDeleted": "File deleted",
     "clickToViewDiff": "Click file to view full diff",
+    "binaryFile": "Binary file (cannot preview diff)",
     "commitAndPush": "Commit & Push",
     "undoAllChanges": "Undo All Changes",
     "stageAllChanges": "Stage All Changes",
