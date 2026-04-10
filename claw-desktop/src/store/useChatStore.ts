@@ -346,6 +346,14 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
       // Auto-save current session before switching
       await autoSaveCurrentSession();
+      
+      // RESET RIGHT PANEL: Close panel and reset terminals + git
+      console.log('[STORE] Resetting right panel before switching session...');
+      const { useRightPanelStore } = await import('./useRightPanelStore');
+      const { useTerminalStore } = await import('./useTerminalStore');
+      
+      useRightPanelStore.getState().setActiveTab(null); // Close panel
+      useTerminalStore.getState().resetAllTerminals(); // Kill all terminals
 
       // Use provided parameters if available, otherwise find from sessions list
       let workMode: WorkMode;
@@ -469,6 +477,14 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
       // Auto-save current session
       await autoSaveCurrentSession();
+      
+      // RESET RIGHT PANEL: Close panel and reset terminals + git
+      console.log('[STORE] Resetting right panel before creating new session...');
+      const { useRightPanelStore } = await import('./useRightPanelStore');
+      const { useTerminalStore } = await import('./useTerminalStore');
+      
+      useRightPanelStore.getState().setActiveTab(null); // Close panel
+      useTerminalStore.getState().resetAllTerminals(); // Kill all terminals
 
       // Create new session on backend (this will replace runtime session)
       const newSessionId = await gateway.newSession();
@@ -565,6 +581,14 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         // Wait a bit for stop to complete
         await new Promise(resolve => setTimeout(resolve, 100));
       }
+      
+      // RESET RIGHT PANEL: Close panel and reset terminals + git
+      console.log('[STORE] Resetting right panel before changing work mode...');
+      const { useRightPanelStore } = await import('./useRightPanelStore');
+      const { useTerminalStore } = await import('./useTerminalStore');
+      
+      useRightPanelStore.getState().setActiveTab(null); // Close panel
+      useTerminalStore.getState().resetAllTerminals(); // Kill all terminals
 
       await gateway.setWorkMode(mode, workspacePath);
       const path = await gateway.getWorkspacePath();

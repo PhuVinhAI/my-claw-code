@@ -25,6 +25,7 @@ interface TerminalState {
   reorderTabs: (fromIndex: number, toIndex: number) => void;
   togglePanel: () => void;
   clearTabOutput: (id: string) => void;
+  resetAllTerminals: () => void; // Reset all terminals when switching session
 }
 
 const getDefaultShell = (): 'powershell' | 'bash' | 'cmd' => {
@@ -112,9 +113,11 @@ export const useTerminalStore = create<TerminalState>()(
         }));
       },
 
-      updateTabOutput: (id, output) => {
+      updateTabOutput: (id, chunk) => {
         set((state) => ({
-          tabs: state.tabs.map(t => t.id === id ? { ...t, output } : t),
+          tabs: state.tabs.map(t => 
+            t.id === id ? { ...t, output: t.output + chunk } : t
+          ),
         }));
       },
 
@@ -137,20 +140,39 @@ export const useTerminalStore = create<TerminalState>()(
           tabs: state.tabs.map(t => t.id === id ? { ...t, output: '' } : t),
         }));
       },
+
+      resetAllTerminals: () => {
+        // Kill all terminal processes
+        const { tabs } = get();
+        tabs.forEach(tab => {
+          import('@tauri-apps/api/core').then(({ invoke }) => {
+            invoke('kill_terminal', { terminalId: tab.id }).catch(err => {
+              console.error('[TerminalStore] Failed to kill terminal:', err);
+            });
+          });
+        });
+        
+        // Clear all tabs and close panel
+        set({
+          tabs: [],
+          activeTabId: null,
+          isPanelOpen: false,
+        });
+      },
     }),
     {
       name: 'terminal-storage',
       partialize: (state) => ({
-        // Only persist panel state, not terminal instances or output
+        // Persist panel state AND output (for restore after toggle/switch)
         isPanelOpen: state.isPanelOpen,
-        tabs: state.tabs.map(({ id, title, shell, cwd, createdAt, isActive }) => ({
+        tabs: state.tabs.map(({ id, title, shell, cwd, createdAt, isActive, output }) => ({
           id,
           title,
           shell,
           cwd,
           createdAt,
           isActive,
-          output: '',
+          output, // ← Lưu output để restore khi mount lại
         })),
         activeTabId: state.activeTabId,
       }),

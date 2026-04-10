@@ -112,6 +112,11 @@ export function TerminalTab({ tabId }: TerminalTabProps) {
 
     xtermRef.current = term;
     fitAddonRef.current = fitAddon;
+    
+    // CRITICAL: Restore previous output from store when mounting
+    if (tab && tab.output) {
+      term.write(tab.output);
+    }
 
     // Handle terminal data (user input) - forward to backend PTY
     term.onData(async (data) => {
