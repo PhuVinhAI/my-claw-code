@@ -57,6 +57,7 @@ api = { path = "../../rust/crates/api" }
 runtime = { path = "../../rust/crates/runtime" }
 tools = { path = "../../rust/crates/tools" }
 commands = { path = "../../rust/crates/commands" }
+skills = { path = "../../rust/crates/skills" }
 plugins = { path = "../../rust/crates/plugins" }
 
 # Windows API for console management (hide console window)

@@ -8,6 +8,7 @@ mod setup;
 // Re-exports
 pub use adapters::inbound::commands::*;
 pub use adapters::inbound::git_commands::*;
+pub use adapters::inbound::skills_commands::*;
 pub use setup::di_container::initialize_app;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -62,6 +63,10 @@ pub fn run() {
             let state = initialize_app(app.handle().clone())
                 .map_err(|e| format!("Failed to initialize app: {}", e))?;
             app.manage(state);
+            
+            // Initialize Skills State
+            app.manage(SkillsState::default());
+            
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -132,7 +137,18 @@ pub fn run() {
             git_switch_branch,
             git_get_diff,
             git_generate_commit_message,
-            git_start_watch
+            git_start_watch,
+            // Skills Store commands
+            get_skills_catalog,
+            search_skills_store,
+            preview_skills_source,
+            get_supported_agents,
+            detect_installed_agents,
+            install_skills,
+            uninstall_skills,
+            get_installed_skills,
+            check_skills_updates,
+            apply_skills_updates
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

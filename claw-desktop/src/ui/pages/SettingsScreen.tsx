@@ -5,7 +5,7 @@ import { useSettingsStore } from '../../store/useSettingsStore';
 import { GeneralSettingsTab } from '../features/settings/GeneralSettingsTab';
 import { AISettingsTab } from '../features/settings/AISettingsTab';
 import { ContextSettingsTab } from '../features/settings/ContextSettingsTab';
-import { SkillsSettingsTab } from '../features/settings/SkillsSettingsTab';
+import { SkillsStoreTab } from '../features/settings/SkillsStoreTab';
 import { ArrowLeft, Bot, MessageSquare, Settings2, BookOpen } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
@@ -103,7 +103,7 @@ export function SettingsScreen({ onBack }: SettingsScreenProps) {
           {activeTab === 'general' && <GeneralSettingsTab />}
           {activeTab === 'ai' && <AISettingsTab />}
           {activeTab === 'context' && <ContextSettingsTab />}
-          {activeTab === 'skills' && <SkillsSettingsTab />}
+          {activeTab === 'skills' && <SkillsStoreTab />}
         </div>
       </div>
     </div>

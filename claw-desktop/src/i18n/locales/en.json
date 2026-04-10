@@ -499,16 +499,35 @@
     "skills": {
       "title": "Skills",
       "description": "Manage AI skills and specialized instructions",
+      "store": "Skills Store",
+      "storeDescription": "Browse and install AI skills for your agents",
+      "browse": "Browse",
+      "installed": "Installed",
+      "agents": "Agents",
+      "searchPlaceholder": "Search skills...",
+      "installTo": "Install to:",
+      "install": "Install",
+      "installing": "Installing...",
+      "uninstall": "Uninstall",
+      "uninstalling": "Uninstalling...",
+      "noDescription": "No description",
+      "noInstalled": "No skills installed yet",
+      "browseCatalog": "Browse Catalog",
+      "selectAgentsFirst": "Please select at least one agent",
+      "version": "Version",
+      "author": "Author",
+      "detected": "Detected",
+      "notInstalled": "Not Installed",
       "available": "Available Skills",
       "shadowed": "Shadowed Skills",
       "shadowedBy": "Shadowed by {{source}}",
       "preview": "Preview",
       "selectSkill": "Select a skill to preview",
       "noSkills": "No skills found",
-      "noSkillsHint": "Create skills in .claw/skills/ or ~/.claw/skills/",
+      "noSkillsHint": "Create skills in .codex/skills/ or ~/.codex/skills/",
       "errorTitle": "Failed to load skills",
       "infoTitle": "About Skills",
-      "info1": "Skills are stored in .claw/skills/ (project) or ~/.claw/skills/ (user)",
+      "info1": "Skills are stored in .codex/skills/ (project) or ~/.codex/skills/ (user)",
       "info2": "Each skill is a folder with a SKILL.md file containing instructions",
       "info3": "Use skills in chat by clicking the + button or typing $skill-name"
     }
@@ -522,6 +541,7 @@
     "save": "Save",
     "delete": "Delete",
     "refresh": "Refresh",
-    "dismiss": "Dismiss"
+    "dismiss": "Dismiss",
+    "search": "Search"
   }
 }

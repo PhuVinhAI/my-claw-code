@@ -499,16 +499,35 @@
     "skills": {
       "title": "Skills",
       "description": "Quản lý AI skills và hướng dẫn chuyên biệt",
+      "store": "Cửa hàng Skills",
+      "storeDescription": "Duyệt và cài đặt AI skills cho agents của bạn",
+      "browse": "Duyệt",
+      "installed": "Đã cài",
+      "agents": "Agents",
+      "searchPlaceholder": "Tìm kiếm skills...",
+      "installTo": "Cài đặt vào",
+      "install": "Cài đặt",
+      "installing": "Đang cài...",
+      "uninstall": "Gỡ cài đặt",
+      "uninstalling": "Đang gỡ...",
+      "noDescription": "Không có mô tả",
+      "noInstalled": "Chưa cài skill nào",
+      "browseCatalog": "Duyệt Catalog",
+      "selectAgentsFirst": "Vui lòng chọn ít nhất một agent",
+      "version": "Phiên bản",
+      "author": "Tác giả",
+      "detected": "Đã phát hiện",
+      "notInstalled": "Chưa cài",
       "available": "Skills Khả dụng",
       "shadowed": "Skills Bị Che",
       "shadowedBy": "Bị che bởi {{source}}",
       "preview": "Xem trước",
       "selectSkill": "Chọn skill để xem trước",
       "noSkills": "Không tìm thấy skill",
-      "noSkillsHint": "Tạo skills trong .claw/skills/ hoặc ~/.claw/skills/",
+      "noSkillsHint": "Tạo skills trong .codex/skills/ hoặc ~/.codex/skills/",
       "errorTitle": "Không thể tải skills",
       "infoTitle": "Về Skills",
-      "info1": "Skills được lưu trong .claw/skills/ (project) hoặc ~/.claw/skills/ (user)",
+      "info1": "Skills được lưu trong .codex/skills/ (project) hoặc ~/.codex/skills/ (user)",
       "info2": "Mỗi skill là một thư mục có file SKILL.md chứa hướng dẫn",
       "info3": "Dùng skills trong chat bằng cách bấm nút + hoặc gõ $tên-skill"
     }
@@ -522,6 +541,7 @@
     "save": "Lưu",
     "delete": "Xóa",
     "refresh": "Làm mới",
-    "dismiss": "Đóng"
+    "dismiss": "Đóng",
+    "search": "Tìm kiếm"
   }
 }
