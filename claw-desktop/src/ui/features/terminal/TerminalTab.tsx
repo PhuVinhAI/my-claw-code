@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { Terminal } from 'xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
+import { Unicode11Addon } from '@xterm/addon-unicode11';
 import { open } from '@tauri-apps/plugin-shell';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
@@ -85,10 +86,17 @@ export function TerminalTab({ tabId }: TerminalTabProps) {
         windowOptions: {
           setWinLines: false,
         },
+        // CRITICAL: Enable IME support for Vietnamese and other languages
+        allowProposedApi: true,
       });
 
       const fitAddon = new FitAddon();
       term.loadAddon(fitAddon);
+      
+      // Load Unicode11 addon for proper Vietnamese character support
+      const unicode11Addon = new Unicode11Addon();
+      term.loadAddon(unicode11Addon);
+      term.unicode.activeVersion = '11'; // Use Unicode 11 for better character support
       
       const webLinksAddon = new WebLinksAddon((event, uri) => {
         event.preventDefault();

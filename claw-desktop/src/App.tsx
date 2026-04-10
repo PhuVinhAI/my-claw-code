@@ -130,11 +130,7 @@ function App() {
         workMode === 'normal' && "border-r-0"
       )}>
         {/* Header Bar - Always visible */}
-        <div className={cn(
-          "h-9 border-b bg-background/95 backdrop-blur-sm flex items-center px-3 gap-3 shrink-0",
-          // Only show border when in workspace mode (has right panel)
-          workMode === 'workspace' && workspacePath ? "border-border" : "border-transparent"
-        )}>
+        <div className="h-9 bg-background/95 backdrop-blur-sm flex items-center px-3 gap-3 shrink-0">
           {/* Left: Sidebar Toggle + Workspace Path (only show path when has messages) */}
           <div className="flex items-center gap-2 flex-1 min-w-0">
             {!sidebarOpen && (
