@@ -92,6 +92,9 @@ pub fn run() {
             set_selected_tools,
             open_external_terminal,
             save_context_to_file,
+            // Skills commands
+            list_skills,
+            load_skill,
             // Settings commands
             check_onboarding_complete,
             get_settings,

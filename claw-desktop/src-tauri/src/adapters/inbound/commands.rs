@@ -92,6 +92,54 @@ pub async fn load_session(
         .map_err(|e| format!("Failed to receive response: {}", e))?
 }
 
+/// List available skills command
+#[tauri::command]
+pub async fn list_skills(workspace_path: Option<String>) -> Result<serde_json::Value, String> {
+    use std::path::PathBuf;
+    
+    let cwd = if let Some(path) = workspace_path {
+        PathBuf::from(path)
+    } else {
+        std::env::current_dir().map_err(|e| e.to_string())?
+    };
+    
+    // Use commands crate public API
+    let roots = commands::discover_skill_roots(&cwd);
+    let skills = commands::load_skills_from_roots(&roots).map_err(|e| e.to_string())?;
+    
+    Ok(commands::render_skills_report_json(&skills))
+}
+
+/// Load skill content command
+#[tauri::command]
+pub async fn load_skill(skill_name: String, workspace_path: Option<String>) -> Result<serde_json::Value, String> {
+    use std::path::PathBuf;
+    
+    let cwd = if let Some(path) = workspace_path {
+        PathBuf::from(path)
+    } else {
+        std::env::current_dir().map_err(|e| e.to_string())?
+    };
+    
+    // Resolve skill path using commands crate
+    let skill_path = commands::resolve_skill_path(&cwd, &skill_name)
+        .map_err(|e| format!("Failed to resolve skill: {}", e))?;
+    
+    // Read skill content
+    let content = std::fs::read_to_string(&skill_path)
+        .map_err(|e| format!("Failed to read skill: {}", e))?;
+    
+    // Parse frontmatter using commands crate
+    let (name, description) = commands::parse_skill_frontmatter(&content);
+    
+    Ok(serde_json::json!({
+        "name": name.unwrap_or_else(|| skill_name.clone()),
+        "path": skill_path.display().to_string(),
+        "content": content,
+        "description": description,
+    }))
+}
+
 /// Save session command
 #[tauri::command]
 pub async fn save_session(session_id: String, state: State<'_, AppState>) -> Result<(), String> {

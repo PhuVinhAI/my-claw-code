@@ -11,4 +11,5 @@ workspace = true
 [dependencies]
 plugins = { path = "../plugins" }
 runtime = { path = "../runtime" }
+serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true

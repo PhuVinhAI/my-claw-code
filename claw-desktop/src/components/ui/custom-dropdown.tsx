@@ -9,6 +9,7 @@ export interface DropdownOption {
   icon?: ReactNode;
   group?: string;
   providerId?: string; // For provider filtering
+  description?: string; // For showing additional info
 }
 
 interface Provider {
@@ -276,7 +277,7 @@ export function CustomDropdown({
                           : "bg-accent text-accent-foreground font-semibold"
                         : "text-popover-foreground hover:bg-muted hover:text-foreground"
                     )}
-                    title={option.label}
+                    title={option.description || option.label}
                   >
                     {multiSelect && (
                       <div
@@ -305,7 +306,14 @@ export function CustomDropdown({
                       </div>
                     )}
                     {option.icon && <div className="shrink-0">{option.icon}</div>}
-                    <span className="truncate min-w-0 flex-1 text-left">{option.label}</span>
+                    <div className="flex-1 min-w-0 text-left">
+                      <div className="truncate">{option.label}</div>
+                      {option.description && (
+                        <div className="text-[10px] text-muted-foreground truncate mt-0.5">
+                          {option.description}
+                        </div>
+                      )}
+                    </div>
                   </button>
                 ))}
               </div>

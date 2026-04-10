@@ -3,12 +3,23 @@ import { useState, useRef, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useChatStore } from '../../store';
 import { useSettingsStore } from '../../store/useSettingsStore';
+import { useSkillStore } from '../../store/useSkillStore';
 import { Textarea } from '../../components/ui/textarea';
-import { Send, Square, ChevronDown } from 'lucide-react';
+import { Send, Square, ChevronDown, X } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
 import { ModelSelector } from './ModelSelector';
 import { TokenCounter } from './TokenCounter';
+import { SkillSelector } from './SkillSelector';
+import type { Skill } from '../../core/entities/Skill';
+
+// Helper function to format skill name: "skill-name" -> "Skill Name"
+const formatSkillName = (name: string): string => {
+  return name
+    .split('-')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+};
 
 export function ChatInput() {
   const { t } = useTranslation();
@@ -18,6 +29,7 @@ export function ChatInput() {
   const toolsRef = useRef<HTMLDivElement>(null);
 
   const { state, messages, sendPrompt, stopGeneration, workMode, workspacePath, selectedTools, setSelectedTools, currentTokenUsage, lastUserText } = useChatStore();
+  const { selectedSkills, addSelectedSkill, removeSelectedSkill } = useSkillStore();
   const { settings } = useSettingsStore();
   const isGenerating = state.status !== 'IDLE';
   const isEmpty = messages.length === 0;
@@ -63,9 +75,16 @@ export function ChatInput() {
   const handleSend = async () => {
     if (!input.trim()) return;
     
+    // Build prompt with skills
+    let finalPrompt = input;
+    const skillsToSend = [...selectedSkills]; // Copy for later clearing
+    if (skillsToSend.length > 0) {
+      const skillsPrefix = skillsToSend.map(s => `${s.name}`).join(' ');
+      finalPrompt = `${skillsPrefix} ${input}`;
+    }
+    
     // If AI is generating, stop it first then send
     if (isGenerating) {
-      const currentInput = input;
       setInput(''); // Clear input immediately for better UX
       
       // Stop and send in background (non-blocking)
@@ -80,11 +99,14 @@ export function ChatInput() {
           await new Promise(resolve => setTimeout(resolve, 300));
           
           // Send new message
-          const result = await sendPrompt(currentInput);
+          const result = await sendPrompt(finalPrompt);
           
           // If error, restore text to input
           if (result && typeof result === 'object' && 'error' in result) {
             setInput(result.originalText);
+          } else {
+            // Clear selected skills on success
+            skillsToSend.forEach(skill => removeSelectedSkill(skill.name));
           }
         } catch (e) {
           console.error('[ChatInput] Error in stop-and-send:', e);
@@ -95,20 +117,22 @@ export function ChatInput() {
     }
     
     // Normal send
-    const currentInput = input;
     setInput('');
     
     try {
-      const result = await sendPrompt(currentInput);
+      const result = await sendPrompt(finalPrompt);
       
       // If error, restore text to input
       if (result && typeof result === 'object' && 'error' in result) {
         setInput(result.originalText);
+      } else {
+        // Clear selected skills on success
+        skillsToSend.forEach(skill => removeSelectedSkill(skill.name));
       }
     } catch (e) {
       console.error('[ChatInput] Error sending:', e);
       // Restore text on unexpected error
-      setInput(currentInput);
+      setInput(input);
     }
   };
 
@@ -131,6 +155,17 @@ export function ChatInput() {
     await setSelectedTools(newTools);
   };
 
+  const handleSkillSelect = (skill: Skill) => {
+    addSelectedSkill({
+      name: skill.name,
+      description: skill.description,
+    });
+  };
+
+  const handleSkillRemove = (skillName: string) => {
+    removeSelectedSkill(skillName);
+  };
+
   const inputCard = (
     <div className="flex flex-col rounded-lg bg-card border border-border transition-all duration-200">
       {/* Header - Chỉ hiển thị khi isEmpty (welcome screen) */}
@@ -148,6 +183,27 @@ export function ChatInput() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
           </svg>
           <span className="text-xs font-medium text-muted-foreground">{t('sessionList.home')}</span>
+        </div>
+      )}
+      
+      {/* Skill Badges - Above textarea */}
+      {selectedSkills.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 px-3 pt-2">
+          {selectedSkills.map((skill) => (
+            <div
+              key={skill.name}
+              className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-accent text-accent-foreground text-xs font-medium"
+              title={skill.description}
+            >
+              <span>{formatSkillName(skill.name)}</span>
+              <button
+                onClick={() => handleSkillRemove(skill.name)}
+                className="hover:bg-accent-foreground/20 rounded-sm p-0.5 transition-colors"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </div>
+          ))}
         </div>
       )}
       
@@ -174,6 +230,14 @@ export function ChatInput() {
       {/* Bottom bar */}
       <div className="flex items-center justify-between gap-2 px-2.5 pb-2 pt-1">
         <div className="flex items-center gap-1.5 flex-wrap">
+          {/* Add Skill Button - Only in workspace mode */}
+          {workMode === 'workspace' && (
+            <>
+              <SkillSelector onSelect={handleSkillSelect} />
+              <div className="h-3.5 w-px bg-border" />
+            </>
+          )}
+
           {/* Tools dropdown */}
           {workMode === 'normal' && (
             <>

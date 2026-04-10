@@ -5,14 +5,15 @@ import { useSettingsStore } from '../../store/useSettingsStore';
 import { GeneralSettingsTab } from '../features/settings/GeneralSettingsTab';
 import { AISettingsTab } from '../features/settings/AISettingsTab';
 import { ContextSettingsTab } from '../features/settings/ContextSettingsTab';
-import { ArrowLeft, Bot, MessageSquare, Settings2 } from 'lucide-react';
+import { SkillsSettingsTab } from '../features/settings/SkillsSettingsTab';
+import { ArrowLeft, Bot, MessageSquare, Settings2, BookOpen } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
 interface SettingsScreenProps {
   onBack: () => void;
 }
 
-type TabType = 'general' | 'ai' | 'context';
+type TabType = 'general' | 'ai' | 'context' | 'skills';
 
 export function SettingsScreen({ onBack }: SettingsScreenProps) {
   const { t } = useTranslation();
@@ -80,6 +81,18 @@ export function SettingsScreen({ onBack }: SettingsScreenProps) {
               <MessageSquare className="w-4 h-4" />
               {t('settings.contextSettings')}
             </button>
+            <button
+              onClick={() => setActiveTab('skills')}
+              className={cn(
+                "flex items-center gap-2 w-full px-2.5 py-2 rounded-md text-sm transition-colors",
+                activeTab === 'skills'
+                  ? "bg-accent text-accent-foreground"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+              )}
+            >
+              <BookOpen className="w-4 h-4" />
+              {t('settings.skills.title')}
+            </button>
           </div>
         </div>
       </div>
@@ -90,6 +103,7 @@ export function SettingsScreen({ onBack }: SettingsScreenProps) {
           {activeTab === 'general' && <GeneralSettingsTab />}
           {activeTab === 'ai' && <AISettingsTab />}
           {activeTab === 'context' && <ContextSettingsTab />}
+          {activeTab === 'skills' && <SkillsSettingsTab />}
         </div>
       </div>
     </div>

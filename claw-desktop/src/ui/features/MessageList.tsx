@@ -17,36 +17,89 @@ const COLLAPSE_THRESHOLD = 300;
 const SCROLL_THRESHOLD = 150; // Khoảng cách từ bottom để coi là "ở dưới cùng"
 const SHOW_BUTTON_THRESHOLD = 300; // Khoảng cách cuộn lên để hiện nút
 
+// Helper function to format skill name: "skill-name" -> "Skill Name"
+const formatSkillName = (name: string): string => {
+  return name
+    .split('-')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+};
+
+// Helper function to parse skills from text
+const parseSkillsFromText = (text: string): { skills: string[]; remainingText: string } => {
+  const trimmed = text.trim();
+  const words = trimmed.split(/\s+/);
+  const skills: string[] = [];
+  
+  // Extract skills from the beginning (words that look like skill names)
+  let i = 0;
+  while (i < words.length) {
+    const word = words[i];
+    // Check if word looks like a skill (contains hyphens and lowercase letters)
+    if (word.match(/^[a-z]+(-[a-z]+)+$/)) {
+      skills.push(word);
+      i++;
+    } else {
+      break;
+    }
+  }
+  
+  // Remaining text after skills
+  const remainingText = words.slice(i).join(' ');
+  
+  return { skills, remainingText };
+};
+
 function UserMessage({ text }: { text: string }) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const shouldCollapse = text.length > COLLAPSE_THRESHOLD;
+  const { skills, remainingText } = parseSkillsFromText(text);
+  const shouldCollapse = remainingText.length > COLLAPSE_THRESHOLD;
   
   const displayText = shouldCollapse && !isExpanded 
-    ? text.slice(0, COLLAPSE_THRESHOLD) + '...'
-    : text;
+    ? remainingText.slice(0, COLLAPSE_THRESHOLD) + '...'
+    : remainingText;
 
   return (
     <div className="space-y-2">
-      <div className="whitespace-pre-wrap break-words text-foreground">
-        {displayText}
-      </div>
-      {shouldCollapse && (
-        <button
-          onClick={() => setIsExpanded(!isExpanded)}
-          className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-        >
-          {isExpanded ? (
-            <>
-              <ChevronUp className="w-3 h-3" />
-              <span>Thu gọn</span>
-            </>
-          ) : (
-            <>
-              <ChevronDown className="w-3 h-3" />
-              <span>Xem thêm</span>
-            </>
+      {/* Skill Badges */}
+      {skills.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mb-2">
+          {skills.map((skill, idx) => (
+            <div
+              key={idx}
+              className="inline-flex items-center px-2 py-0.5 rounded-md bg-accent/80 text-accent-foreground text-xs font-medium"
+            >
+              {formatSkillName(skill)}
+            </div>
+          ))}
+        </div>
+      )}
+      
+      {/* Message Text */}
+      {remainingText && (
+        <>
+          <div className="whitespace-pre-wrap break-words text-foreground">
+            {displayText}
+          </div>
+          {shouldCollapse && (
+            <button
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              {isExpanded ? (
+                <>
+                  <ChevronUp className="w-3 h-3" />
+                  <span>Thu gọn</span>
+                </>
+              ) : (
+                <>
+                  <ChevronDown className="w-3 h-3" />
+                  <span>Xem thêm</span>
+                </>
+              )}
+            </button>
           )}
-        </button>
+        </>
       )}
     </div>
   );

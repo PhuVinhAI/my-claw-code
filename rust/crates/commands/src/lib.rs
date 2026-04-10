@@ -2102,8 +2102,8 @@ pub struct PluginsCommandResult {
     pub reload_runtime: bool,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-enum DefinitionSource {
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize)]
+pub enum DefinitionSource {
     ProjectClaw,
     ProjectCodex,
     ProjectClaude,
@@ -2157,17 +2157,17 @@ struct AgentSummary {
     shadowed_by: Option<DefinitionSource>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct SkillSummary {
-    name: String,
-    description: Option<String>,
-    source: DefinitionSource,
-    shadowed_by: Option<DefinitionSource>,
-    origin: SkillOrigin,
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct SkillSummary {
+    pub name: String,
+    pub description: Option<String>,
+    pub source: DefinitionSource,
+    pub shadowed_by: Option<DefinitionSource>,
+    pub origin: SkillOrigin,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum SkillOrigin {
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum SkillOrigin {
     SkillsDir,
     LegacyCommandsDir,
 }
@@ -2182,10 +2182,10 @@ impl SkillOrigin {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-struct SkillRoot {
-    source: DefinitionSource,
-    path: PathBuf,
-    origin: SkillOrigin,
+pub struct SkillRoot {
+    pub source: DefinitionSource,
+    pub path: PathBuf,
+    pub origin: SkillOrigin,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -2765,7 +2765,7 @@ fn discover_definition_roots(cwd: &Path, leaf: &str) -> Vec<(DefinitionSource, P
 }
 
 #[allow(clippy::too_many_lines)]
-fn discover_skill_roots(cwd: &Path) -> Vec<SkillRoot> {
+pub fn discover_skill_roots(cwd: &Path) -> Vec<SkillRoot> {
     let mut roots = Vec::new();
 
     for ancestor in cwd.ancestors() {
@@ -3196,7 +3196,7 @@ fn load_agents_from_roots(
     Ok(agents)
 }
 
-fn load_skills_from_roots(roots: &[SkillRoot]) -> std::io::Result<Vec<SkillSummary>> {
+pub fn load_skills_from_roots(roots: &[SkillRoot]) -> std::io::Result<Vec<SkillSummary>> {
     let mut skills = Vec::new();
     let mut active_sources = BTreeMap::<String, DefinitionSource>::new();
 
@@ -3297,7 +3297,7 @@ fn parse_toml_string(contents: &str, key: &str) -> Option<String> {
     None
 }
 
-fn parse_skill_frontmatter(contents: &str) -> (Option<String>, Option<String>) {
+pub fn parse_skill_frontmatter(contents: &str) -> (Option<String>, Option<String>) {
     let mut lines = contents.lines();
     if lines.next().map(str::trim) != Some("---") {
         return (None, None);
@@ -3466,7 +3466,7 @@ fn render_skills_report(skills: &[SkillSummary]) -> String {
     lines.join("\n").trim_end().to_string()
 }
 
-fn render_skills_report_json(skills: &[SkillSummary]) -> Value {
+pub fn render_skills_report_json(skills: &[SkillSummary]) -> Value {
     let active = skills
         .iter()
         .filter(|skill| skill.shadowed_by.is_none())
