@@ -948,49 +948,6 @@ pub fn open_external_terminal(command: Option<String>) -> Result<(), String> {
     Ok(())
 }
 
-/// Fetch available models from Kilo Gateway API
-/// Test Antigravity proxy connection
-#[tauri::command]
-pub async fn test_antigravity_connection(base_url: String) -> Result<String, String> {
-    tracing::info!(base_url = %base_url, "Testing Antigravity connection");
-    
-    // Try to fetch models list from Antigravity proxy
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(5))
-        .build()
-        .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
-    
-    let url = format!("{}/v1/models", base_url);
-    
-    match client.get(&url).send().await {
-        Ok(response) => {
-            if response.status().is_success() {
-                match response.text().await {
-                    Ok(body) => {
-                        tracing::info!("Antigravity connection successful");
-                        Ok(body)
-                    }
-                    Err(e) => {
-                        let err = format!("Failed to read response: {}", e);
-                        tracing::error!("{}", err);
-                        Err(err)
-                    }
-                }
-            } else {
-                let status = response.status();
-                let err = format!("Antigravity returned error status: {}", status);
-                tracing::error!("{}", err);
-                Err(err)
-            }
-        }
-        Err(e) => {
-            let err = format!("Failed to connect to Antigravity: {}", e);
-            tracing::error!("{}", err);
-            Err(err)
-        }
-    }
-}
-
 /// Submit answer for PromptUser tool
 #[tauri::command]
 pub async fn submit_prompt_answer(
@@ -1265,4 +1222,90 @@ pub async fn fetch_provider_models(
     
     eprintln!("[COMMAND] Fetched {} bytes from provider API", body.len());
     Ok(body)
+}
+
+/// Update auto-start Antigravity setting
+#[tauri::command]
+pub fn update_auto_start_antigravity(
+    enabled: bool,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let mut settings = state.settings_manager.load()?;
+    settings.auto_start_antigravity = enabled;
+    state.settings_manager.save(&settings)?;
+    eprintln!("[COMMAND] Auto-start Antigravity set to: {}", enabled);
+    Ok(())
+}
+
+/// Start Antigravity server in background (non-blocking)
+#[tauri::command]
+pub async fn start_antigravity_server() -> Result<(), String> {
+    eprintln!("[COMMAND] Starting Antigravity server (non-blocking)...");
+    
+    // Quick health check (non-blocking)
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_millis(500))
+        .build()
+        .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
+    
+    // Check if already running (quick check only)
+    if let Ok(response) = client.get("http://localhost:8080/health").send().await {
+        if response.status().is_success() {
+            eprintln!("[COMMAND] Antigravity server already running");
+            return Ok(());
+        }
+    }
+    
+    eprintln!("[COMMAND] Server not running, starting in background...");
+    
+    // Start server in background (fire and forget)
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("cmd")
+            .arg("/C")
+            .arg("start")
+            .arg("/B")
+            .arg("antigravity-claude-proxy")
+            .arg("start")
+            .spawn()
+            .map_err(|e| format!("Failed to start Antigravity: {}", e))?;
+    }
+    
+    #[cfg(not(target_os = "windows"))]
+    {
+        std::process::Command::new("antigravity-claude-proxy")
+            .arg("start")
+            .stdin(std::process::Stdio::null())
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .spawn()
+            .map_err(|e| format!("Failed to start Antigravity: {}", e))?;
+    }
+    
+    eprintln!("[COMMAND] Antigravity server started in background");
+    
+    // Spawn background task to wait for server (non-blocking)
+    tokio::spawn(async move {
+        let client = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_millis(500))
+            .build()
+            .unwrap();
+        
+        // Poll for 30 seconds (60 attempts x 500ms)
+        for i in 0..60 {
+            tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+            
+            if let Ok(response) = client.get("http://localhost:8080/health").send().await {
+                if response.status().is_success() {
+                    eprintln!("[COMMAND] Antigravity server is healthy after {}ms", (i + 1) * 500);
+                    return;
+                }
+            }
+        }
+        
+        eprintln!("[COMMAND] Warning: Antigravity server health check timeout after 30s (app continues normally)");
+    });
+    
+    // Return immediately (don't wait for health check)
+    Ok(())
 }

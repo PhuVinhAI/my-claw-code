@@ -21,9 +21,8 @@ export function AntigravitySetupComponent({ onTestSuccess }: AntigravitySetupCom
     setTestError('');
 
     try {
-      await invoke('test_antigravity_connection', { 
-        baseUrl: 'http://localhost:8080' 
-      });
+      // Start server and test connection
+      await invoke('start_antigravity_server');
       setTestResult('success');
       onTestSuccess();
     } catch (error) {

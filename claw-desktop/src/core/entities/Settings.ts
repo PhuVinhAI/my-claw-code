@@ -28,4 +28,5 @@ export interface Settings {
   providers: Provider[];
   selected_model: SelectedModel | null;
   compact_config: CompactConfig;
+  auto_start_antigravity: boolean;
 }

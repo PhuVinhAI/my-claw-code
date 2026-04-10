@@ -36,6 +36,8 @@ pub struct Settings {
     pub workspace_path: String, // User's workspace directory for tool execution
     #[serde(default = "default_user_language")]
     pub user_language: String, // User's preferred language (e.g., "en", "vi")
+    #[serde(default = "default_auto_start_antigravity")]
+    pub auto_start_antigravity: bool, // Auto-start Antigravity on app launch
 }
 
 fn default_workspace_path() -> String {
@@ -47,6 +49,10 @@ fn default_workspace_path() -> String {
 
 fn default_user_language() -> String {
     "vi".to_string()
+}
+
+fn default_auto_start_antigravity() -> bool {
+    true // Auto-start by default
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -103,6 +109,7 @@ impl Settings {
             compact_config: CompactConfig::default(),
             workspace_path: default_workspace_path(),
             user_language: default_user_language(),
+            auto_start_antigravity: default_auto_start_antigravity(),
         }
     }
 
@@ -128,6 +135,7 @@ impl Settings {
                     compact_config: CompactConfig::default(),
                     workspace_path: default_workspace_path(),
                     user_language: default_user_language(),
+                    auto_start_antigravity: default_auto_start_antigravity(),
                 }
             }
             Err(e) => {
@@ -154,6 +162,7 @@ impl Settings {
             compact_config: CompactConfig::default(),
             workspace_path: default_workspace_path(),
             user_language: default_user_language(),
+            auto_start_antigravity: default_auto_start_antigravity(),
         }
     }
 

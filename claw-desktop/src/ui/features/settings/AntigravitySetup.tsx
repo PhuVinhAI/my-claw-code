@@ -14,6 +14,8 @@ interface AntigravitySetupProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   baseUrl?: string;
+  autoStart?: boolean;
+  onAutoStartChange?: (enabled: boolean) => void;
 }
 
 // Skeleton loading component
@@ -32,7 +34,7 @@ function ModelSkeleton() {
   );
 }
 
-export function AntigravitySetup({ existingModels, onAddModel, isOpen, onOpenChange, baseUrl = 'http://localhost:8080' }: AntigravitySetupProps) {
+export function AntigravitySetup({ existingModels, onAddModel, isOpen, onOpenChange, baseUrl = 'http://localhost:8080', autoStart = true, onAutoStartChange }: AntigravitySetupProps) {
   const { t } = useTranslation();
   const [models, setModels] = useState<AntigravityModel[]>([]);
   const [loading, setLoading] = useState(false);
@@ -90,6 +92,25 @@ export function AntigravitySetup({ existingModels, onAddModel, isOpen, onOpenCha
             {t('antigravity.subtitle', 'Free Claude & Gemini models via Google Cloud Code')}
           </p>
         </DialogHeader>
+
+        {/* Auto-start Toggle */}
+        <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+          <div className="flex-1">
+            <p className="text-sm font-medium">{t('antigravity.autoStart', 'Tự động khởi động')}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {t('antigravity.autoStartDesc', 'Tự động kết nối Antigravity khi mở app')}
+            </p>
+          </div>
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              checked={autoStart}
+              onChange={(e) => onAutoStartChange?.(e.target.checked)}
+              className="sr-only peer"
+            />
+            <div className="w-11 h-6 bg-muted peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+          </label>
+        </div>
 
         {/* Warning */}
         <div className="px-3 py-2.5 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900 rounded-lg">

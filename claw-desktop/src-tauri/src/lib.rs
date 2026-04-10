@@ -111,7 +111,8 @@ pub fn run() {
             get_selected_model_info,
             reload_api_client,
             fetch_provider_models,
-            test_antigravity_connection,
+            update_auto_start_antigravity,
+            start_antigravity_server,
             // Terminal commands
             execute_terminal_command,
             spawn_terminal_shell,

@@ -54,6 +54,19 @@ function App() {
         if (isComplete) {
           setCurrentScreen('chat');
           initializeChatStore();
+          
+          // Auto-start Antigravity server if enabled
+          const settings = await invoke<any>('get_settings');
+          if (settings.auto_start_antigravity) {
+            console.log('[App] Auto-starting Antigravity server...');
+            try {
+              // Start the server in background
+              await invoke('start_antigravity_server');
+              console.log('[App] Antigravity server started successfully');
+            } catch (err) {
+              console.warn('[App] Antigravity auto-start failed:', err);
+            }
+          }
         } else {
           setCurrentScreen('onboarding');
         }

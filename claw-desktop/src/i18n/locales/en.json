@@ -335,7 +335,9 @@
     "allTab": "All",
     "claudeTab": "Claude",
     "geminiTab": "Gemini",
-    "refresh": "Refresh"
+    "refresh": "Refresh",
+    "autoStart": "Auto-start",
+    "autoStartDesc": "Automatically connect Antigravity on app launch"
   },
   "kilo": {
     "apiKeyRequired": "API key required to use Kilo Gateway",

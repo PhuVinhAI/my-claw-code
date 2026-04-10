@@ -1,6 +1,7 @@
 // AI Settings Tab - Modal-based UI
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { invoke } from '@tauri-apps/api/core';
 import { useSettingsStore } from '../../../store/useSettingsStore';
 import { Provider, Model } from '../../../core/entities';
 import { Button } from '../../../components/ui/button';
@@ -15,7 +16,7 @@ import { ApiKeyWarning } from './ApiKeyWarning';
 
 export function AISettingsTab() {
   const { t } = useTranslation();
-  const { settings, addProvider, updateProvider, deleteProvider, addModel, updateModel, deleteModel } = useSettingsStore();
+  const { settings, addProvider, updateProvider, deleteProvider, addModel, updateModel, deleteModel, loadSettings } = useSettingsStore();
   
   const [expandedProviders, setExpandedProviders] = useState<Set<string>>(new Set());
   
@@ -432,6 +433,15 @@ export function AISettingsTab() {
           onAddModel={(model) => addModel(antigravitySetupOpen, model)}
           isOpen={true}
           onOpenChange={(open) => !open && setAntigravitySetupOpen(null)}
+          autoStart={settings.auto_start_antigravity}
+          onAutoStartChange={async (enabled) => {
+            try {
+              await invoke('update_auto_start_antigravity', { enabled });
+              await loadSettings();
+            } catch (err) {
+              console.error('Failed to update auto-start:', err);
+            }
+          }}
         />
       )}
 
