@@ -161,6 +161,9 @@ impl ApiClient for TauriApiClient {
                 // Track pending tool uses: index -> (id, name, input_accumulator)
                 let mut pending_tools: std::collections::HashMap<u32, (String, String, String)> =
                     std::collections::HashMap::new();
+                // Track pending thinking blocks: index -> thinking_accumulator
+                let mut pending_thinking: std::collections::HashMap<u32, String> =
+                    std::collections::HashMap::new();
 
                 loop {
                     // Check nếu user bấm nút dừng (Cancel)
@@ -209,6 +212,20 @@ impl ApiClient for TauriApiClient {
                                             assistant_events
                                                 .push(AssistantEvent::TextDelta(text.clone()));
                                         }
+                                        api::ContentBlockDelta::ThinkingDelta { thinking } => {
+                                            // Accumulate thinking content
+                                            if let Some(accumulated) = pending_thinking.get_mut(&delta.index) {
+                                                accumulated.push_str(thinking);
+                                                // Emit incremental thinking (streaming)
+                                                event_publisher.publish_stream_event(
+                                                    crate::core::domain::types::StreamEvent::ThinkingBlock {
+                                                        thinking: accumulated.clone(),
+                                                        is_complete: false,
+                                                        turn_id: turn_id.clone(),
+                                                    },
+                                                );
+                                            }
+                                        }
                                         api::ContentBlockDelta::InputJsonDelta { partial_json } => {
                                             // Accumulate tool input
                                             if let Some((_, _, input)) = pending_tools.get_mut(&delta.index) {
@@ -219,20 +236,38 @@ impl ApiClient for TauriApiClient {
                                     }
                                 }
                                 ApiStreamEvent::ContentBlockStart(start) => {
-                                    if let api::OutputContentBlock::ToolUse { id, name, .. } =
-                                        &start.content_block
-                                    {
-                                        tracing::info!(
-                                            tool_id = %id,
-                                            tool_name = %name,
-                                            index = start.index,
-                                            "Tool use started"
-                                        );
-                                        // Start tracking this tool use
-                                        pending_tools.insert(
-                                            start.index,
-                                            (id.clone(), name.clone(), String::new())
-                                        );
+                                    match &start.content_block {
+                                        api::OutputContentBlock::ToolUse { id, name, .. } => {
+                                            tracing::info!(
+                                                tool_id = %id,
+                                                tool_name = %name,
+                                                index = start.index,
+                                                "Tool use started"
+                                            );
+                                            // Start tracking this tool use
+                                            pending_tools.insert(
+                                                start.index,
+                                                (id.clone(), name.clone(), String::new())
+                                            );
+                                        }
+                                        api::OutputContentBlock::Thinking { thinking, .. } => {
+                                            tracing::info!(
+                                                index = start.index,
+                                                thinking_len = thinking.len(),
+                                                "Thinking block started"
+                                            );
+                                            // Start tracking thinking block
+                                            pending_thinking.insert(start.index, thinking.clone());
+                                            // Emit initial thinking (may be empty for streaming)
+                                            event_publisher.publish_stream_event(
+                                                crate::core::domain::types::StreamEvent::ThinkingBlock {
+                                                    thinking: thinking.clone(),
+                                                    is_complete: false,
+                                                    turn_id: turn_id.clone(),
+                                                },
+                                            );
+                                        }
+                                        _ => {}
                                     }
                                 }
                                 ApiStreamEvent::ContentBlockStop(stop) => {
@@ -257,6 +292,20 @@ impl ApiClient for TauriApiClient {
                                             name,
                                             input,
                                         });
+                                    }
+                                    // Emit complete thinking block
+                                    if let Some(thinking) = pending_thinking.remove(&stop.index) {
+                                        tracing::info!(
+                                            thinking_len = thinking.len(),
+                                            "Thinking block completed"
+                                        );
+                                        event_publisher.publish_stream_event(
+                                            crate::core::domain::types::StreamEvent::ThinkingBlock {
+                                                thinking,
+                                                is_complete: true,
+                                                turn_id: turn_id.clone(),
+                                            },
+                                        );
                                     }
                                 }
                                 ApiStreamEvent::MessageDelta(delta) => {

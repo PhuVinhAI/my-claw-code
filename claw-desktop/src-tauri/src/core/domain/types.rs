@@ -34,6 +34,7 @@ impl From<&runtime::Session> for SessionDto {
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum StreamEvent {
     TextDelta { delta: String, turn_id: String },
+    ThinkingBlock { thinking: String, is_complete: bool, turn_id: String }, // AI thinking content from API
     ToolUse { id: String, name: String, input: String, turn_id: String },
     ToolResult { tool_use_id: String, output: String, is_error: bool, is_cancelled: bool, is_timed_out: bool, turn_id: String },
     ToolOutputChunk { tool_use_id: String, chunk: String, turn_id: String }, // Real-time output streaming

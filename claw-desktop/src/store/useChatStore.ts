@@ -670,6 +670,50 @@ export function initializeChatStore() {
         appendTextDelta(event.delta);
         dispatch({ type: 'STREAM_TEXT_DELTA', delta: event.delta });
         break;
+      case 'thinking_block':
+        // Flush current text before thinking block
+        flushAssistantMessage();
+        
+        // Check if thinking block already exists (streaming update)
+        useChatStore.setState((prev) => {
+          const messages = [...prev.messages];
+          const lastMessage = messages[messages.length - 1];
+          
+          // If last message is assistant and has thinking block, update it
+          if (lastMessage?.role === 'assistant') {
+            const thinkingBlockIdx = lastMessage.blocks.findIndex(b => b.type === 'thinking_api');
+            
+            if (thinkingBlockIdx !== -1) {
+              // Update existing thinking block
+              lastMessage.blocks[thinkingBlockIdx] = {
+                type: 'thinking_api',
+                thinking: event.thinking,
+                is_complete: event.is_complete,
+                id: (lastMessage.blocks[thinkingBlockIdx] as any).id,
+              };
+              return { messages };
+            }
+          }
+          
+          // Add new thinking block message
+          return {
+            messages: [
+              ...messages,
+              {
+                role: 'assistant',
+                blocks: [
+                  {
+                    type: 'thinking_api',
+                    thinking: event.thinking,
+                    is_complete: event.is_complete,
+                    id: `thinking-api-${Date.now()}-${Math.random()}`,
+                  },
+                ],
+              },
+            ],
+          };
+        });
+        break;
       case 'tool_use':
         // Flush current text before tool use
         flushAssistantMessage();

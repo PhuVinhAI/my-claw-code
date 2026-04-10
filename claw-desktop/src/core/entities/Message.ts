@@ -2,7 +2,7 @@
 export type MessageRole = 'user' | 'assistant' | 'system' | 'tool';
 
 export interface ContentBlock {
-  type: 'text' | 'tool_use' | 'tool_result' | 'thinking' | 'compact';
+  type: 'text' | 'tool_use' | 'tool_result' | 'thinking' | 'thinking_api' | 'compact';
   text?: string;
   id?: string;
   name?: string;
@@ -14,7 +14,8 @@ export interface ContentBlock {
   is_cancelled?: boolean; // True when tool was cancelled by user
   is_timed_out?: boolean; // True when tool timed out
   isStreaming?: boolean; // True when receiving chunks, false when complete
-  thinking?: string; // For thinking blocks (parsed from text)
+  thinking?: string; // For thinking blocks (parsed from text or from API)
+  is_complete?: boolean; // For thinking_api blocks - true when streaming complete
   // Compact block fields
   status?: 'started' | 'completed';
   estimatedTokens?: number;

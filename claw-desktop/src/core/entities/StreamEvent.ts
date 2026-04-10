@@ -3,6 +3,7 @@ import { TokenUsage } from './Message';
 
 export type StreamEvent =
   | { type: 'text_delta'; delta: string; turn_id: string }
+  | { type: 'thinking_block'; thinking: string; is_complete: boolean; turn_id: string } // AI thinking from API
   | { type: 'tool_use'; id: string; name: string; input: string; turn_id: string }
   | { type: 'tool_result'; tool_use_id: string; output: string; is_error: boolean; is_cancelled: boolean; is_timed_out?: boolean; turn_id: string }
   | { type: 'tool_output_chunk'; tool_use_id: string; chunk: string; turn_id: string } // Real-time output streaming

@@ -354,6 +354,15 @@ export function MessageList() {
                             />
                           );
                         }
+                        if (block.type === 'thinking_api') {
+                          return (
+                            <ThinkingBlock
+                              key={blockIdx}
+                              thinking={block.thinking || ''}
+                              isStreaming={!block.is_complete}
+                            />
+                          );
+                        }
                         if (block.type === 'compact') {
                           return (
                             <CompactBlock
