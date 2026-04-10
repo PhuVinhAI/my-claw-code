@@ -72,7 +72,12 @@ export const useTerminalStore = create<TerminalState>()(
       },
 
       closeTab: (id) => {
-        // Kill terminal process before removing tab
+        // Dispose XTerm instance when tab is closed
+        import('../ui/features/terminal/TerminalTab').then(({ disposeTerminalInstance }) => {
+          disposeTerminalInstance(id);
+        });
+        
+        // Kill terminal process
         import('@tauri-apps/api/core').then(({ invoke }) => {
           invoke('kill_terminal', { terminalId: id }).catch(err => {
             console.error('[TerminalStore] Failed to kill terminal:', err);
@@ -142,6 +147,14 @@ export const useTerminalStore = create<TerminalState>()(
       },
 
       resetAllTerminals: () => {
+        // Dispose all XTerm instances
+        import('../ui/features/terminal/TerminalTab').then(({ disposeTerminalInstance }) => {
+          const { tabs } = get();
+          tabs.forEach(tab => {
+            disposeTerminalInstance(tab.id);
+          });
+        });
+        
         // Kill all terminal processes
         const { tabs } = get();
         tabs.forEach(tab => {
