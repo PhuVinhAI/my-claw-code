@@ -86,6 +86,25 @@ export function TerminalTab({ tabId }: TerminalTabProps) {
     
     term.open(terminalRef.current);
     
+    // Enable right-click to copy selection
+    term.attachCustomKeyEventHandler((event) => {
+      // Allow Ctrl+C to copy when there's a selection
+      if (event.ctrlKey && event.key === 'c' && term.hasSelection()) {
+        return false; // Let browser handle copy
+      }
+      return true;
+    });
+    
+    // Handle right-click context menu for copy
+    terminalRef.current.addEventListener('contextmenu', (e) => {
+      if (term.hasSelection()) {
+        // Allow default context menu when there's selection (for copy)
+        return;
+      }
+      // Prevent context menu when no selection
+      e.preventDefault();
+    });
+    
     // Fit after a short delay to ensure container is rendered
     setTimeout(() => {
       fitAddon.fit();
@@ -143,10 +162,8 @@ export function TerminalTab({ tabId }: TerminalTabProps) {
     return () => {
       unlistenPromise.then(unlisten => unlisten());
       
-      // Kill shell when component unmounts
-      invoke('kill_terminal', { terminalId: tabId }).catch(err => {
-        console.error('[Terminal] Failed to kill shell:', err);
-      });
+      // DO NOT kill terminal on unmount - only kill when tab is closed (via closeTab action)
+      // This allows terminal to keep running when RightPanel is toggled closed
       
       term.dispose();
       xtermRef.current = null;

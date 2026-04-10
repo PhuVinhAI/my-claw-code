@@ -50,6 +50,13 @@ export function XTermBlock({
   
   const [isExpanded, setIsExpanded] = useState(false);
 
+  // Auto-expand when tool starts running to show real-time output
+  useEffect(() => {
+    if (isPending && !isExpanded) {
+      setIsExpanded(true);
+    }
+  }, [isPending, isExpanded]);
+
   let inputParams: any = {};
   if (toolInput) {
     try {
@@ -137,6 +144,26 @@ export function XTermBlock({
     term.loadAddon(webLinksAddon);
     
     term.open(terminalRef.current);
+    
+    // Enable right-click to copy selection
+    term.attachCustomKeyEventHandler((event) => {
+      // Allow Ctrl+C to copy when there's a selection
+      if (event.ctrlKey && event.key === 'c' && term.hasSelection()) {
+        return false; // Let browser handle copy
+      }
+      return true;
+    });
+    
+    // Handle right-click context menu for copy
+    terminalRef.current.addEventListener('contextmenu', (e) => {
+      if (term.hasSelection()) {
+        // Allow default context menu when there's selection (for copy)
+        return;
+      }
+      // Prevent context menu when no selection
+      e.preventDefault();
+    });
+    
     fitAddon.fit();
 
     xtermRef.current = term;

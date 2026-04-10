@@ -71,6 +71,13 @@ export const useTerminalStore = create<TerminalState>()(
       },
 
       closeTab: (id) => {
+        // Kill terminal process before removing tab
+        import('@tauri-apps/api/core').then(({ invoke }) => {
+          invoke('kill_terminal', { terminalId: id }).catch(err => {
+            console.error('[TerminalStore] Failed to kill terminal:', err);
+          });
+        });
+        
         set((state) => {
           const tabs = state.tabs.filter(t => t.id !== id);
           const wasActive = state.activeTabId === id;

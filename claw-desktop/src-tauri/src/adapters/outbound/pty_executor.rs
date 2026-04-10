@@ -207,7 +207,9 @@ impl PtyExecutor {
             c.arg("-NoProfile");
             c.arg("-NonInteractive");
             c.arg("-Command");
-            c.arg(command);
+            // CRITICAL: Add explicit exit to ensure PowerShell terminates after command
+            // This fixes ConPTY bug where process exits but pipe doesn't close
+            c.arg(format!("{}; exit $LASTEXITCODE", command));
             c
         } else {
             let mut c = CommandBuilder::new("sh");
@@ -460,6 +462,12 @@ impl PtyExecutor {
             match child.try_wait() {
                 Ok(Some(_status)) => {
                     // Process finished normally
+                    eprintln!("[PTY] Process exited, waiting for output to flush...");
+                    
+                    // CRITICAL: Wait a bit for reader thread to drain remaining output
+                    // ConPTY may have buffered output that hasn't been read yet
+                    std::thread::sleep(std::time::Duration::from_millis(200));
+                    
                     break Ok(());
                 }
                 Ok(None) => {
@@ -473,12 +481,35 @@ impl PtyExecutor {
             }
         };
 
-        // Drop PTY slave to close pipes (only if not detached)
-        // Note: pair.master already moved to master_arc, so we can only drop slave
+        // Drop PTY slave AND master to close pipes (only if not detached)
+        // CRITICAL: On Windows ConPTY, must drop BOTH slave and master to close pipes
+        // Otherwise reader thread will block forever on read()
         drop(pair.slave);
+        drop(master_arc); // This will close the master PTY, triggering EOF for reader
         
-        // Wait for reader thread to finish (with timeout for detached case)
-        let _ = reader_handle.join();
+        // Wait for reader thread to finish (with timeout)
+        let reader_result = std::thread::spawn(move || {
+            let timeout = std::time::Duration::from_secs(2);
+            let start = std::time::Instant::now();
+            
+            loop {
+                if reader_handle.is_finished() {
+                    let _ = reader_handle.join();
+                    return true;
+                }
+                
+                if start.elapsed() > timeout {
+                    eprintln!("[PTY] Reader thread timeout - forcing continue");
+                    return false;
+                }
+                
+                std::thread::sleep(std::time::Duration::from_millis(50));
+            }
+        }).join();
+        
+        if let Ok(false) = reader_result {
+            eprintln!("[PTY] Warning: Reader thread did not finish cleanly");
+        }
 
         // Get final output
         let output = {
