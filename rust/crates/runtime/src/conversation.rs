@@ -141,7 +141,7 @@ pub struct ConversationRuntime<C, T> {
     api_client: C,
     tool_executor: T,
     permission_policy: PermissionPolicy,
-    system_prompt: Vec<String>,
+    pub system_prompt: Vec<String>, // Desktop needs to read/modify this
     max_iterations: usize,
     usage_tracker: UsageTracker,
     hook_runner: HookRunner,

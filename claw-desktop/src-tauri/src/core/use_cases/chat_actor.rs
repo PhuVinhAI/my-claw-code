@@ -10,12 +10,16 @@ use runtime::{
 use crate::core::use_cases::ports::IEventPublisher;
 use crate::core::domain::types::StreamEvent;
 
+// Import commands module for skill loading
+use commands;
+
 /// Actor Command - Messages gửi đến Actor
 #[derive(Debug)]
 pub enum ActorCommand {
     Prompt {
         text: String,
         turn_id: String, // Turn ID from frontend
+        skills: Vec<String>, // Skill names to inject into system prompt
         response_tx: oneshot::Sender<Result<TurnSummary, RuntimeError>>,
     },
     Cancel {
@@ -156,11 +160,11 @@ impl ChatSessionActor {
             tracing::debug!(command_type = %command_type, "Received actor command");
             
             match command {
-                ActorCommand::Prompt { text, turn_id, response_tx } => {
-                    tracing::info!(text_len = text.len(), turn_id = %turn_id, "Processing Prompt command");
+                ActorCommand::Prompt { text, turn_id, skills, response_tx } => {
+                    tracing::info!(text_len = text.len(), turn_id = %turn_id, skills_count = skills.len(), "Processing Prompt command");
                     // Clone turn_id for error handling (will be moved into handle_prompt)
                     let turn_id_for_error = turn_id.clone();
-                    let result = self.handle_prompt(text, turn_id).await;
+                    let result = self.handle_prompt(text, turn_id, skills).await;
                     match &result {
                         Ok(summary) => {
                             tracing::info!(
@@ -271,14 +275,29 @@ impl ChatSessionActor {
         }
     }
 
-    async fn handle_prompt(&mut self, text: String, turn_id: String) -> Result<TurnSummary, RuntimeError> {
+    async fn handle_prompt(&mut self, text: String, turn_id: String, skills: Vec<String>) -> Result<TurnSummary, RuntimeError> {
         use crate::core::domain::logging_helpers::{log_turn_for_ai, log_tool_execution_for_ai, log_api_call_for_ai};
         
         tracing::info!(
             turn_id = %turn_id,
             text_len = text.len(),
+            skills_count = skills.len(),
             "🎯 TURN_START (turn_id from frontend)"
         );
+        
+        // Reload system prompt with skills if provided
+        if !skills.is_empty() {
+            tracing::info!(skills = ?skills, "Reloading system prompt with skills");
+            
+            let work_mode = self.session_repository.get_work_mode()
+                .unwrap_or_else(|_| "normal".to_string());
+            let workspace_path = self.session_repository.get_workspace_path().ok().flatten();
+            
+            // Reload system prompt with skills injected
+            if let Err(e) = self.handle_reload_system_prompt_with_skills(work_mode, workspace_path, skills) {
+                tracing::warn!(error = %e, "Failed to reload system prompt with skills, continuing without skills");
+            }
+        }
         
         // CRITICAL: Reset cancel flag at the START of new turn
         // This prevents race condition where previous cancel affects new turn
@@ -926,6 +945,10 @@ impl ChatSessionActor {
     }
 
     fn handle_reload_system_prompt(&mut self, work_mode: String, workspace_path: Option<String>) -> Result<(), String> {
+        self.handle_reload_system_prompt_with_skills(work_mode, workspace_path, Vec::new())
+    }
+    
+    fn handle_reload_system_prompt_with_skills(&mut self, work_mode: String, workspace_path: Option<String>, skills: Vec<String>) -> Result<(), String> {
         // Determine CWD and workspace context based on work mode
         let (cwd, include_workspace_context) = if work_mode == "workspace" {
             // Workspace mode: use workspace path or current dir, include git + directory tree
@@ -950,7 +973,7 @@ impl ChatSessionActor {
         let os_name = std::env::consts::OS.to_string();
         let os_version = "".to_string();
         
-        let system_prompt = runtime::load_system_prompt(
+        let mut system_prompt = runtime::load_system_prompt(
             cwd.clone(), 
             date, 
             os_name, 
@@ -959,6 +982,46 @@ impl ChatSessionActor {
             user_language,
         )
         .map_err(|e| format!("Failed to load system prompt: {}", e))?;
+        
+        // Inject skills if provided
+        if !skills.is_empty() {
+            let mut skill_sections = Vec::new();
+            for skill_name in &skills {
+                // Resolve skill path
+                match commands::resolve_skill_path(&cwd, skill_name) {
+                    Ok(skill_path) => {
+                        // Read skill file content
+                        match std::fs::read_to_string(&skill_path) {
+                            Ok(content) => {
+                                tracing::debug!(skill = %skill_name, path = ?skill_path, "Loaded skill content");
+                                skill_sections.push(format!("# Skill: {}\n\n{}", skill_name, content));
+                            }
+                            Err(e) => {
+                                tracing::warn!(skill = %skill_name, path = ?skill_path, error = %e, "Failed to read skill file");
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        tracing::warn!(skill = %skill_name, error = %e, "Failed to resolve skill path");
+                        // Continue with other skills even if one fails
+                    }
+                }
+            }
+            
+            if !skill_sections.is_empty() {
+                let skill_prompt = format!(
+                    "\n\n<active_skills>\nThe following skills have been activated for this conversation:\n\n{}\n</active_skills>",
+                    skill_sections.join("\n\n---\n\n")
+                );
+                system_prompt.push(skill_prompt);
+                
+                tracing::info!(
+                    skills_count = skill_sections.len(),
+                    "Injected {} skills into system prompt",
+                    skill_sections.len()
+                );
+            }
+        }
         
         // Update runtime's system prompt
         self.runtime.update_system_prompt(system_prompt);

@@ -4,7 +4,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::collections::HashMap;
 use std::sync::Mutex;
 use std::path::PathBuf;
-use portable_pty::{CommandBuilder, PtySize, native_pty_system, Child, MasterPty, PtyPair};
+use portable_pty::{CommandBuilder, PtySize, native_pty_system, Child, MasterPty};
 use crossbeam_channel::Receiver;
 
 use crate::core::use_cases::ports::IEventPublisher;

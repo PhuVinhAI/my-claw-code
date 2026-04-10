@@ -5,7 +5,7 @@ export type UnsubscribeFn = () => void;
 
 export interface IChatGateway {
   // Commands
-  sendPrompt(text: string, turnId: string): Promise<void>;
+  sendPrompt(text: string, turnId: string, skills?: string[]): Promise<void>;
   answerPermission(requestId: string, allow: boolean): Promise<void>;
   loadSession(sessionId: string, workMode: string, workspacePath: string | null): Promise<void>;
   saveSession(sessionId: string): Promise<void>;

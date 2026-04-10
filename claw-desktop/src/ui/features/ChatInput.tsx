@@ -75,13 +75,8 @@ export function ChatInput() {
   const handleSend = async () => {
     if (!input.trim()) return;
     
-    // Build prompt with skills
-    let finalPrompt = input;
-    const skillsToSend = [...selectedSkills]; // Copy for later clearing
-    if (skillsToSend.length > 0) {
-      const skillsPrefix = skillsToSend.map(s => `${s.name}`).join(' ');
-      finalPrompt = `${skillsPrefix} ${input}`;
-    }
+    // Collect skill names to send
+    const skillsToSend = selectedSkills.map(s => s.name);
     
     // If AI is generating, stop it first then send
     if (isGenerating) {
@@ -98,15 +93,15 @@ export function ChatInput() {
           // Small delay to let state settle
           await new Promise(resolve => setTimeout(resolve, 300));
           
-          // Send new message
-          const result = await sendPrompt(finalPrompt);
+          // Send new message with skills
+          const result = await sendPrompt(input, skillsToSend);
           
           // If error, restore text to input
           if (result && typeof result === 'object' && 'error' in result) {
             setInput(result.originalText);
           } else {
             // Clear selected skills on success
-            skillsToSend.forEach(skill => removeSelectedSkill(skill.name));
+            selectedSkills.forEach(skill => removeSelectedSkill(skill.name));
           }
         } catch (e) {
           console.error('[ChatInput] Error in stop-and-send:', e);
@@ -120,14 +115,14 @@ export function ChatInput() {
     setInput('');
     
     try {
-      const result = await sendPrompt(finalPrompt);
+      const result = await sendPrompt(input, skillsToSend);
       
       // If error, restore text to input
       if (result && typeof result === 'object' && 'error' in result) {
         setInput(result.originalText);
       } else {
         // Clear selected skills on success
-        skillsToSend.forEach(skill => removeSelectedSkill(skill.name));
+        selectedSkills.forEach(skill => removeSelectedSkill(skill.name));
       }
     } catch (e) {
       console.error('[ChatInput] Error sending:', e);

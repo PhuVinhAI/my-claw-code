@@ -36,6 +36,7 @@ export interface Message {
   blocks: ContentBlock[];
   usage?: TokenUsage;
   modelName?: string; // Model used to generate this message (e.g., "Claude Sonnet 4.5")
+  skills?: string[]; // Skills activated for this message (user messages only)
 }
 
 export interface Session {

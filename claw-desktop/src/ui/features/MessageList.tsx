@@ -25,44 +25,18 @@ const formatSkillName = (name: string): string => {
     .join(' ');
 };
 
-// Helper function to parse skills from text
-const parseSkillsFromText = (text: string): { skills: string[]; remainingText: string } => {
-  const trimmed = text.trim();
-  const words = trimmed.split(/\s+/);
-  const skills: string[] = [];
-  
-  // Extract skills from the beginning (words that look like skill names)
-  let i = 0;
-  while (i < words.length) {
-    const word = words[i];
-    // Check if word looks like a skill (contains hyphens and lowercase letters)
-    if (word.match(/^[a-z]+(-[a-z]+)+$/)) {
-      skills.push(word);
-      i++;
-    } else {
-      break;
-    }
-  }
-  
-  // Remaining text after skills
-  const remainingText = words.slice(i).join(' ');
-  
-  return { skills, remainingText };
-};
-
-function UserMessage({ text }: { text: string }) {
+function UserMessage({ text, skills }: { text: string; skills?: string[] }) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const { skills, remainingText } = parseSkillsFromText(text);
-  const shouldCollapse = remainingText.length > COLLAPSE_THRESHOLD;
+  const shouldCollapse = text.length > COLLAPSE_THRESHOLD;
   
   const displayText = shouldCollapse && !isExpanded 
-    ? remainingText.slice(0, COLLAPSE_THRESHOLD) + '...'
-    : remainingText;
+    ? text.slice(0, COLLAPSE_THRESHOLD) + '...'
+    : text;
 
   return (
     <div className="space-y-2">
       {/* Skill Badges */}
-      {skills.length > 0 && (
+      {skills && skills.length > 0 && (
         <div className="flex flex-wrap gap-1.5 mb-2">
           {skills.map((skill, idx) => (
             <div
@@ -76,7 +50,7 @@ function UserMessage({ text }: { text: string }) {
       )}
       
       {/* Message Text */}
-      {remainingText && (
+      {text && (
         <>
           <div className="whitespace-pre-wrap break-words text-foreground">
             {displayText}
@@ -369,7 +343,7 @@ export function MessageList() {
                           return (
                             <div key={blockIdx}>
                               {message.role === 'user' ? (
-                                <UserMessage text={block.text || ''} />
+                                <UserMessage text={block.text || ''} skills={message.skills} />
                               ) : (
                                 <MarkdownContent content={cleanSystemReminders(block.text || '')} />
                               )}

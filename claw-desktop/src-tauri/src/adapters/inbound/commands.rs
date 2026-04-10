@@ -9,9 +9,14 @@ use crate::setup::app_state::AppState;
 /// Send prompt command - Non-blocking (fire and forget)
 /// If cancel cleanup is in progress, waits for cleanup event before proceeding
 #[tauri::command]
-pub async fn send_prompt(text: String, turn_id: String, state: State<'_, AppState>) -> Result<(), String> {
-    tracing::info!(text_len = text.len(), turn_id = %turn_id, "send_prompt command called");
-    tracing::debug!(text_preview = %text.chars().take(100).collect::<String>(), "Prompt text preview");
+pub async fn send_prompt(
+    text: String, 
+    turn_id: String, 
+    skills: Vec<String>,
+    state: State<'_, AppState>
+) -> Result<(), String> {
+    tracing::info!(text_len = text.len(), turn_id = %turn_id, skills_count = skills.len(), "send_prompt command called");
+    tracing::debug!(text_preview = %text.chars().take(100).collect::<String>(), skills = ?skills, "Prompt text preview");
     
     // Wait if cancel cleanup is in progress (event-driven, no polling)
     // Check cancel_flag to see if cleanup is happening
@@ -36,7 +41,12 @@ pub async fn send_prompt(text: String, turn_id: String, state: State<'_, AppStat
         let (tx, rx) = oneshot::channel();
         
         tracing::debug!(turn_id = %turn_id, "Sending ActorCommand::Prompt to actor");
-        if let Err(e) = actor_tx.send(ActorCommand::Prompt { text, turn_id: turn_id.clone(), response_tx: tx }).await {
+        if let Err(e) = actor_tx.send(ActorCommand::Prompt { 
+            text, 
+            turn_id: turn_id.clone(), 
+            skills,
+            response_tx: tx 
+        }).await {
             tracing::error!(error = %e, turn_id = %turn_id, "Failed to send prompt to actor");
             return;
         }

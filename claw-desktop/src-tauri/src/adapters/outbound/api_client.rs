@@ -2,7 +2,7 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use api::{
-    convert_runtime_messages, max_tokens_for_model, InputContentBlock, InputMessage,
+    convert_runtime_messages, max_tokens_for_model,
     MessageRequest, ProviderClient, StreamEvent as ApiStreamEvent, ToolChoice,
 };
 use runtime::{ApiClient, ApiRequest, AssistantEvent, RuntimeError};

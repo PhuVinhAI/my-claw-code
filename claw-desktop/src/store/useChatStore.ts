@@ -32,7 +32,7 @@ interface ChatStore {
 
   // Actions
   dispatch: (event: ChatEvent) => void;
-  sendPrompt: (text: string) => Promise<{ error: string; originalText: string } | void>;
+  sendPrompt: (text: string, skills?: string[]) => Promise<{ error: string; originalText: string } | void>;
   answerPermission: (allow: boolean) => Promise<void>;
   stopGeneration: () => Promise<void>;
   sendToolInput: (toolUseId: string, input: string) => Promise<void>; // Send stdin to tool
@@ -108,10 +108,10 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     }));
   },
 
-  sendPrompt: async (text) => {
+  sendPrompt: async (text, skills = []) => {
     const { gateway, dispatch, currentSessionId } = get();
 
-    console.log('[STORE] sendPrompt called with text:', text.substring(0, 50) + '...');
+    console.log('[STORE] sendPrompt called with text:', text.substring(0, 50) + '...', 'skills:', skills);
 
     // Generate new turn ID for this prompt
     const turnId = `turn-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -133,6 +133,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         {
           role: 'user',
           blocks: [{ type: 'text', text }],
+          skills: skills.length > 0 ? skills : undefined, // Save skills metadata
         },
       ],
     }));
@@ -140,8 +141,8 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     dispatch({ type: 'USER_SENT_PROMPT', text });
 
     try {
-      console.log('[STORE] Calling gateway.sendPrompt with turn_id:', turnId);
-      await gateway.sendPrompt(text, turnId);
+      console.log('[STORE] Calling gateway.sendPrompt with turn_id:', turnId, 'skills:', skills);
+      await gateway.sendPrompt(text, turnId, skills);
       console.log('[STORE] gateway.sendPrompt completed');
       // Clear lastUserText on successful send
       set({ lastUserText: null });
