@@ -64,9 +64,6 @@ pub fn run() {
                 .map_err(|e| format!("Failed to initialize app: {}", e))?;
             app.manage(state);
             
-            // Initialize Skills State
-            app.manage(SkillsState::default());
-            
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -139,16 +136,10 @@ pub fn run() {
             git_generate_commit_message,
             git_start_watch,
             // Skills Store commands
-            get_skills_catalog,
             search_skills_store,
-            preview_skills_source,
-            get_supported_agents,
-            detect_installed_agents,
             install_skills,
             uninstall_skills,
-            get_installed_skills,
-            check_skills_updates,
-            apply_skills_updates
+            get_installed_skills
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

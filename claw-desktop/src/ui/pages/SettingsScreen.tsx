@@ -5,6 +5,7 @@ import { useSettingsStore } from '../../store/useSettingsStore';
 import { GeneralSettingsTab } from '../features/settings/GeneralSettingsTab';
 import { AISettingsTab } from '../features/settings/AISettingsTab';
 import { ContextSettingsTab } from '../features/settings/ContextSettingsTab';
+import { SkillsSettingsTab } from '../features/settings/SkillsSettingsTab';
 import { SkillsStoreTab } from '../features/settings/SkillsStoreTab';
 import { ArrowLeft, Bot, MessageSquare, Settings2, BookOpen } from 'lucide-react';
 import { cn } from '../../lib/utils';
@@ -13,7 +14,7 @@ interface SettingsScreenProps {
   onBack: () => void;
 }
 
-type TabType = 'general' | 'ai' | 'context' | 'skills';
+type TabType = 'general' | 'ai' | 'context' | 'skills' | 'skills-store';
 
 export function SettingsScreen({ onBack }: SettingsScreenProps) {
   const { t } = useTranslation();
@@ -99,12 +100,18 @@ export function SettingsScreen({ onBack }: SettingsScreenProps) {
 
       {/* Content Area - Only show active tab */}
       <div className="flex-1 overflow-y-auto">
-        <div className="max-w-4xl mx-auto py-10 px-6">
-          {activeTab === 'general' && <GeneralSettingsTab />}
-          {activeTab === 'ai' && <AISettingsTab />}
-          {activeTab === 'context' && <ContextSettingsTab />}
-          {activeTab === 'skills' && <SkillsStoreTab />}
-        </div>
+        {activeTab === 'skills-store' ? (
+          <div className="h-full p-6">
+            <SkillsStoreTab onBack={() => setActiveTab('skills')} />
+          </div>
+        ) : (
+          <div className="max-w-4xl mx-auto py-10 px-6">
+            {activeTab === 'general' && <GeneralSettingsTab />}
+            {activeTab === 'ai' && <AISettingsTab />}
+            {activeTab === 'context' && <ContextSettingsTab />}
+            {activeTab === 'skills' && <SkillsSettingsTab onBrowseStore={() => setActiveTab('skills-store')} />}
+          </div>
+        )}
       </div>
     </div>
   );

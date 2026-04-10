@@ -2,6 +2,11 @@ use crate::{error::*, github::*, lockfile::*, registry::*, types::*};
 use std::fs;
 use std::path::{Path, PathBuf};
 use chrono::Utc;
+use tokio::process::Command;
+
+// Blacklist files/dirs (giống CLI gốc)
+const EXCLUDE_FILES: &[&str] = &["metadata.json"];
+const EXCLUDE_DIRS: &[&str] = &[".git", "__pycache__", "__pypackages__", "node_modules"];
 
 /// Cài đặt skills từ source
 pub async fn install_skills(request: InstallRequest, project_dir: Option<&str>) -> Result<InstallResult> {
@@ -10,7 +15,6 @@ pub async fn install_skills(request: InstallRequest, project_dir: Option<&str>) 
 
     // Parse source URL
     let (owner, repo) = parse_github_url(&request.source_url)?;
-    let branch = "main"; // TODO: Support custom branch
 
     // Lấy canonical directory
     let canonical_dir = get_canonical_dir(request.scope, project_dir)?;
@@ -21,12 +25,10 @@ pub async fn install_skills(request: InstallRequest, project_dir: Option<&str>) 
         match install_single_skill(
             &owner,
             &repo,
-            branch,
             skill_name,
             &canonical_dir,
             &request.target_agents,
             request.scope,
-            request.install_mode,
             project_dir,
         )
         .await
@@ -45,59 +47,52 @@ pub async fn install_skills(request: InstallRequest, project_dir: Option<&str>) 
     })
 }
 
-/// Cài đặt một skill
+/// Cài đặt một skill (ưu tiên Blob API, fallback Git Clone)
 async fn install_single_skill(
     owner: &str,
     repo: &str,
-    branch: &str,
     skill_name: &str,
     canonical_dir: &Path,
     target_agents: &[String],
     scope: InstallScope,
-    install_mode: InstallMode,
     project_dir: Option<&str>,
 ) -> Result<()> {
     // Sanitize skill name
     let safe_name = sanitize_skill_name(skill_name)?;
     
-    // Tìm skill path trong repo (giả sử skills/{name}/SKILL.md)
-    let skill_path = format!("skills/{}/SKILL.md", safe_name);
-    
-    // Download content
-    let content = download_skill_content(owner, repo, branch, &skill_path).await?;
-    
     // Tạo thư mục canonical
     let skill_dir = canonical_dir.join(&safe_name);
+    if skill_dir.exists() {
+        fs::remove_dir_all(&skill_dir)?;
+    }
     fs::create_dir_all(&skill_dir)?;
     
-    // Ghi SKILL.md
-    fs::write(skill_dir.join("SKILL.md"), content)?;
-    
-    // Lấy tree SHA để lưu vào lockfile
-    let tree_sha = get_tree_sha(owner, repo, branch, &format!("skills/{}", safe_name))
-        .await
-        .ok();
-    
-    // Tạo symlinks/copies cho các agents
-    for agent_id in target_agents {
-        let agent_info = get_agent_info(agent_id)?;
-        
-        // Skip nếu agent dùng universal path
-        if agent_info.universal {
-            continue;
+    // LUỒNG 2: Thử download từ Blob API trước (nhanh nhất)
+    match download_skill_blob(owner, repo, skill_name).await {
+        Ok(blob) => {
+            // Ghi tất cả files từ blob
+            write_blob_files(&skill_dir, blob.files).await?;
+            println!("✅ Đã cài skill '{}' từ Blob API", safe_name);
         }
-        
-        let agent_skills_dir = expand_tilde(&agent_info.skills_path);
-        fs::create_dir_all(&agent_skills_dir)?;
-        
-        let target_path = agent_skills_dir.join(&safe_name);
-        
-        match install_mode {
-            InstallMode::Symlink => {
-                create_symlink(&skill_dir, &target_path)?;
-            }
-            InstallMode::Copy => {
-                copy_dir_recursive(&skill_dir, &target_path)?;
+        Err(e) => {
+            // LUỒNG 1: Git Clone (đầy đủ nhất)
+            eprintln!("⚠️  Blob API thất bại ({}), thử Git Clone...", e);
+            
+            match clone_and_copy_skill(owner, repo, skill_name, &skill_dir).await {
+                Ok(_) => {
+                    println!("✅ Đã cài skill '{}' từ Git Clone", safe_name);
+                }
+                Err(git_err) => {
+                    // CẢ 2 LUỒNG ĐỀU FAIL → RETURN ERROR
+                    // Cleanup thư mục đã tạo
+                    let _ = fs::remove_dir_all(&skill_dir);
+                    
+                    return Err(SkillError::Other(format!(
+                        "Không thể cài skill '{}'. Blob API failed: {}. Git Clone failed: {}. \
+                        Vui lòng kiểm tra: (1) Skill có tồn tại trong repo không? (2) Git đã cài chưa?",
+                        skill_name, e, git_err
+                    )));
+                }
             }
         }
     }
@@ -111,7 +106,7 @@ async fn install_single_skill(
             path: format!("skills/{}", safe_name),
         },
         version: None,
-        tree_sha,
+        tree_sha: None,
         installed_at: Utc::now().to_rfc3339(),
         agents: target_agents.to_vec(),
     };
@@ -121,44 +116,84 @@ async fn install_single_skill(
     Ok(())
 }
 
-/// Tạo symlink (cross-platform)
-fn create_symlink(source: &Path, target: &Path) -> Result<()> {
-    // Xóa target nếu đã tồn tại
-    if target.exists() {
-        fs::remove_dir_all(target)?;
+/// LUỒNG 1: Git Clone + Copy Directory với Blacklist
+async fn clone_and_copy_skill(
+    owner: &str,
+    repo: &str,
+    skill_name: &str,
+    dest_dir: &Path,
+) -> Result<()> {
+    // 1. Tạo temp directory
+    let temp_dir = std::env::temp_dir().join(format!("skill-clone-{}", uuid::Uuid::new_v4()));
+    fs::create_dir_all(&temp_dir)?;
+    
+    // 2. Git clone --depth 1
+    let repo_url = format!("https://github.com/{}/{}.git", owner, repo);
+    let output = Command::new("git")
+        .args(&["clone", "--depth", "1", &repo_url, temp_dir.to_str().unwrap()])
+        .output()
+        .await?;
+    
+    if !output.status.success() {
+        let err = String::from_utf8_lossy(&output.stderr);
+        return Err(SkillError::Other(format!("Git clone failed: {}", err)));
     }
     
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::symlink;
-        symlink(source, target)
-            .map_err(|e| SkillError::SymlinkFailed(e.to_string()))?;
+    // 3. Tìm thư mục skill trong repo
+    let skill_source_dir = temp_dir.join("skills").join(skill_name);
+    
+    if !skill_source_dir.exists() {
+        // Cleanup
+        let _ = fs::remove_dir_all(&temp_dir);
+        return Err(SkillError::Other(format!(
+            "Skill '{}' not found in repo",
+            skill_name
+        )));
     }
     
-    #[cfg(windows)]
-    {
-        use std::os::windows::fs::symlink_dir;
-        symlink_dir(source, target)
-            .map_err(|e| SkillError::SymlinkFailed(e.to_string()))?;
-    }
+    // 4. Copy directory với blacklist
+    copy_skill_directory(&skill_source_dir, dest_dir)?;
+    
+    // 5. Cleanup temp
+    let _ = fs::remove_dir_all(&temp_dir);
     
     Ok(())
 }
 
-/// Copy thư mục đệ quy
-fn copy_dir_recursive(source: &Path, target: &Path) -> Result<()> {
-    fs::create_dir_all(target)?;
+/// Copy thư mục skill với blacklist (giống CLI gốc)
+fn copy_skill_directory(src: &Path, dest: &Path) -> Result<()> {
+    fs::create_dir_all(dest)?;
     
-    for entry in fs::read_dir(source)? {
+    for entry in fs::read_dir(src)? {
         let entry = entry?;
+        let name = entry.file_name().into_string().unwrap_or_default();
         let file_type = entry.file_type()?;
-        let source_path = entry.path();
-        let target_path = target.join(entry.file_name());
         
+        // BLACKLIST RULES (giống isExcluded trong installer.ts)
+        // 1. Bỏ qua file ẩn (.env, .gitignore, ...)
+        if name.starts_with('.') {
+            continue;
+        }
+        
+        // 2. Bỏ qua file trong blacklist
+        if EXCLUDE_FILES.contains(&name.as_str()) {
+            continue;
+        }
+        
+        // 3. Bỏ qua thư mục trong blacklist
+        if file_type.is_dir() && EXCLUDE_DIRS.contains(&name.as_str()) {
+            continue;
+        }
+        
+        let src_path = entry.path();
+        let dest_path = dest.join(&name);
+        
+        // 4. Đệ quy copy thư mục con
         if file_type.is_dir() {
-            copy_dir_recursive(&source_path, &target_path)?;
+            copy_skill_directory(&src_path, &dest_path)?;
         } else {
-            fs::copy(&source_path, &target_path)?;
+            // 5. Copy file (fs::copy tự động follow symlinks)
+            fs::copy(&src_path, &dest_path)?;
         }
     }
     
@@ -202,56 +237,21 @@ pub fn uninstall_skills(
 /// Gỡ một skill
 fn uninstall_single_skill(
     skill_name: &str,
-    target_agents: &[String],
+    _target_agents: &[String],
     canonical_dir: &Path,
     scope: InstallScope,
     project_dir: Option<&str>,
 ) -> Result<()> {
     let safe_name = sanitize_skill_name(skill_name)?;
     
-    // Xóa từ các agents
-    for agent_id in target_agents {
-        let agent_info = get_agent_info(agent_id)?;
-        if agent_info.universal {
-            continue;
-        }
-        
-        let agent_skills_dir = expand_tilde(&agent_info.skills_path);
-        let target_path = agent_skills_dir.join(&safe_name);
-        
-        if target_path.exists() {
-            fs::remove_dir_all(&target_path)?;
-        }
+    // Xóa từ canonical dir
+    let canonical_skill_dir = canonical_dir.join(&safe_name);
+    if canonical_skill_dir.exists() {
+        fs::remove_dir_all(&canonical_skill_dir)?;
     }
     
-    // Kiểm tra xem còn agent nào dùng skill này không
-    let lockfile = read_lockfile(scope, project_dir)?;
-    let should_remove_canonical = if let Some(entry) = lockfile.skills.get(&safe_name) {
-        entry.agents.is_empty() || target_agents.iter().all(|a| entry.agents.contains(a))
-    } else {
-        true
-    };
-    
-    // Xóa canonical nếu không còn agent nào dùng
-    if should_remove_canonical {
-        let canonical_skill_dir = canonical_dir.join(&safe_name);
-        if canonical_skill_dir.exists() {
-            fs::remove_dir_all(&canonical_skill_dir)?;
-        }
-        remove_lock_entry(&safe_name, scope, project_dir)?;
-    } else {
-        // Chỉ update agents list
-        let remaining_agents: Vec<_> = lockfile
-            .skills
-            .get(&safe_name)
-            .unwrap()
-            .agents
-            .iter()
-            .filter(|a| !target_agents.contains(a))
-            .cloned()
-            .collect();
-        update_lock_agents(&safe_name, remaining_agents, scope, project_dir)?;
-    }
+    // Xóa khỏi lockfile
+    remove_lock_entry(&safe_name, scope, project_dir)?;
     
     Ok(())
 }

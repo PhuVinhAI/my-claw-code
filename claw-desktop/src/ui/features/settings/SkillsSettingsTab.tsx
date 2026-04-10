@@ -3,17 +3,35 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSkillStore } from '../../../store/useSkillStore';
 import { useChatStore } from '../../../store';
-import { Loader2, BookOpen, AlertCircle, RefreshCw, ChevronDown, ChevronRight, Folder } from 'lucide-react';
+import { Loader2, BookOpen, AlertCircle, RefreshCw, ChevronDown, ChevronRight, Folder, ShoppingBag, Trash2 } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 import type { Skill } from '../../../core/entities/Skill';
+import { invoke } from '@tauri-apps/api/core';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '../../../components/ui/dialog';
+import { Button } from '../../../components/ui/button';
 
-export function SkillsSettingsTab() {
+interface SkillsSettingsTabProps {
+  onBrowseStore: () => void;
+}
+
+export function SkillsSettingsTab({ onBrowseStore }: SkillsSettingsTabProps) {
   const { t } = useTranslation();
-  const { skills, isLoading, error, loadSkills, loadSkillContent, clearError } = useSkillStore();
+  const { skills, isLoading, error, loadSkills, loadSkillContent, clearError, setError } = useSkillStore();
   const { workspacePath } = useChatStore();
   const [expandedSkill, setExpandedSkill] = useState<string | null>(null);
   const [skillContent, setSkillContent] = useState<Record<string, string>>({});
   const [loadingContent, setLoadingContent] = useState<Record<string, boolean>>({});
+  const [deletingSkills, setDeletingSkills] = useState<Set<string>>(new Set());
+  const [confirmDelete, setConfirmDelete] = useState<{ open: boolean; skillName: string | null }>({
+    open: false,
+    skillName: null,
+  });
 
   useEffect(() => {
     loadSkills(workspacePath || undefined);
@@ -53,6 +71,40 @@ export function SkillsSettingsTab() {
     }
   };
 
+  const handleDeleteSkill = async (skillName: string) => {
+    // Mở confirm dialog
+    setConfirmDelete({ open: true, skillName });
+  };
+
+  const confirmDeleteSkill = async () => {
+    const skillName = confirmDelete.skillName;
+    if (!skillName) return;
+
+    setConfirmDelete({ open: false, skillName: null });
+    setDeletingSkills(prev => new Set(prev).add(skillName));
+
+    try {
+      await invoke('uninstall_skills', {
+        skillNames: [skillName],
+        targetAgents: ['universal'],
+        scope: 'global',
+        projectDir: null,
+      });
+
+      // Reload skills list
+      await loadSkills(workspacePath || undefined);
+    } catch (e) {
+      console.error('Failed to delete skill:', e);
+      setError(t('settings.skills.deleteFailed', { error: String(e) }) as string);
+    } finally {
+      setDeletingSkills(prev => {
+        const next = new Set(prev);
+        next.delete(skillName);
+        return next;
+      });
+    }
+  };
+
   const activeSkills = skills.filter(s => !s.shadowed_by);
   const shadowedSkills = skills.filter(s => s.shadowed_by);
 
@@ -60,6 +112,7 @@ export function SkillsSettingsTab() {
     const isExpanded = expandedSkill === skill.name;
     const isLoadingContent = loadingContent[skill.name];
     const content = skillContent[skill.name];
+    const isDeleting = deletingSkills.has(skill.name);
 
     return (
       <div
@@ -72,64 +125,82 @@ export function SkillsSettingsTab() {
         )}
       >
         {/* Skill Header */}
-        <button
-          onClick={() => !isShadowed && handleSkillToggle(skill)}
-          disabled={isShadowed}
-          className="w-full flex items-start gap-3 p-4 text-left"
-        >
-          {/* Expand Icon */}
-          <div className="shrink-0 mt-0.5">
-            {isShadowed ? (
-              <BookOpen className="w-4 h-4 text-muted-foreground" />
-            ) : isExpanded ? (
-              <ChevronDown className="w-4 h-4 text-foreground" />
-            ) : (
-              <ChevronRight className="w-4 h-4 text-muted-foreground" />
-            )}
-          </div>
-
-          {/* Skill Info */}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className={cn(
-                "text-sm font-medium",
-                isShadowed ? "text-muted-foreground" : "text-foreground"
-              )}>
-                {skill.name}
-              </span>
-              {skill.origin === 'LegacyCommandsDir' && (
-                <span className="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
-                  legacy
-                </span>
+        <div className="flex items-start gap-3 p-4">
+          <button
+            onClick={() => !isShadowed && handleSkillToggle(skill)}
+            disabled={isShadowed}
+            className="flex-1 flex items-start gap-3 text-left"
+          >
+            {/* Expand Icon */}
+            <div className="shrink-0 mt-0.5">
+              {isShadowed ? (
+                <BookOpen className="w-4 h-4 text-muted-foreground" />
+              ) : isExpanded ? (
+                <ChevronDown className="w-4 h-4 text-foreground" />
+              ) : (
+                <ChevronRight className="w-4 h-4 text-muted-foreground" />
               )}
             </div>
-            
-            {skill.description && (
-              <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                {skill.description}
-              </p>
-            )}
-            
-            <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground/70">
-              <div className="flex items-center gap-1">
-                <Folder className="w-3 h-3" />
-                <span>
-                  {typeof skill.source === 'object' ? skill.source.label || skill.source.id : skill.source}
+
+            {/* Skill Info */}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className={cn(
+                  "text-sm font-medium",
+                  isShadowed ? "text-muted-foreground" : "text-foreground"
+                )}>
+                  {skill.name}
                 </span>
+                {skill.origin === 'LegacyCommandsDir' && (
+                  <span className="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                    legacy
+                  </span>
+                )}
               </div>
               
-              {isShadowed && skill.shadowed_by && (
-                <span>
-                  {t('settings.skills.shadowedBy', { 
-                    source: typeof skill.shadowed_by === 'object' 
-                      ? skill.shadowed_by.label || skill.shadowed_by.id 
-                      : skill.shadowed_by
-                  })}
-                </span>
+              {skill.description && (
+                <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                  {skill.description}
+                </p>
               )}
+              
+              <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground/70">
+                <div className="flex items-center gap-1">
+                  <Folder className="w-3 h-3" />
+                  <span>
+                    {typeof skill.source === 'object' ? skill.source.label || skill.source.id : skill.source}
+                  </span>
+                </div>
+                
+                {isShadowed && skill.shadowed_by && (
+                  <span>
+                    {t('settings.skills.shadowedBy', { 
+                      source: typeof skill.shadowed_by === 'object' 
+                        ? skill.shadowed_by.label || skill.shadowed_by.id 
+                        : skill.shadowed_by
+                    })}
+                  </span>
+                )}
+              </div>
             </div>
-          </div>
-        </button>
+          </button>
+
+          {/* Delete Button */}
+          {!isShadowed && (
+            <button
+              onClick={() => handleDeleteSkill(skill.name)}
+              disabled={isDeleting}
+              className="shrink-0 p-2 rounded-md text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-50"
+              title={t('settings.skills.delete')}
+            >
+              {isDeleting ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Trash2 className="w-4 h-4" />
+              )}
+            </button>
+          )}
+        </div>
 
         {/* Expanded Content */}
         {isExpanded && !isShadowed && (
@@ -166,13 +237,22 @@ export function SkillsSettingsTab() {
           </p>
         </div>
         
-        <button
-          onClick={handleRefresh}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-        >
-          <RefreshCw className="w-3.5 h-3.5" />
-          {t('common.refresh')}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={onBrowseStore}
+            className="flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+          >
+            <ShoppingBag className="w-4 h-4" />
+            {t('settings.skills.browseStore', 'Browse Store')}
+          </button>
+          <button
+            onClick={handleRefresh}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            {t('common.refresh')}
+          </button>
+        </div>
       </div>
 
       {/* Error Alert */}
@@ -252,6 +332,38 @@ export function SkillsSettingsTab() {
           <li>• {t('settings.skills.info3')}</li>
         </ul>
       </div>
+
+      {/* Confirm Delete Dialog */}
+      <Dialog open={confirmDelete.open} onOpenChange={(open) => setConfirmDelete({ open, skillName: null })}>
+        <DialogContent showCloseButton={false} className="max-w-[380px] p-0 gap-0 overflow-hidden bg-card border-border shadow-xl">
+          <div className="p-5">
+            <DialogHeader className="text-left gap-1.5">
+              <DialogTitle className="text-base font-semibold text-foreground tracking-tight">
+                {t('settings.skills.delete')}
+              </DialogTitle>
+              <DialogDescription className="text-sm text-muted-foreground leading-normal">
+                {t('settings.skills.confirmDelete', { name: confirmDelete.skillName })}
+              </DialogDescription>
+            </DialogHeader>
+          </div>
+
+          <div className="flex items-center justify-end gap-2 px-5 py-3 bg-muted/30 border-t border-border">
+            <Button
+              variant="outline"
+              onClick={(e) => { e.stopPropagation(); setConfirmDelete({ open: false, skillName: null }); }}
+              className="h-8 px-3 text-xs font-medium bg-transparent border-border text-foreground hover:bg-muted hover:text-foreground shadow-none"
+            >
+              {t('common.cancel')}
+            </Button>
+            <Button
+              onClick={(e) => { e.stopPropagation(); confirmDeleteSkill(); }}
+              className="h-8 px-3 text-xs font-medium bg-red-600 text-white hover:bg-red-700 shadow-none border-transparent transition-colors"
+            >
+              {t('settings.skills.delete')}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

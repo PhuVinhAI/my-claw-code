@@ -1,22 +1,19 @@
-// Skills Store Tab - Shop-like UI for browsing and installing skills
-import { useEffect, useState } from 'react';
+// Skills Store - pub.dev inspired layout
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { invoke } from '@tauri-apps/api/core';
+import { open } from '@tauri-apps/plugin-shell';
 import {
   Search,
   Download,
-  Check,
   Loader2,
   Package,
   TrendingUp,
-  RefreshCw,
-  Settings,
   Trash2,
-  ChevronRight,
   AlertCircle,
-  CheckCircle2,
+  ExternalLink,
+  Check,
 } from 'lucide-react';
-import { cn } from '../../../lib/utils';
 
 interface StoreSkill {
   id: string;
@@ -29,113 +26,61 @@ interface StoreSkill {
 interface InstalledSkill {
   name: string;
   description: string | null;
-  version: string | null;
-  author: string | null;
-  tags: string[];
-  category: string | null;
   path: string;
-  source: any;
-  installed: boolean;
-  install_date: string | null;
+  source: {
+    type: string;
+    owner?: string;
+    repo?: string;
+    path?: string;
+  } | null;
 }
 
-interface AgentInfo {
-  id: string;
-  name: string;
-  skills_path: string;
-  installed: boolean;
-  universal: boolean;
+type ViewMode = 'search' | 'results';
+
+interface SkillsStoreTabProps {
+  onBack: () => void;
 }
 
-type TabType = 'browse' | 'installed' | 'agents';
-
-export function SkillsStoreTab() {
+export function SkillsStoreTab({ onBack }: SkillsStoreTabProps) {
   const { t } = useTranslation();
-  const [activeTab, setActiveTab] = useState<TabType>('browse');
+  const [viewMode, setViewMode] = useState<ViewMode>('search');
   const [searchQuery, setSearchQuery] = useState('');
-  const [storeSkills, setStoreSkills] = useState<StoreSkill[]>([]);
+  const [skills, setSkills] = useState<StoreSkill[]>([]);
   const [installedSkills, setInstalledSkills] = useState<InstalledSkill[]>([]);
-  const [agents, setAgents] = useState<AgentInfo[]>([]);
-  const [selectedAgents, setSelectedAgents] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [installingSkills, setInstallingSkills] = useState<Set<string>>(new Set());
+  const [error, setError] = useState<string | null>(null);
 
-  // Load data on mount
-  useEffect(() => {
-    loadAgents();
-    if (activeTab === 'browse') {
-      loadStoreCatalog();
-    } else if (activeTab === 'installed') {
-      loadInstalledSkills();
-    }
-  }, [activeTab]);
-
-  const loadStoreCatalog = async () => {
-    setIsLoading(true);
-    setError(null);
+  const loadInstalled = async () => {
     try {
-      const skills = await invoke<StoreSkill[]>('get_skills_catalog', {
-        limit: 100,
-        offset: 0,
-      });
-      setStoreSkills(skills);
-    } catch (e) {
-      setError(String(e));
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const loadInstalledSkills = async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const skills = await invoke<InstalledSkill[]>('get_installed_skills', {
+      const installed = await invoke<InstalledSkill[]>('get_installed_skills', {
         scope: 'global',
         projectDir: null,
       });
-      setInstalledSkills(skills);
+      console.log('📦 Loaded installed skills:', installed);
+      setInstalledSkills(installed);
     } catch (e) {
-      setError(String(e));
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const loadAgents = async () => {
-    try {
-      const allAgents = await invoke<AgentInfo[]>('get_supported_agents');
-      const detectedIds = await invoke<string[]>('detect_installed_agents');
-      
-      const agentsWithStatus = allAgents.map(agent => ({
-        ...agent,
-        installed: detectedIds.includes(agent.id),
-      }));
-      
-      setAgents(agentsWithStatus);
-      
-      // Auto-select installed agents
-      setSelectedAgents(detectedIds);
-    } catch (e) {
-      console.error('Failed to load agents:', e);
+      console.error('Failed to load installed skills:', e);
     }
   };
 
   const handleSearch = async () => {
-    if (!searchQuery.trim()) {
-      loadStoreCatalog();
+    if (!searchQuery.trim() || searchQuery.trim().length < 2) {
+      setError(t('settings.skills.searchMinLength'));
       return;
     }
 
     setIsLoading(true);
     setError(null);
+    
     try {
-      const skills = await invoke<StoreSkill[]>('search_skills_store', {
+      const results = await invoke<StoreSkill[]>('search_skills_store', {
         query: searchQuery,
         limit: 50,
       });
-      setStoreSkills(skills);
+      setSkills(results);
+      setViewMode('results');
+      await loadInstalled();
     } catch (e) {
       setError(String(e));
     } finally {
@@ -143,482 +88,291 @@ export function SkillsStoreTab() {
     }
   };
 
-  const handleInstallSkill = async (skill: StoreSkill) => {
-    if (selectedAgents.length === 0) {
-      setError(t('settings.skills.selectAgentsFirst', 'Please select at least one agent'));
-      return;
-    }
-
-    setInstallingSkills(prev => new Set(prev).add(skill.name));
+  const handleInstall = async (skill: StoreSkill) => {
+    setInstallingSkills(prev => new Set(prev).add(skill.id));
     setError(null);
 
     try {
-      const result = await invoke('install_skills', {
+      await invoke('install_skills', {
         request: {
           source_url: skill.source,
           selected_skills: [skill.name],
-          target_agents: selectedAgents,
+          target_agents: ['universal'],
           scope: 'global',
-          install_mode: 'symlink',
+          install_mode: 'copy',
         },
         projectDir: null,
       });
 
-      console.log('Install result:', result);
-      
-      // Reload installed skills
-      if (activeTab === 'installed') {
-        await loadInstalledSkills();
-      }
+      await loadInstalled();
     } catch (e) {
       setError(String(e));
     } finally {
       setInstallingSkills(prev => {
         const next = new Set(prev);
-        next.delete(skill.name);
+        next.delete(skill.id);
         return next;
       });
     }
   };
 
-  const handleUninstallSkill = async (skill: InstalledSkill) => {
-    setInstallingSkills(prev => new Set(prev).add(skill.name));
+  const handleDelete = async (skill: StoreSkill) => {
+    setInstallingSkills(prev => new Set(prev).add(skill.id));
     setError(null);
 
     try {
       await invoke('uninstall_skills', {
         skillNames: [skill.name],
-        targetAgents: selectedAgents,
+        targetAgents: ['universal'],
         scope: 'global',
         projectDir: null,
       });
 
-      // Reload installed skills
-      await loadInstalledSkills();
+      await loadInstalled();
     } catch (e) {
       setError(String(e));
     } finally {
       setInstallingSkills(prev => {
         const next = new Set(prev);
-        next.delete(skill.name);
+        next.delete(skill.id);
         return next;
       });
     }
   };
 
-  const isSkillInstalled = (skillName: string) => {
-    return installedSkills.some(s => s.name === skillName);
+  const handleOpenGitHub = (source: string) => {
+    const githubUrl = source.startsWith('http') 
+      ? source 
+      : `https://github.com/${source}`;
+    open(githubUrl);
+  };
+
+  // Check if skill is installed by matching name AND source
+  const isInstalled = (skill: StoreSkill) => {
+    return installedSkills.some(installed => {
+      // Match by name
+      if (installed.name !== skill.name) return false;
+      
+      // Match by source (GitHub repo)
+      if (installed.source?.type === 'GitHub') {
+        const installedRepo = `${installed.source.owner}/${installed.source.repo}`;
+        // skill.source có thể là "owner/repo" hoặc full URL
+        const storeRepo = skill.source.replace('https://github.com/', '').replace('.git', '');
+        return installedRepo === storeRepo;
+      }
+      
+      // Fallback: chỉ match theo name nếu không có source info
+      return true;
+    });
+  };
+
+  const isProcessing = (skillId: string) => {
+    return installingSkills.has(skillId);
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h2 className="text-2xl font-bold text-foreground mb-2">
-          {t('settings.skills.store', 'Skills Store')}
-        </h2>
-        <p className="text-sm text-muted-foreground">
-          {t('settings.skills.storeDescription', 'Browse and install AI skills for your agents')}
-        </p>
-      </div>
-
-      {/* Tabs */}
-      <div className="flex items-center gap-1 border-b border-border">
+    <div className="h-full flex flex-col">
+      {/* Back Button */}
+      <div className="mb-4">
         <button
-          onClick={() => setActiveTab('browse')}
-          className={cn(
-            "px-4 py-2 text-sm font-medium transition-colors relative",
-            activeTab === 'browse'
-              ? "text-foreground"
-              : "text-muted-foreground hover:text-foreground"
-          )}
+          onClick={onBack}
+          className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
         >
-          <Package className="w-4 h-4 inline mr-2" />
-          {t('settings.skills.browse', 'Browse')}
-          {activeTab === 'browse' && (
-            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
-          )}
-        </button>
-        
-        <button
-          onClick={() => setActiveTab('installed')}
-          className={cn(
-            "px-4 py-2 text-sm font-medium transition-colors relative",
-            activeTab === 'installed'
-              ? "text-foreground"
-              : "text-muted-foreground hover:text-foreground"
-          )}
-        >
-          <CheckCircle2 className="w-4 h-4 inline mr-2" />
-          {t('settings.skills.installed', 'Installed')}
-          {installedSkills.length > 0 && (
-            <span className="ml-1.5 px-1.5 py-0.5 text-xs rounded-full bg-primary/10 text-primary">
-              {installedSkills.length}
-            </span>
-          )}
-          {activeTab === 'installed' && (
-            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
-          )}
-        </button>
-        
-        <button
-          onClick={() => setActiveTab('agents')}
-          className={cn(
-            "px-4 py-2 text-sm font-medium transition-colors relative",
-            activeTab === 'agents'
-              ? "text-foreground"
-              : "text-muted-foreground hover:text-foreground"
-          )}
-        >
-          <Settings className="w-4 h-4 inline mr-2" />
-          {t('settings.skills.agents', 'Agents')}
-          {activeTab === 'agents' && (
-            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
-          )}
+          ← {t('common.back', 'Back to Installed Skills')}
         </button>
       </div>
 
       {/* Error Alert */}
       {error && (
-        <div className="flex items-start gap-3 p-4 rounded-lg bg-destructive/10 border border-destructive/20">
+        <div className="flex items-start gap-3 p-4 rounded-lg bg-destructive/10 border border-destructive/20 mb-4">
           <AlertCircle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
           <div className="flex-1">
-            <p className="text-sm font-medium text-destructive mb-1">
-              {t('common.error', 'Error')}
-            </p>
-            <p className="text-sm text-destructive/80">{error}</p>
+            <p className="text-sm text-destructive">{error}</p>
           </div>
           <button
             onClick={() => setError(null)}
             className="text-destructive hover:text-destructive/80 text-sm font-medium"
           >
-            {t('common.dismiss', 'Dismiss')}
+            {t('common.dismiss')}
           </button>
         </div>
       )}
 
-      {/* Browse Tab */}
-      {activeTab === 'browse' && (
-        <div className="space-y-4">
-          {/* Search Bar */}
-          <div className="flex gap-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+      {/* Search View - Centered */}
+      {viewMode === 'search' && (
+        <div className="flex-1 flex flex-col items-center justify-center px-4 -mt-24">
+          <Package className="w-20 h-20 text-muted-foreground/20 mb-8" />
+          <h1 className="text-3xl font-bold text-foreground mb-3">
+            {t('settings.skills.storeTitle')}
+          </h1>
+          <p className="text-muted-foreground mb-12 text-center max-w-md">
+            {t('settings.skills.storeDescription')}
+          </p>
+
+          <div className="w-full max-w-3xl">
+            <div className="relative">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
               <input
                 type="text"
-                placeholder={t('settings.skills.searchPlaceholder', 'Search skills...')}
+                placeholder={t('settings.skills.searchPlaceholder')}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                className="w-full pl-10 pr-4 py-2 rounded-md border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full pl-12 pr-32 py-4 text-base rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                autoFocus
               />
-            </div>
-            <button
-              onClick={handleSearch}
-              className="px-4 py-2 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-            >
-              {t('common.search', 'Search')}
-            </button>
-            <button
-              onClick={loadStoreCatalog}
-              className="px-4 py-2 rounded-md border border-border hover:bg-muted transition-colors"
-            >
-              <RefreshCw className="w-4 h-4" />
-            </button>
-          </div>
-
-          {/* Agent Selection */}
-          <div className="p-4 rounded-lg border border-border bg-muted/30">
-            <p className="text-sm font-medium text-foreground mb-3">
-              {t('settings.skills.installTo', 'Install to:')}
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {agents.filter(a => a.installed).map(agent => (
-                <button
-                  key={agent.id}
-                  onClick={() => {
-                    setSelectedAgents(prev =>
-                      prev.includes(agent.id)
-                        ? prev.filter(id => id !== agent.id)
-                        : [...prev, agent.id]
-                    );
-                  }}
-                  className={cn(
-                    "px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
-                    selectedAgents.includes(agent.id)
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-background border border-border hover:bg-muted"
-                  )}
-                >
-                  {selectedAgents.includes(agent.id) && (
-                    <Check className="w-3 h-3 inline mr-1.5" />
-                  )}
-                  {agent.name}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Skills Grid */}
-          {isLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {storeSkills.map(skill => (
-                <SkillCard
-                  key={skill.id}
-                  skill={skill}
-                  isInstalled={isSkillInstalled(skill.name)}
-                  isInstalling={installingSkills.has(skill.name)}
-                  onInstall={() => handleInstallSkill(skill)}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Installed Tab */}
-      {activeTab === 'installed' && (
-        <div className="space-y-4">
-          {isLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-            </div>
-          ) : installedSkills.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 px-4 rounded-lg border border-dashed border-border">
-              <Package className="w-12 h-12 text-muted-foreground/50 mb-3" />
-              <p className="text-sm text-muted-foreground text-center">
-                {t('settings.skills.noInstalled', 'No skills installed yet')}
-              </p>
               <button
-                onClick={() => setActiveTab('browse')}
-                className="mt-4 px-4 py-2 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors text-sm"
+                onClick={handleSearch}
+                disabled={isLoading}
+                className="absolute right-2 top-1/2 -translate-y-1/2 px-6 py-2 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 font-medium"
               >
-                {t('settings.skills.browseCatalog', 'Browse Catalog')}
+                {isLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  t('common.search')
+                )}
               </button>
             </div>
-          ) : (
+          </div>
+        </div>
+      )}
+
+      {/* Results View - Sidebar + List */}
+      {viewMode === 'results' && (
+        <div className="flex-1 flex gap-6 overflow-hidden">
+          {/* Sidebar */}
+          <div className="w-64 shrink-0 space-y-6">
+            {/* Search Box */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <input
+                type="text"
+                placeholder={t('settings.skills.searchPlaceholder')}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                className="w-full pl-9 pr-3 py-2 text-sm rounded-md border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+            </div>
+
+            {/* Stats */}
             <div className="space-y-2">
-              {installedSkills.map(skill => (
-                <InstalledSkillItem
-                  key={skill.name}
-                  skill={skill}
-                  isUninstalling={installingSkills.has(skill.name)}
-                  onUninstall={() => handleUninstallSkill(skill)}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Agents Tab */}
-      {activeTab === 'agents' && (
-        <div className="space-y-4">
-          <div className="space-y-2">
-            {agents.map(agent => (
-              <AgentItem key={agent.id} agent={agent} />
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// Skill Card Component
-function SkillCard({
-  skill,
-  isInstalled,
-  isInstalling,
-  onInstall,
-}: {
-  skill: StoreSkill;
-  isInstalled: boolean;
-  isInstalling: boolean;
-  onInstall: () => void;
-}) {
-  const { t } = useTranslation();
-
-  return (
-    <div className="rounded-lg border border-border bg-card p-4 hover:border-accent-foreground/20 transition-all">
-      <div className="flex items-start justify-between mb-3">
-        <div className="flex-1 min-w-0">
-          <h3 className="text-sm font-semibold text-foreground truncate">
-            {skill.name}
-          </h3>
-          <span className="text-xs text-muted-foreground">{skill.source}</span>
-        </div>
-        <div className="flex items-center gap-1 text-xs text-muted-foreground">
-          <TrendingUp className="w-3 h-3" />
-          <span>{skill.installs.toLocaleString()}</span>
-        </div>
-      </div>
-
-      <p className="text-xs text-muted-foreground mb-3 line-clamp-2 min-h-[2.5rem]">
-        {t('settings.skills.noDescription', 'No description')}
-      </p>
-
-      <button
-        onClick={onInstall}
-        disabled={isInstalled || isInstalling}
-        className={cn(
-          "w-full px-3 py-2 rounded-md text-sm font-medium transition-colors",
-          isInstalled
-            ? "bg-muted text-muted-foreground cursor-not-allowed"
-            : isInstalling
-            ? "bg-primary/50 text-primary-foreground cursor-wait"
-            : "bg-primary text-primary-foreground hover:bg-primary/90"
-        )}
-      >
-        {isInstalling ? (
-          <>
-            <Loader2 className="w-4 h-4 inline mr-2 animate-spin" />
-            {t('settings.skills.installing', 'Installing...')}
-          </>
-        ) : isInstalled ? (
-          <>
-            <Check className="w-4 h-4 inline mr-2" />
-            {t('settings.skills.installed', 'Installed')}
-          </>
-        ) : (
-          <>
-            <Download className="w-4 h-4 inline mr-2" />
-            {t('settings.skills.install', 'Install')}
-          </>
-        )}
-      </button>
-    </div>
-  );
-}
-
-// Installed Skill Item Component
-function InstalledSkillItem({
-  skill,
-  isUninstalling,
-  onUninstall,
-}: {
-  skill: InstalledSkill;
-  isUninstalling: boolean;
-  onUninstall: () => void;
-}) {
-  const { t } = useTranslation();
-  const [expanded, setExpanded] = useState(false);
-
-  return (
-    <div className="rounded-lg border border-border bg-card">
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center justify-between p-4 text-left hover:bg-muted/50 transition-colors"
-      >
-        <div className="flex items-center gap-3 flex-1 min-w-0">
-          <CheckCircle2 className="w-5 h-5 text-green-500 shrink-0" />
-          <div className="flex-1 min-w-0">
-            <h3 className="text-sm font-medium text-foreground truncate">
-              {skill.name}
-            </h3>
-            {skill.description && (
-              <p className="text-xs text-muted-foreground truncate">
-                {skill.description}
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                {t('settings.skills.results')}
+              </h3>
+              <p className="text-2xl font-bold text-foreground">
+                {skills.length}
               </p>
+              <p className="text-xs text-muted-foreground">
+                {t('settings.skills.packagesFound', 'packages found')}
+              </p>
+            </div>
+
+            {/* Installed Filter */}
+            <div className="space-y-2">
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                {t('settings.skills.status', 'Status')}
+              </h3>
+              <div className="space-y-1">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-foreground">{t('settings.skills.all', 'All')}</span>
+                  <span className="text-muted-foreground">{skills.length}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-foreground">{t('settings.skills.installed')}</span>
+                  <span className="text-muted-foreground">
+                    {skills.filter(s => isInstalled(s)).length}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Results List */}
+          <div className="flex-1 overflow-y-auto space-y-3">
+            {isLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              skills.map(skill => (
+                <div
+                  key={skill.id}
+                  className="p-4 rounded-lg border border-border bg-card hover:border-accent-foreground/20 transition-all"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-2">
+                        <h3 className="text-base font-semibold text-foreground">
+                          {skill.name}
+                        </h3>
+                        {isInstalled(skill) && (
+                          <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-green-500/10 text-green-500">
+                            <Check className="w-3 h-3" />
+                            {t('settings.skills.installed')}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <TrendingUp className="w-3 h-3" />
+                        <span>{skill.installs.toLocaleString()} {t('settings.skills.installs', 'installs')}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        onClick={() => handleOpenGitHub(skill.source)}
+                        className="px-3 py-2 rounded-md text-sm font-medium border border-border hover:bg-muted transition-colors"
+                        title={t('settings.skills.openGitHub')}
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                      </button>
+
+                      {isInstalled(skill) ? (
+                        <button
+                          onClick={() => handleDelete(skill)}
+                          disabled={isProcessing(skill.id)}
+                          className="px-4 py-2 rounded-md text-sm font-medium bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors disabled:opacity-50"
+                        >
+                          {isProcessing(skill.id) ? (
+                            <>
+                              <Loader2 className="w-4 h-4 inline mr-2 animate-spin" />
+                              {t('settings.skills.uninstalling')}
+                            </>
+                          ) : (
+                            <>
+                              <Trash2 className="w-4 h-4 inline mr-2" />
+                              {t('settings.skills.uninstall')}
+                            </>
+                          )}
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleInstall(skill)}
+                          disabled={isProcessing(skill.id)}
+                          className="px-4 py-2 rounded-md text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+                        >
+                          {isProcessing(skill.id) ? (
+                            <>
+                              <Loader2 className="w-4 h-4 inline mr-2 animate-spin" />
+                              {t('settings.skills.installing')}
+                            </>
+                          ) : (
+                            <>
+                              <Download className="w-4 h-4 inline mr-2" />
+                              {t('settings.skills.install')}
+                            </>
+                          )}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))
             )}
           </div>
-        </div>
-        <ChevronRight
-          className={cn(
-            "w-4 h-4 text-muted-foreground transition-transform",
-            expanded && "rotate-90"
-          )}
-        />
-      </button>
-
-      {expanded && (
-        <div className="border-t border-border p-4 space-y-3">
-          {skill.version && (
-            <div className="text-xs">
-              <span className="text-muted-foreground">{t('settings.skills.version', 'Version')}:</span>
-              <span className="ml-2 text-foreground">{skill.version}</span>
-            </div>
-          )}
-          
-          {skill.author && (
-            <div className="text-xs">
-              <span className="text-muted-foreground">{t('settings.skills.author', 'Author')}:</span>
-              <span className="ml-2 text-foreground">{skill.author}</span>
-            </div>
-          )}
-
-          {skill.tags.length > 0 && (
-            <div className="flex flex-wrap gap-1">
-              {skill.tags.map(tag => (
-                <span
-                  key={tag}
-                  className="text-xs px-2 py-0.5 rounded bg-muted text-muted-foreground"
-                >
-                  {tag}
-                </span>
-              ))}
-            </div>
-          )}
-
-          <button
-            onClick={onUninstall}
-            disabled={isUninstalling}
-            className="w-full px-3 py-2 rounded-md text-sm font-medium bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors disabled:opacity-50"
-          >
-            {isUninstalling ? (
-              <>
-                <Loader2 className="w-4 h-4 inline mr-2 animate-spin" />
-                {t('settings.skills.uninstalling', 'Uninstalling...')}
-              </>
-            ) : (
-              <>
-                <Trash2 className="w-4 h-4 inline mr-2" />
-                {t('settings.skills.uninstall', 'Uninstall')}
-              </>
-            )}
-          </button>
         </div>
       )}
-    </div>
-  );
-}
-
-// Agent Item Component
-function AgentItem({ agent }: { agent: AgentInfo }) {
-  const { t } = useTranslation();
-
-  return (
-    <div className="rounded-lg border border-border bg-card p-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div
-            className={cn(
-              "w-2 h-2 rounded-full",
-              agent.installed ? "bg-green-500" : "bg-muted-foreground"
-            )}
-          />
-          <div>
-            <h3 className="text-sm font-medium text-foreground">{agent.name}</h3>
-            <p className="text-xs text-muted-foreground">{agent.skills_path}</p>
-          </div>
-        </div>
-        <span
-          className={cn(
-            "text-xs px-2 py-1 rounded",
-            agent.installed
-              ? "bg-green-500/10 text-green-500"
-              : "bg-muted text-muted-foreground"
-          )}
-        >
-          {agent.installed
-            ? t('settings.skills.detected', 'Detected')
-            : t('settings.skills.notInstalled', 'Not Installed')}
-        </span>
-      </div>
     </div>
   );
 }

@@ -8,8 +8,59 @@ pub struct SkillMetadata {
     pub description: Option<String>,
     pub version: Option<String>,
     pub author: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_tags")]
     pub tags: Option<Vec<String>>,
     pub category: Option<String>,
+}
+
+/// Custom deserializer cho tags - chấp nhận cả string và integer
+fn deserialize_tags<'de, D>(deserializer: D) -> Result<Option<Vec<String>>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    use serde::de::{self, Deserialize, Visitor};
+    use serde_json::Value;
+    
+    struct TagsVisitor;
+    
+    impl<'de> Visitor<'de> for TagsVisitor {
+        type Value = Option<Vec<String>>;
+        
+        fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+            formatter.write_str("a list of strings or integers")
+        }
+        
+        fn visit_none<E>(self) -> Result<Self::Value, E>
+        where
+            E: de::Error,
+        {
+            Ok(None)
+        }
+        
+        fn visit_some<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+        where
+            D: serde::Deserializer<'de>,
+        {
+            let value = Value::deserialize(deserializer)?;
+            
+            match value {
+                Value::Array(arr) => {
+                    let tags: Vec<String> = arr
+                        .into_iter()
+                        .filter_map(|v| match v {
+                            Value::String(s) => Some(s),
+                            Value::Number(n) => Some(n.to_string()),
+                            _ => None,
+                        })
+                        .collect();
+                    Ok(Some(tags))
+                }
+                _ => Ok(None),
+            }
+        }
+    }
+    
+    deserializer.deserialize_option(TagsVisitor)
 }
 
 /// Skill đầy đủ với path và content
@@ -59,21 +110,18 @@ pub struct StoreSearchResponse {
     pub duration_ms: u64,
 }
 
-/// Kết quả preview source
+/// Blob file từ API
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SourcePreview {
-    pub source_type: String,
-    pub resolved_url: String,
-    pub available_skills: Vec<PreviewSkill>,
+pub struct BlobFile {
+    pub path: String,
+    pub contents: String,
 }
 
-/// Skill trong preview
+/// Blob response từ skills.sh API
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PreviewSkill {
-    pub name: String,
-    pub description: Option<String>,
-    pub path: String,
-    pub size: Option<u64>,
+pub struct BlobResponse {
+    pub hash: String,
+    pub files: Vec<BlobFile>,
 }
 
 /// Request cài đặt skills
@@ -112,23 +160,13 @@ pub struct InstallResult {
     pub installed_skills: Vec<String>,
 }
 
-/// Thông tin Agent
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AgentInfo {
-    pub id: String,
-    pub name: String,
-    pub skills_path: String,
-    pub installed: bool,
-    pub universal: bool, // Dùng chung .codex/skills
-}
-
 /// Entry trong lockfile
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LockEntry {
     pub name: String,
     pub source: SkillSource,
     pub version: Option<String>,
-    pub tree_sha: Option<String>, // GitHub tree SHA
+    pub tree_sha: Option<String>,
     pub installed_at: String,
     pub agents: Vec<String>,
 }
@@ -136,17 +174,49 @@ pub struct LockEntry {
 /// Lockfile structure
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Lockfile {
+    #[serde(deserialize_with = "deserialize_version")]
     pub version: String,
     pub skills: HashMap<String, LockEntry>,
 }
 
-/// Update check result
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct UpdateCheck {
-    pub skill_name: String,
-    pub current_version: Option<String>,
-    pub latest_version: Option<String>,
-    pub current_sha: Option<String>,
-    pub latest_sha: Option<String>,
-    pub needs_update: bool,
+/// Custom deserializer cho version - chấp nhận cả string và integer
+fn deserialize_version<'de, D>(deserializer: D) -> Result<String, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    use serde::de::{self, Deserialize, Visitor};
+    use serde_json::Value;
+    
+    struct VersionVisitor;
+    
+    impl<'de> Visitor<'de> for VersionVisitor {
+        type Value = String;
+        
+        fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+            formatter.write_str("a string or integer version")
+        }
+        
+        fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+        where
+            E: de::Error,
+        {
+            Ok(value.to_string())
+        }
+        
+        fn visit_i64<E>(self, value: i64) -> Result<Self::Value, E>
+        where
+            E: de::Error,
+        {
+            Ok(value.to_string())
+        }
+        
+        fn visit_u64<E>(self, value: u64) -> Result<Self::Value, E>
+        where
+            E: de::Error,
+        {
+            Ok(value.to_string())
+        }
+    }
+    
+    deserializer.deserialize_any(VersionVisitor)
 }

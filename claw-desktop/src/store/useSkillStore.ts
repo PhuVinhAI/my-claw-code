@@ -17,6 +17,7 @@ interface SkillStore {
   removeSelectedSkill: (skillName: string) => void;
   clearSelectedSkills: () => void;
   clearError: () => void;
+  setError: (error: string) => void;
 }
 
 export const useSkillStore = create<SkillStore>((set, get) => ({
@@ -94,5 +95,10 @@ export const useSkillStore = create<SkillStore>((set, get) => ({
   // Clear error
   clearError: () => {
     set({ error: null });
+  },
+  
+  // Set error
+  setError: (error: string) => {
+    set({ error });
   },
 }));

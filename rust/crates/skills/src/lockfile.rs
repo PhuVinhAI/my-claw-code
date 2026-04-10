@@ -8,7 +8,7 @@ pub fn get_lockfile_path(scope: InstallScope, project_dir: Option<&str>) -> Resu
         InstallScope::Global => {
             let home = dirs::home_dir()
                 .ok_or_else(|| SkillError::Other("Cannot find home directory".to_string()))?;
-            Ok(home.join(".codex").join(".skill-lock.json"))
+            Ok(home.join(".agents").join(".skill-lock.json"))
         }
         InstallScope::Project => {
             let project = project_dir
@@ -74,22 +74,5 @@ pub fn remove_lock_entry(
     let mut lockfile = read_lockfile(scope, project_dir)?;
     lockfile.skills.remove(skill_name);
     write_lockfile(&lockfile, scope, project_dir)?;
-    Ok(())
-}
-
-/// Update agents list trong lock entry
-pub fn update_lock_agents(
-    skill_name: &str,
-    agents: Vec<String>,
-    scope: InstallScope,
-    project_dir: Option<&str>,
-) -> Result<()> {
-    let mut lockfile = read_lockfile(scope, project_dir)?;
-    
-    if let Some(entry) = lockfile.skills.get_mut(skill_name) {
-        entry.agents = agents;
-        write_lockfile(&lockfile, scope, project_dir)?;
-    }
-    
     Ok(())
 }
