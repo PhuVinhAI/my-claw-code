@@ -246,7 +246,7 @@ export function TerminalView() {
         </div>
 
         {/* Terminal Content */}
-        <div className="flex-1 min-h-0 w-full relative bg-background overflow-hidden">
+        <div className="flex-1 min-h-0 w-full relative bg-background overflow-hidden pb-1">
           {tabs.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
               <TerminalIcon className="h-12 w-12 mb-3 opacity-20" />
@@ -262,7 +262,7 @@ export function TerminalView() {
             tabs.map((tab) => (
               <div
                 key={tab.id}
-                className="absolute inset-0 w-full h-full"
+                className="absolute inset-0 w-full h-full pb-2"
                 style={{ display: tab.isActive ? 'block' : 'none' }}
               >
                 <TerminalTab tabId={tab.id} />

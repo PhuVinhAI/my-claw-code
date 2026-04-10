@@ -302,7 +302,7 @@ export function SkillsStoreTab({ onBack }: SkillsStoreTabProps) {
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-2">
+                      <div className="flex items-center gap-2 mb-1">
                         <h3 className="text-base font-semibold text-foreground">
                           {skill.name}
                         </h3>
@@ -313,6 +313,10 @@ export function SkillsStoreTab({ onBack }: SkillsStoreTabProps) {
                           </span>
                         )}
                       </div>
+                      {/* Full ID */}
+                      <p className="text-xs text-muted-foreground font-mono mb-2 truncate">
+                        {skill.id}
+                      </p>
                       <div className="flex items-center gap-1 text-xs text-muted-foreground">
                         <TrendingUp className="w-3 h-3" />
                         <span>{skill.installs.toLocaleString()} {t('settings.skills.installs', 'installs')}</span>

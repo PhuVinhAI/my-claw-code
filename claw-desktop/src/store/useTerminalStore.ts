@@ -9,6 +9,7 @@ export interface TerminalTab {
   output: string;
   isActive: boolean;
   createdAt: number;
+  hasCustomTitle?: boolean; // Track if title was set from first command
 }
 
 interface TerminalState {
@@ -60,6 +61,7 @@ export const useTerminalStore = create<TerminalState>()(
           output: '',
           isActive: true,
           createdAt: Date.now(),
+          hasCustomTitle: false, // Not set yet
         };
 
         set((state) => ({
@@ -114,7 +116,7 @@ export const useTerminalStore = create<TerminalState>()(
 
       updateTabTitle: (id, title) => {
         set((state) => ({
-          tabs: state.tabs.map(t => t.id === id ? { ...t, title } : t),
+          tabs: state.tabs.map(t => t.id === id ? { ...t, title, hasCustomTitle: true } : t),
         }));
       },
 
@@ -178,7 +180,7 @@ export const useTerminalStore = create<TerminalState>()(
       partialize: (state) => ({
         // Persist panel state AND output (for restore after toggle/switch)
         isPanelOpen: state.isPanelOpen,
-        tabs: state.tabs.map(({ id, title, shell, cwd, createdAt, isActive, output }) => ({
+        tabs: state.tabs.map(({ id, title, shell, cwd, createdAt, isActive, output, hasCustomTitle }) => ({
           id,
           title,
           shell,
@@ -186,6 +188,7 @@ export const useTerminalStore = create<TerminalState>()(
           createdAt,
           isActive,
           output, // ← Lưu output để restore khi mount lại
+          hasCustomTitle,
         })),
         activeTabId: state.activeTabId,
       }),

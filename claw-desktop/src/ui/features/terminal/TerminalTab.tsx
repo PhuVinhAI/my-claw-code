@@ -29,6 +29,7 @@ export function TerminalTab({ tabId }: TerminalTabProps) {
   
   const tab = useTerminalStore((state) => state.tabs.find(t => t.id === tabId));
   const updateTabOutput = useTerminalStore((state) => state.updateTabOutput);
+  const updateTabTitle = useTerminalStore((state) => state.updateTabTitle);
 
   // Watch for clear output action
   useEffect(() => {
@@ -89,6 +90,59 @@ export function TerminalTab({ tabId }: TerminalTabProps) {
         },
         // CRITICAL: Enable IME support for Vietnamese and other languages
         allowProposedApi: true,
+      });
+
+      // OSC Handler - Listen for terminal title changes (process name)
+      term.parser.registerOscHandler(0, (data) => {
+        // OSC 0 = Set window title
+        // PowerShell formats:
+        // - "Windows PowerShell" (default)
+        // - "Administrator: Windows PowerShell" (admin)
+        // - "C:\path" (after cd - should ignore)
+        // - "npm" / "git" / etc (when running commands)
+        
+        if (data && !tab?.hasCustomTitle) {
+          const title = data.trim();
+          if (title.length > 0) {
+            // Ignore Windows paths (C:\, D:\, etc.)
+            if (/^[A-Z]:\\/.test(title)) {
+              return true; // Skip path titles
+            }
+            
+            // Extract process name
+            let processName = title;
+            
+            // Handle "Administrator: Windows PowerShell" format
+            if (title.includes(':')) {
+              const parts = title.split(':');
+              // If first part is "Administrator" or drive letter, use second part
+              if (parts[0].trim() === 'Administrator' || /^[A-Z]$/.test(parts[0].trim())) {
+                processName = parts.slice(1).join(':').trim();
+              } else {
+                processName = parts[0].trim();
+              }
+            }
+            
+            // Clean up common shell names
+            if (processName === 'Windows PowerShell') {
+              processName = 'powershell';
+            } else if (processName === 'Command Prompt') {
+              processName = 'cmd';
+            }
+            
+            if (processName.length > 0 && processName !== 'C') {
+              updateTabTitle(tabId, processName);
+            }
+          }
+        }
+        return true; // Continue processing
+      });
+
+      // OSC 7 Handler - Current working directory
+      term.parser.registerOscHandler(7, (_data) => {
+        // OSC 7 = Set CWD (file:// URL format)
+        // Can be used to show cwd in tab title if needed
+        return true;
       });
 
       const fitAddon = new FitAddon();
