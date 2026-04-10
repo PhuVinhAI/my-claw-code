@@ -492,12 +492,9 @@ pub async fn send_tool_input(
     input: String,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
-    // Send input to tool executor's stdin channel
-    state
-        .tool_stdin_tx
-        .send((tool_use_id, input))
-        .map_err(|e| format!("Failed to send tool input: {}", e))?;
-    Ok(())
+    // FIXED: Use per-terminal channel instead of deprecated global channel
+    // This prevents input stealing between multiple terminals
+    state.pty_executor.send_terminal_input(&tool_use_id, input)
 }
 
 /// Cancel a specific tool execution (for bash/PowerShell)

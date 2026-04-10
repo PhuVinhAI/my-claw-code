@@ -790,6 +790,56 @@ impl ChatSessionActor {
         // Generate a cancel turn_id (không phải turn thật, chỉ để mark cancelled events)
         let cancel_turn_id = format!("cancel-{}", uuid::Uuid::new_v4());
         
+        // CRITICAL FIX: Emit tool_result events cho các tool đang chạy (nếu có)
+        // Core runtime đã tạo tool_result messages với is_cancelled=true, giờ cần emit events
+        let session = self.runtime.session();
+        
+        // Tìm các tool_result messages cuối cùng (sau assistant message cuối)
+        let mut last_assistant_idx = None;
+        for (idx, msg) in session.messages.iter().enumerate().rev() {
+            if matches!(msg.role, runtime::MessageRole::Assistant) {
+                last_assistant_idx = Some(idx);
+                break;
+            }
+        }
+        
+        if let Some(assistant_idx) = last_assistant_idx {
+            // Emit tool_result events cho các tool_result sau assistant message
+            for msg in &session.messages[assistant_idx + 1..] {
+                if matches!(msg.role, runtime::MessageRole::Tool) {
+                    for block in &msg.blocks {
+                        if let runtime::ContentBlock::ToolResult {
+                            tool_use_id,
+                            tool_name: _,
+                            output,
+                            is_error,
+                            is_cancelled,
+                            is_timed_out,
+                        } = block
+                        {
+                            tracing::info!(
+                                tool_use_id = %tool_use_id,
+                                is_cancelled = is_cancelled,
+                                is_timed_out = is_timed_out,
+                                "Emitting ToolResult event for cancelled/completed tool"
+                            );
+                            
+                            self.event_publisher.publish_stream_event(
+                                crate::core::domain::types::StreamEvent::ToolResult {
+                                    tool_use_id: tool_use_id.clone(),
+                                    output: output.clone(),
+                                    is_error: *is_error,
+                                    is_cancelled: *is_cancelled,
+                                    is_timed_out: *is_timed_out,
+                                    turn_id: cancel_turn_id.clone(),
+                                },
+                            );
+                        }
+                    }
+                }
+            }
+        }
+        
         // Emit MessageStop để frontend biết đã cancel
         // UI sẽ ignore event này vì turn_id không match currentTurnId
         // Nhưng vẫn emit để có log đầy đủ
