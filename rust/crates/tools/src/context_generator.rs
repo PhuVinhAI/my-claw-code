@@ -203,8 +203,8 @@ impl Default for ContextOptions {
     }
 }
 
-// Main function to generate context from files
-pub fn generate_context_from_files(
+// Main function to generate master context from files
+pub fn generate_master_context(
     root_path_str: &str,
     file_paths: &[String],
     options: &ContextOptions,

@@ -206,8 +206,8 @@ export function renderToolBlock({ toolUseBlock, toolResultBlock, detachedTools }
     );
   }
 
-  // GenerateContext - Context generation with download
-  if (toolName === 'GenerateContext') {
+  // MasterContext - Context generation with download
+  if (toolName === 'MasterContext') {
     return (
       <ContextGeneratorBlock
         toolOutput={toolOutput}

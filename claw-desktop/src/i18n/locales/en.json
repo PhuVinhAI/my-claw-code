@@ -190,7 +190,7 @@
     "hideDiff": "Hide changes"
   },
   "contextGenerator": {
-    "title": "Generate Context",
+    "title": "Master Context",
     "files": "files",
     "tokens": "tokens",
     "stopped": "Stopped",

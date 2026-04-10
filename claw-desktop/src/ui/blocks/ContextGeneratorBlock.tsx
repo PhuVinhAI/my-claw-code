@@ -13,6 +13,7 @@ interface ContextGeneratorBlockProps {
 }
 
 interface ContextOutput {
+  context_name: string;
   context: string;
   file_count: number;
   token_count: number;
@@ -73,8 +74,12 @@ export function ContextGeneratorBlock({
     
     setIsSaving(true);
     try {
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
-      const defaultFilename = `context-${timestamp}.txt`;
+      // Use context_name as filename, sanitize it for filesystem
+      const sanitizedName = parsedOutput.context_name
+        .replace(/[^a-zA-Z0-9-_]/g, '-')
+        .replace(/-+/g, '-')
+        .toLowerCase();
+      const defaultFilename = `${sanitizedName}.txt`;
       
       await invoke('save_context_to_file', {
         content: parsedOutput.context,
@@ -110,7 +115,7 @@ export function ContextGeneratorBlock({
         />
         <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground/70" />
         <span className={cn('font-semibold text-xs text-foreground/90', isError && 'text-red-400')}>
-          {t('contextGenerator.title')}
+          {parsedOutput?.context_name || t('contextGenerator.title')}
         </span>
         
         {parsedOutput && (

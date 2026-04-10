@@ -1355,11 +1355,15 @@ pub fn mvp_tool_specs() -> Vec<ToolSpec> {
             required_permission: PermissionMode::ReadOnly,
         },
         ToolSpec {
-            name: "GenerateContext",
-            description: "Generate a comprehensive context document from workspace files. Useful for creating project overviews, documentation, or context for other AI tools.",
+            name: "MasterContext",
+            description: "Generate a comprehensive master context document from workspace files. Useful for creating project overviews, documentation, or context for other AI tools.",
             input_schema: json!({
                 "type": "object",
                 "properties": {
+                    "context_name": {
+                        "type": "string",
+                        "description": "Name for this context (used in UI and as filename when downloading)"
+                    },
                     "file_paths": {
                         "type": "array",
                         "items": { "type": "string" },
@@ -1387,7 +1391,7 @@ pub fn mvp_tool_specs() -> Vec<ToolSpec> {
                         "default": []
                     }
                 },
-                "required": ["file_paths"],
+                "required": ["context_name", "file_paths"],
                 "additionalProperties": false
             }),
             required_permission: PermissionMode::ReadOnly,
@@ -1471,7 +1475,7 @@ fn execute_tool_with_enforcer(
         "PromptUser" => {
             from_value::<PromptUserInput>(input).and_then(run_prompt_user)
         }
-        "GenerateContext" => {
+        "MasterContext" => {
             from_value::<GenerateContextInput>(input).and_then(run_generate_context)
         }
         "TaskCreate" => from_value::<TaskCreateInput>(input).and_then(run_task_create),
@@ -1593,7 +1597,7 @@ fn run_prompt_user(input: PromptUserInput) -> Result<String, String> {
 // GenerateContext - Create comprehensive context from workspace files
 #[allow(clippy::needless_pass_by_value)]
 fn run_generate_context(input: GenerateContextInput) -> Result<String, String> {
-    use crate::context_generator::{generate_context_from_files, ContextOptions};
+    use crate::context_generator::{generate_master_context, ContextOptions};
     use std::env;
     
     // Get current working directory
@@ -1607,7 +1611,7 @@ fn run_generate_context(input: GenerateContextInput) -> Result<String, String> {
         exclude_extensions: input.exclude_extensions,
     };
     
-    let context = generate_context_from_files(&root_path, &input.file_paths, &options)?;
+    let context = generate_master_context(&root_path, &input.file_paths, &options)?;
     
     // Calculate token count (char_count / 4.0)
     let char_count = context.chars().count();
@@ -1615,6 +1619,7 @@ fn run_generate_context(input: GenerateContextInput) -> Result<String, String> {
     
     // Return context wrapped in JSON for consistent tool output
     to_pretty_json(json!({
+        "context_name": input.context_name,
         "context": context,
         "file_count": input.file_paths.len(),
         "token_count": token_count,
@@ -2537,6 +2542,7 @@ struct PromptUserInput {
 
 #[derive(Debug, Deserialize)]
 struct GenerateContextInput {
+    context_name: String,
     file_paths: Vec<String>,
     #[serde(default)]
     with_line_numbers: bool,

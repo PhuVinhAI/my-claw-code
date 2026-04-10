@@ -190,7 +190,7 @@
     "hideDiff": "Ẩn thay đổi"
   },
   "contextGenerator": {
-    "title": "Tạo Context",
+    "title": "Master Context",
     "files": "files",
     "tokens": "tokens",
     "stopped": "Đã dừng",
